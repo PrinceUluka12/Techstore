@@ -82,6 +82,13 @@ public class AuthService : IAuthService
         var rt = await _refreshTokens.GetByTokenAsync(refreshToken)
             ?? throw new UnauthorizedAccessException("Invalid refresh token.");
 
+        if (rt.IsRevoked && rt.ReplacedByToken != null)
+        {
+            if (rt.User != null)
+                await _refreshTokens.RevokeAllActiveForUserAsync(rt.User.Id);
+            throw new UnauthorizedAccessException("Invalid refresh token.");
+        }
+
         if (!rt.IsActive)
             throw new UnauthorizedAccessException("Refresh token has expired or been revoked. Please log in again.");
 
