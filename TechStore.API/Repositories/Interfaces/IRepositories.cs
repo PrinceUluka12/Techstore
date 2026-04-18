@@ -67,5 +67,5 @@ public interface IRefreshTokenRepository
     Task<RefreshToken> CreateAsync(RefreshToken token);
     Task RevokeAsync(RefreshToken token, string? replacedByToken = null);
     Task RevokeAllUserTokensAsync(int userId);
-    Task RemoveExpiredTokensAsync();
+    Task RemoveExpiredTokensAsync(int retentionDays = 14);
 }

@@ -293,13 +293,19 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         await _db.SaveChangesAsync();
     }
 
-    public async Task RemoveExpiredTokensAsync()
+    public async Task RemoveExpiredTokensAsync(int retentionDays = 14)
     {
-        var expiredTokens = await _db.RefreshTokens
-            .Where(rt => rt.ExpiresAt < DateTime.UtcNow || rt.RevokedAt != null)
+        var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+
+        var tokensToRemove = await _db.RefreshTokens
+            .Where(rt => 
+                // Expired tokens that were never revoked
+                (rt.ExpiresAt < DateTime.UtcNow && rt.RevokedAt == null) ||
+                // Revoked tokens older than retention window
+                (rt.RevokedAt != null && rt.RevokedAt < cutoffDate))
             .ToListAsync();
 
-        _db.RefreshTokens.RemoveRange(expiredTokens);
+        _db.RefreshTokens.RemoveRange(tokensToRemove);
         await _db.SaveChangesAsync();
     }
 }
