@@ -41,6 +41,36 @@ public class AuthController : ControllerBase
         catch (UnauthorizedAccessException ex) { return Unauthorized(new { message = ex.Message }); }
     }
 
+    /// <summary>Exchange a refresh token for new tokens</summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest req)
+    {
+        try
+        {
+            var result = await _auth.RefreshTokenAsync(req.RefreshToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex) { return Unauthorized(new { message = ex.Message }); }
+    }
+
+    /// <summary>Logout and revoke refresh token</summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? req = null)
+    {
+        await _auth.LogoutAsync(GetUserId(), req?.RefreshToken);
+        return NoContent();
+    }
+
+    /// <summary>Logout from all devices</summary>
+    [HttpPost("logout-all")]
+    [Authorize]
+    public async Task<IActionResult> LogoutAll()
+    {
+        await _auth.LogoutEverywhereAsync(GetUserId());
+        return NoContent();
+    }
+
     /// <summary>Get current user profile</summary>
     [HttpGet("me")]
     [Authorize]

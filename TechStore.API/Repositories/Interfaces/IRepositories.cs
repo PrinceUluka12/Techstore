@@ -60,3 +60,12 @@ public interface IInventoryRepository
     Task<Inventory> UpdateAsync(Inventory inventory);
     Task<int> CountLowStockAsync();
 }
+
+public interface IRefreshTokenRepository
+{
+    Task<RefreshToken?> GetByTokenAsync(string token);
+    Task<RefreshToken> CreateAsync(RefreshToken token);
+    Task RevokeAsync(RefreshToken token, string? replacedByToken = null);
+    Task RevokeAllUserTokensAsync(int userId);
+    Task RemoveExpiredTokensAsync();
+}

@@ -16,5 +16,6 @@ public class User
 
     // Navigation
     public ICollection<Order> Orders { get; set; } = new List<Order>();
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     public Cart? Cart { get; set; }
 }
