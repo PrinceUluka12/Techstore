@@ -257,3 +257,38 @@ public class InventoryRepository : IInventoryRepository
     public Task<int> CountLowStockAsync() =>
         _db.Inventories.CountAsync(i => (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold);
 }
+
+public class RefreshTokenRepository : IRefreshTokenRepository
+{
+    private readonly AppDbContext _db;
+    public RefreshTokenRepository(AppDbContext db) => _db = db;
+
+    public Task<RefreshToken?> GetByTokenAsync(string token) =>
+        _db.RefreshTokens.Include(rt => rt.User)
+            .FirstOrDefaultAsync(rt => rt.Token == token);
+
+    public async Task<RefreshToken> CreateAsync(RefreshToken refreshToken)
+    {
+        _db.RefreshTokens.Add(refreshToken);
+        await _db.SaveChangesAsync();
+        return refreshToken;
+    }
+
+    public async Task<RefreshToken> UpdateAsync(RefreshToken refreshToken)
+    {
+        _db.RefreshTokens.Update(refreshToken);
+        await _db.SaveChangesAsync();
+        return refreshToken;
+    }
+
+    public async Task RevokeAllActiveForUserAsync(int userId)
+    {
+        var active = await _db.RefreshTokens
+            .Where(rt => rt.UserId == userId && rt.RevokedAt == null)
+            .ToListAsync();
+        foreach (var rt in active)
+            rt.RevokedAt = DateTime.UtcNow;
+        if (active.Any())
+            await _db.SaveChangesAsync();
+    }
+}

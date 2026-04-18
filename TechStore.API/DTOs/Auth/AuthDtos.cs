@@ -31,3 +31,5 @@ public record UserProfileDto(
     string Role,
     DateTime CreatedAt
 );
+
+public record RefreshRequest(string RefreshToken);

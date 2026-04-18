@@ -41,6 +41,18 @@ public class AuthController : ControllerBase
         catch (UnauthorizedAccessException ex) { return Unauthorized(new { message = ex.Message }); }
     }
 
+    /// <summary>Exchange a refresh token for a new access token + rotated refresh token</summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshRequest req)
+    {
+        try
+        {
+            var result = await _auth.RefreshTokenAsync(req.RefreshToken);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex) { return Unauthorized(new { message = ex.Message }); }
+    }
+
     /// <summary>Get current user profile</summary>
     [HttpGet("me")]
     [Authorize]

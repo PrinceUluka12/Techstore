@@ -9,12 +9,14 @@ namespace TechStore.API.Services;
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _users;
+    private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IJwtHelper _jwt;
     private readonly IConfiguration _config;
 
-    public AuthService(IUserRepository users, IJwtHelper jwt, IConfiguration config)
+    public AuthService(IUserRepository users, IRefreshTokenRepository refreshTokens, IJwtHelper jwt, IConfiguration config)
     {
         _users = users;
+        _refreshTokens = refreshTokens;
         _jwt = jwt;
         _config = config;
     }
@@ -35,7 +37,7 @@ public class AuthService : IAuthService
         };
 
         await _users.CreateAsync(user);
-        return BuildAuthResponse(user);
+        return await IssueTokensAsync(user);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest req)
@@ -49,7 +51,7 @@ public class AuthService : IAuthService
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Account is deactivated.");
 
-        return BuildAuthResponse(user);
+        return await IssueTokensAsync(user);
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(int userId)
@@ -72,14 +74,71 @@ public class AuthService : IAuthService
         return MapToProfile(user);
     }
 
-    private AuthResponse BuildAuthResponse(User user)
+    public async Task<AuthResponse> RefreshTokenAsync(string refreshToken)
     {
-        var expiryHours = double.Parse(_config["Jwt:ExpiryHours"] ?? "24");
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            throw new UnauthorizedAccessException("Invalid refresh token.");
+
+        var rt = await _refreshTokens.GetByTokenAsync(refreshToken)
+            ?? throw new UnauthorizedAccessException("Invalid refresh token.");
+
+        if (!rt.IsActive)
+            throw new UnauthorizedAccessException("Refresh token has expired or been revoked. Please log in again.");
+
+        var user = rt.User;
+        if (!user.IsActive)
+            throw new UnauthorizedAccessException("Account is deactivated.");
+
+        // Rotation: revoke current, create new
+        rt.RevokedAt = DateTime.UtcNow;
+
+        var accessExpiryHours = double.Parse(_config["Jwt:ExpiryHours"] ?? "24");
+        var refreshExpiryDays = int.Parse(_config["Jwt:RefreshExpiryDays"] ?? "7");
+
+        var newAccessToken = _jwt.GenerateAccessToken(user);
+        var newRefreshToken = _jwt.GenerateRefreshToken();
+        var newRefreshExpires = DateTime.UtcNow.AddDays(refreshExpiryDays);
+
+        rt.ReplacedByToken = newRefreshToken;
+
+        var newRt = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = newRefreshToken,
+            ExpiresAt = newRefreshExpires
+        };
+
+        await _refreshTokens.UpdateAsync(rt);
+        await _refreshTokens.CreateAsync(newRt);
+
         return new AuthResponse(
             user.Id, user.Email, user.FirstName, user.LastName, user.Role,
-            _jwt.GenerateAccessToken(user),
-            _jwt.GenerateRefreshToken(),
-            DateTime.UtcNow.AddHours(expiryHours)
+            newAccessToken, newRefreshToken,
+            DateTime.UtcNow.AddHours(accessExpiryHours)
+        );
+    }
+
+    private async Task<AuthResponse> IssueTokensAsync(User user)
+    {
+        var accessExpiryHours = double.Parse(_config["Jwt:ExpiryHours"] ?? "24");
+        var refreshExpiryDays = int.Parse(_config["Jwt:RefreshExpiryDays"] ?? "7");
+
+        var accessToken = _jwt.GenerateAccessToken(user);
+        var refreshToken = _jwt.GenerateRefreshToken();
+        var refreshExpires = DateTime.UtcNow.AddDays(refreshExpiryDays);
+
+        var rtEntity = new RefreshToken
+        {
+            UserId = user.Id,
+            Token = refreshToken,
+            ExpiresAt = refreshExpires
+        };
+        await _refreshTokens.CreateAsync(rtEntity);
+
+        return new AuthResponse(
+            user.Id, user.Email, user.FirstName, user.LastName, user.Role,
+            accessToken, refreshToken,
+            DateTime.UtcNow.AddHours(accessExpiryHours)
         );
     }
 

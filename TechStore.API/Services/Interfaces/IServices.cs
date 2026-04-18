@@ -13,6 +13,7 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request);
     Task<UserProfileDto?> GetProfileAsync(int userId);
     Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileRequest request);
+    Task<AuthResponse> RefreshTokenAsync(string refreshToken);
 }
 
 public record UpdateProfileRequest(string? FirstName, string? LastName, string? Phone, string? Address);
