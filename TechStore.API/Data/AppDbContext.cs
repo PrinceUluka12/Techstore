@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<Inventory> Inventories => Set<Inventory>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -82,6 +83,15 @@ public class AppDbContext : DbContext
             e.Property(c => c.MinimumOrderAmount).HasColumnType("decimal(18,2)");
             e.Property(c => c.MaximumDiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(c => c.Type).HasConversion<string>();
+        });
+
+        // Review
+        builder.Entity<Review>(e =>
+        {
+            e.HasIndex(r => new { r.ProductId, r.UserId }).IsUnique();
+            e.HasOne(r => r.Product).WithMany().HasForeignKey(r => r.ProductId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.User).WithMany().HasForeignKey(r => r.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(r => r.Rating).IsRequired();
         });
 
         // Cart

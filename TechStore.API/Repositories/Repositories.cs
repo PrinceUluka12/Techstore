@@ -188,6 +188,12 @@ public class OrderRepository : IOrderRepository
         var start = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
         return await _db.Orders.Where(o => o.PaymentStatus == PaymentStatus.Paid && o.CreatedAt >= start).SumAsync(o => o.Total);
     }
+
+    public Task<bool> HasUserPurchasedProductAsync(int userId, int productId) =>
+        _db.Orders
+            .Where(o => o.UserId == userId && o.Status == OrderStatus.Delivered)
+            .SelectMany(o => o.Items)
+            .AnyAsync(i => i.ProductId == productId);
 }
 
 public class CartRepository : ICartRepository

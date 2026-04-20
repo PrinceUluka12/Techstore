@@ -181,6 +181,9 @@ public class OrderService : IOrderService
         return MapToDto(order);
     }
 
+    public Task<bool> HasUserPurchasedProductAsync(int userId, int productId) =>
+        _orders.HasUserPurchasedProductAsync(userId, productId);
+
     private static string GenerateOrderNumber() =>
         $"TS-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
 

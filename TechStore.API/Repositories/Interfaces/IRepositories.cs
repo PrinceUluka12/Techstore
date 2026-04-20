@@ -42,6 +42,7 @@ public interface IOrderRepository
     Task<int> CountTodayAsync();
     Task<decimal> GetTotalRevenueAsync();
     Task<decimal> GetMonthRevenueAsync();
+    Task<bool> HasUserPurchasedProductAsync(int userId, int productId);
 }
 
 public interface ICartRepository
@@ -81,4 +82,17 @@ public interface ICouponRepository
     Task<bool> CodeExistsAsync(string code, int? excludeId = null);
     Task IncrementUsageAsync(int couponId);
     Task<int> CountAsync();
+}
+
+public interface IReviewRepository
+{
+    Task<Review?> GetByIdAsync(int id);
+    Task<Review?> GetByUserAndProductAsync(int userId, int productId);
+    Task<(IEnumerable<Review> Items, int Total)> GetByProductIdAsync(int productId, bool? approvedOnly = null, int page = 1, int pageSize = 10);
+    Task<Review> CreateAsync(Review review);
+    Task<Review> UpdateAsync(Review review);
+    Task<bool> DeleteAsync(int id);
+    Task<bool> ExistsForUserAndProductAsync(int userId, int productId);
+    Task<int> CountApprovedForProductAsync(int productId);
+    Task<double?> GetAverageRatingForProductAsync(int productId);
 }

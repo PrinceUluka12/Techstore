@@ -5,6 +5,7 @@ using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Review;
 using TechStore.API.Models;
 
 namespace TechStore.API.Services.Interfaces;
@@ -41,6 +42,16 @@ public interface IOrderService
     Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
+    Task<bool> HasUserPurchasedProductAsync(int userId, int productId);
+}
+
+public interface IReviewService
+{
+    Task<PagedResult<ReviewDto>> GetProductReviewsAsync(int productId, int page, int pageSize);
+    Task<ReviewDto> CreateReviewAsync(int userId, CreateReviewRequest request);
+    Task<bool> DeleteReviewAsync(int userId, int reviewId, bool isAdmin = false);
+    Task<ReviewDto?> ApproveReviewAsync(int reviewId);
+    Task<ReviewDto?> RejectReviewAsync(int reviewId);
 }
 
 public interface ICartService

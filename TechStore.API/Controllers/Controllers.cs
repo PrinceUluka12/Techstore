@@ -7,6 +7,7 @@ using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Review;
 using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Controllers;
@@ -157,6 +158,69 @@ public class ProductsController : ControllerBase
         var deleted = await _products.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
     }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class ReviewsController : ControllerBase
+{
+    private readonly IReviewService _reviews;
+    public ReviewsController(IReviewService reviews) => _reviews = reviews;
+
+    /// <summary>Get approved reviews for a product</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetByProduct([FromQuery] int productId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
+        Ok(await _reviews.GetProductReviewsAsync(productId, page, pageSize));
+
+    /// <summary>Submit a review (must have purchased the product)</summary>
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> Create([FromBody] CreateReviewRequest req)
+    {
+        try
+        {
+            var review = await _reviews.CreateReviewAsync(GetUserId(), req);
+            return CreatedAtAction(nameof(GetByProduct), new { productId = review.ProductId }, review);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    /// <summary>Delete a review (owner or admin)</summary>
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var isAdmin = User.IsInRole("Admin");
+            var deleted = await _reviews.DeleteReviewAsync(userId, id, isAdmin);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    /// <summary>Approve a review (Admin only)</summary>
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Approve(int id)
+    {
+        var review = await _reviews.ApproveReviewAsync(id);
+        return review == null ? NotFound() : Ok(review);
+    }
+
+    /// <summary>Reject a review (Admin only) - sets unapproved</summary>
+    [HttpPut("{id}/reject")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Reject(int id)
+    {
+        var review = await _reviews.RejectReviewAsync(id);
+        return review == null ? NotFound() : Ok(review);
+    }
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 [ApiController]

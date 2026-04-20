@@ -3,6 +3,7 @@ using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Review;
 
 namespace TechStore.API.Validators;
 
@@ -69,5 +70,15 @@ public class AddToCartRequestValidator : AbstractValidator<AddToCartRequest>
     {
         RuleFor(x => x.ProductId).GreaterThan(0);
         RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(99);
+    }
+}
+
+public class CreateReviewRequestValidator : AbstractValidator<CreateReviewRequest>
+{
+    public CreateReviewRequestValidator()
+    {
+        RuleFor(x => x.ProductId).GreaterThan(0);
+        RuleFor(x => x.Rating).InclusiveBetween(1, 5);
+        RuleFor(x => x.Comment).MaximumLength(2000).When(x => x.Comment != null);
     }
 }
