@@ -5,6 +5,7 @@ using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.Models;
 
 namespace TechStore.API.Services.Interfaces;
 
@@ -71,12 +72,16 @@ public interface IAdminService
 public interface ICouponService
 {
     Task<CouponValidationDto?> ValidateAsync(string code, decimal subtotal);
+    Task<CouponApplicationResult> ValidateAndCalculateAsync(string code, decimal subtotal, decimal shipping);
     Task<CouponDto?> GetByIdAsync(int id);
     Task<PagedResult<CouponDto>> GetAllAsync(int page, int pageSize, bool? activeOnly);
     Task<CouponDto> CreateAsync(CreateCouponRequest request);
     Task<CouponDto?> UpdateAsync(int id, UpdateCouponRequest request);
     Task<bool> DeleteAsync(int id);
+    Task IncrementUsageAsync(int couponId);
 }
+
+public record CouponApplicationResult(Coupon Coupon, decimal DiscountAmount, bool IsFreeShipping);
 
 public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int PageSize)
 {

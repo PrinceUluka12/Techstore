@@ -39,6 +39,32 @@ public class CouponService : ICouponService
         return new CouponValidationDto(true, null, coupon.Code, coupon.DiscountType, coupon.DiscountValue, estimatedDiscount, coupon.MinOrderAmount);
     }
 
+    public async Task<CouponApplicationResult> ValidateAndCalculateAsync(string code, decimal subtotal, decimal shipping)
+    {
+        var coupon = await _coupons.GetByCodeAsync(code)
+            ?? throw new InvalidOperationException("Invalid coupon code.");
+
+        if (!coupon.IsActive)
+            throw new InvalidOperationException("Coupon is inactive.");
+
+        var now = DateTime.UtcNow;
+        if (now < coupon.StartsAt)
+            throw new InvalidOperationException("Coupon is not yet active.");
+        if (now > coupon.ExpiresAt)
+            throw new InvalidOperationException("Coupon has expired.");
+
+        if (coupon.UsageLimit.HasValue && coupon.TimesUsed >= coupon.UsageLimit.Value)
+            throw new InvalidOperationException("Coupon usage limit reached.");
+
+        if (coupon.MinOrderAmount.HasValue && subtotal < coupon.MinOrderAmount.Value)
+            throw new InvalidOperationException($"Minimum order amount for this coupon is {coupon.MinOrderAmount.Value:C}.");
+
+        var discountAmount = CalculateDiscount(coupon, subtotal, shipping);
+        var isFreeShipping = coupon.DiscountType == DiscountType.FreeShipping;
+
+        return new CouponApplicationResult(coupon, discountAmount, isFreeShipping);
+    }
+
     public async Task<CouponDto?> GetByIdAsync(int id)
     {
         var coupon = await _coupons.GetByIdAsync(id);
@@ -96,7 +122,12 @@ public class CouponService : ICouponService
         return await _coupons.DeleteAsync(id);
     }
 
-    public static decimal CalculateDiscount(Coupon coupon, decimal subtotal, decimal shipping)
+    public async Task IncrementUsageAsync(int couponId)
+    {
+        await _coupons.IncrementUsageAsync(couponId);
+    }
+
+    private static decimal CalculateDiscount(Coupon coupon, decimal subtotal, decimal shipping)
     {
         return coupon.DiscountType switch
         {

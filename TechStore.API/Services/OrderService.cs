@@ -11,20 +11,20 @@ public class OrderService : IOrderService
     private readonly ICartRepository _carts;
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
-    private readonly ICouponRepository _coupons;
+    private readonly ICouponService _couponService;
 
     public OrderService(
         IOrderRepository orders,
         ICartRepository carts,
         IInventoryRepository inventory,
         IUserRepository users,
-        ICouponRepository coupons)
+        ICouponService couponService)
     {
         _orders = orders;
         _carts = carts;
         _inventory = inventory;
         _users = users;
-        _coupons = coupons;
+        _couponService = couponService;
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -81,33 +81,16 @@ public class OrderService : IOrderService
         // Apply coupon if provided
         decimal discountAmount = 0;
         string? couponCode = null;
-        Coupon? coupon = null;
+        int? couponId = null;
 
         if (!string.IsNullOrWhiteSpace(req.CouponCode))
         {
-            coupon = await _coupons.GetByCodeAsync(req.CouponCode);
-            if (coupon == null)
-                throw new InvalidOperationException("Invalid coupon code.");
+            var result = await _couponService.ValidateAndCalculateAsync(req.CouponCode, subTotal, shipping);
+            discountAmount = result.DiscountAmount;
+            couponCode = result.Coupon.Code;
+            couponId = result.Coupon.Id;
 
-            if (!coupon.IsActive)
-                throw new InvalidOperationException("Coupon is inactive.");
-
-            var now = DateTime.UtcNow;
-            if (now < coupon.StartsAt)
-                throw new InvalidOperationException("Coupon is not yet active.");
-            if (now > coupon.ExpiresAt)
-                throw new InvalidOperationException("Coupon has expired.");
-
-            if (coupon.UsageLimit.HasValue && coupon.TimesUsed >= coupon.UsageLimit.Value)
-                throw new InvalidOperationException("Coupon usage limit reached.");
-
-            if (coupon.MinOrderAmount.HasValue && subTotal < coupon.MinOrderAmount.Value)
-                throw new InvalidOperationException($"Minimum order amount for this coupon is {coupon.MinOrderAmount.Value:C}.");
-
-            discountAmount = CouponService.CalculateDiscount(coupon, subTotal, shipping);
-            couponCode = coupon.Code;
-
-            if (coupon.DiscountType == DiscountType.FreeShipping)
+            if (result.IsFreeShipping)
                 shipping = 0;
         }
 
@@ -142,8 +125,8 @@ public class OrderService : IOrderService
         var created = await _orders.CreateAsync(order);
 
         // Increment coupon usage
-        if (coupon != null)
-            await _coupons.IncrementUsageAsync(coupon.Id);
+        if (couponId.HasValue)
+            await _couponService.IncrementUsageAsync(couponId.Value);
 
         // Reserve inventory
         foreach (var item in cart.Items)
