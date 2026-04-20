@@ -69,3 +69,16 @@ public interface IRefreshTokenRepository
     Task RevokeAllUserTokensAsync(int userId);
     Task RemoveExpiredTokensAsync(int retentionDays = 14);
 }
+
+public interface ICouponRepository
+{
+    Task<Coupon?> GetByIdAsync(int id);
+    Task<Coupon?> GetByCodeAsync(string code);
+    Task<(IEnumerable<Coupon> Items, int Total)> GetAllAsync(int page = 1, int pageSize = 20, bool? isActive = null);
+    Task<Coupon> CreateAsync(Coupon coupon);
+    Task<Coupon> UpdateAsync(Coupon coupon);
+    Task<bool> DeleteAsync(int id);
+    Task<bool> CodeExistsAsync(string code, int? excludeId = null);
+    Task IncrementUsageAsync(int couponId);
+    Task<int> CountAsync();
+}

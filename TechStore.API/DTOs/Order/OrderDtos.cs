@@ -14,12 +14,14 @@ public record OrderDto(
     decimal SubTotal,
     decimal Tax,
     decimal ShippingCost,
+    decimal DiscountAmount,
     decimal Total,
     string ShippingAddress,
     string ShippingCity,
     string ShippingProvince,
     string ShippingPostalCode,
     string ShippingCountry,
+    string? CouponCode,
     string? Notes,
     DateTime? ShippedAt,
     DateTime? DeliveredAt,
@@ -60,6 +62,7 @@ public record CreateOrderRequest(
     string? ShippingPhone,
     string? PaymentMethod,
     string? TransactionId,
+    string? CouponCode,
     string? Notes
 );
 

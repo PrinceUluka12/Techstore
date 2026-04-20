@@ -11,17 +11,20 @@ public class OrderService : IOrderService
     private readonly ICartRepository _carts;
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
+    private readonly ICouponService _couponService;
 
     public OrderService(
         IOrderRepository orders,
         ICartRepository carts,
         IInventoryRepository inventory,
-        IUserRepository users)
+        IUserRepository users,
+        ICouponService couponService)
     {
         _orders = orders;
         _carts = carts;
         _inventory = inventory;
         _users = users;
+        _couponService = couponService;
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -72,9 +75,23 @@ public class OrderService : IOrderService
         }).ToList();
 
         var subTotal = orderItems.Sum(i => i.LineTotal);
+
+        decimal discountAmount = 0;
+        string? appliedCouponCode = null;
+        int? appliedCouponId = null;
+        if (!string.IsNullOrWhiteSpace(req.CouponCode))
+        {
+            var (isValid, error, discount, couponEntity) = await _couponService.ValidateAndCalculateDiscountAsync(req.CouponCode, subTotal);
+            if (!isValid)
+                throw new InvalidOperationException(error ?? "Invalid coupon.");
+            discountAmount = discount;
+            appliedCouponCode = couponEntity?.Code;
+            appliedCouponId = couponEntity?.Id;
+        }
+
         var tax = Math.Round(subTotal * 0.13m, 2); // Ontario HST
         var shipping = subTotal >= 100 ? 0 : 9.99m;  // Free shipping over $100
-        var total = subTotal + tax + shipping;
+        var total = subTotal + tax + shipping - discountAmount;
 
         var order = new Order
         {
@@ -87,6 +104,8 @@ public class OrderService : IOrderService
             SubTotal = subTotal,
             Tax = tax,
             ShippingCost = shipping,
+            DiscountAmount = discountAmount,
+            CouponCode = appliedCouponCode,
             Total = total,
             ShippingFirstName = req.ShippingFirstName,
             ShippingLastName = req.ShippingLastName,
@@ -101,6 +120,11 @@ public class OrderService : IOrderService
         };
 
         var created = await _orders.CreateAsync(order);
+
+        if (appliedCouponId.HasValue)
+        {
+            await _couponService.IncrementUsageAsync(appliedCouponId.Value);
+        }
 
         // Reserve inventory
         foreach (var item in cart.Items)
@@ -165,9 +189,10 @@ public class OrderService : IOrderService
         $"{o.User?.FirstName} {o.User?.LastName}".Trim(),
         o.User?.Email ?? "",
         o.Status, o.PaymentStatus, o.PaymentMethod,
-        o.SubTotal, o.Tax, o.ShippingCost, o.Total,
+        o.SubTotal, o.Tax, o.ShippingCost, o.DiscountAmount, o.Total,
         o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
         o.ShippingPostalCode, o.ShippingCountry,
+        o.CouponCode,
         o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,
         o.Items.Select(i => new OrderItemDto(
             i.Id, i.ProductId, i.ProductName, i.ProductSKU,
