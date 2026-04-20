@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
+using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
@@ -353,5 +354,68 @@ public class AdminController : ControllerBase
     {
         var result = await _admin.ToggleUserStatusAsync(userId);
         return result ? Ok(new { message = "User status updated." }) : NotFound();
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class CouponsController : ControllerBase
+{
+    private readonly ICouponService _coupons;
+    public CouponsController(ICouponService coupons) => _coupons = coupons;
+
+    /// <summary>Validate a coupon code for checkout</summary>
+    [HttpGet("validate")]
+    [Authorize]
+    public async Task<IActionResult> Validate([FromQuery] string code, [FromQuery] decimal subtotal)
+    {
+        var result = await _coupons.ValidateAsync(code, subtotal);
+        return result == null ? NotFound() : Ok(result);
+    }
+
+    /// <summary>Get all coupons (Admin only)</summary>
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? activeOnly = null) =>
+        Ok(await _coupons.GetAllAsync(page, pageSize, activeOnly));
+
+    /// <summary>Get coupon by ID (Admin only)</summary>
+    [HttpGet("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var coupon = await _coupons.GetByIdAsync(id);
+        return coupon == null ? NotFound() : Ok(coupon);
+    }
+
+    /// <summary>Create a new coupon (Admin only)</summary>
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Create([FromBody] CreateCouponRequest req)
+    {
+        try
+        {
+            var coupon = await _coupons.CreateAsync(req);
+            return CreatedAtAction(nameof(GetById), new { id = coupon.Id }, coupon);
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
+    /// <summary>Update a coupon (Admin only)</summary>
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateCouponRequest req)
+    {
+        var coupon = await _coupons.UpdateAsync(id, req);
+        return coupon == null ? NotFound() : Ok(coupon);
+    }
+
+    /// <summary>Delete a coupon (Admin only)</summary>
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var deleted = await _coupons.DeleteAsync(id);
+        return deleted ? NoContent() : NotFound();
     }
 }

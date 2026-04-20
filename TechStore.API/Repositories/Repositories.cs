@@ -309,3 +309,62 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         await _db.SaveChangesAsync();
     }
 }
+
+public class CouponRepository : ICouponRepository
+{
+    private readonly AppDbContext _db;
+    public CouponRepository(AppDbContext db) => _db = db;
+
+    public Task<Coupon?> GetByIdAsync(int id) =>
+        _db.Coupons.FirstOrDefaultAsync(c => c.Id == id);
+
+    public Task<Coupon?> GetByCodeAsync(string code) =>
+        _db.Coupons.FirstOrDefaultAsync(c => c.Code == code.ToUpper());
+
+    public async Task<(IEnumerable<Coupon> Items, int Total)> GetAllAsync(int page, int pageSize, bool? activeOnly)
+    {
+        var q = _db.Coupons.AsQueryable();
+        if (activeOnly == true)
+            q = q.Where(c => c.IsActive);
+        q = q.OrderByDescending(c => c.CreatedAt);
+        var total = await q.CountAsync();
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, total);
+    }
+
+    public async Task<Coupon> CreateAsync(Coupon coupon)
+    {
+        coupon.Code = coupon.Code.ToUpper();
+        _db.Coupons.Add(coupon);
+        await _db.SaveChangesAsync();
+        return coupon;
+    }
+
+    public async Task<Coupon> UpdateAsync(Coupon coupon)
+    {
+        coupon.UpdatedAt = DateTime.UtcNow;
+        _db.Coupons.Update(coupon);
+        await _db.SaveChangesAsync();
+        return coupon;
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        var coupon = await _db.Coupons.FindAsync(id);
+        if (coupon == null) return false;
+        _db.Coupons.Remove(coupon);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task IncrementUsageAsync(int couponId)
+    {
+        var coupon = await _db.Coupons.FindAsync(couponId);
+        if (coupon != null)
+        {
+            coupon.TimesUsed++;
+            coupon.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+    }
+}

@@ -11,17 +11,20 @@ public class OrderService : IOrderService
     private readonly ICartRepository _carts;
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
+    private readonly ICouponRepository _coupons;
 
     public OrderService(
         IOrderRepository orders,
         ICartRepository carts,
         IInventoryRepository inventory,
-        IUserRepository users)
+        IUserRepository users,
+        ICouponRepository coupons)
     {
         _orders = orders;
         _carts = carts;
         _inventory = inventory;
         _users = users;
+        _coupons = coupons;
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -74,7 +77,41 @@ public class OrderService : IOrderService
         var subTotal = orderItems.Sum(i => i.LineTotal);
         var tax = Math.Round(subTotal * 0.13m, 2); // Ontario HST
         var shipping = subTotal >= 100 ? 0 : 9.99m;  // Free shipping over $100
-        var total = subTotal + tax + shipping;
+
+        // Apply coupon if provided
+        decimal discountAmount = 0;
+        string? couponCode = null;
+        Coupon? coupon = null;
+
+        if (!string.IsNullOrWhiteSpace(req.CouponCode))
+        {
+            coupon = await _coupons.GetByCodeAsync(req.CouponCode);
+            if (coupon == null)
+                throw new InvalidOperationException("Invalid coupon code.");
+
+            if (!coupon.IsActive)
+                throw new InvalidOperationException("Coupon is inactive.");
+
+            var now = DateTime.UtcNow;
+            if (now < coupon.StartsAt)
+                throw new InvalidOperationException("Coupon is not yet active.");
+            if (now > coupon.ExpiresAt)
+                throw new InvalidOperationException("Coupon has expired.");
+
+            if (coupon.UsageLimit.HasValue && coupon.TimesUsed >= coupon.UsageLimit.Value)
+                throw new InvalidOperationException("Coupon usage limit reached.");
+
+            if (coupon.MinOrderAmount.HasValue && subTotal < coupon.MinOrderAmount.Value)
+                throw new InvalidOperationException($"Minimum order amount for this coupon is {coupon.MinOrderAmount.Value:C}.");
+
+            discountAmount = CouponService.CalculateDiscount(coupon, subTotal, shipping);
+            couponCode = coupon.Code;
+
+            if (coupon.DiscountType == DiscountType.FreeShipping)
+                shipping = 0;
+        }
+
+        var total = subTotal + tax + shipping - discountAmount;
 
         var order = new Order
         {
@@ -87,6 +124,8 @@ public class OrderService : IOrderService
             SubTotal = subTotal,
             Tax = tax,
             ShippingCost = shipping,
+            DiscountAmount = discountAmount,
+            CouponCode = couponCode,
             Total = total,
             ShippingFirstName = req.ShippingFirstName,
             ShippingLastName = req.ShippingLastName,
@@ -101,6 +140,10 @@ public class OrderService : IOrderService
         };
 
         var created = await _orders.CreateAsync(order);
+
+        // Increment coupon usage
+        if (coupon != null)
+            await _coupons.IncrementUsageAsync(coupon.Id);
 
         // Reserve inventory
         foreach (var item in cart.Items)
@@ -165,7 +208,8 @@ public class OrderService : IOrderService
         $"{o.User?.FirstName} {o.User?.LastName}".Trim(),
         o.User?.Email ?? "",
         o.Status, o.PaymentStatus, o.PaymentMethod,
-        o.SubTotal, o.Tax, o.ShippingCost, o.Total,
+        o.SubTotal, o.DiscountAmount, o.CouponCode,
+        o.Tax, o.ShippingCost, o.Total,
         o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
         o.ShippingPostalCode, o.ShippingCountry,
         o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,
@@ -179,6 +223,7 @@ public class OrderService : IOrderService
         o.Id, o.OrderNumber,
         $"{o.User?.FirstName} {o.User?.LastName}".Trim(),
         o.Status, o.PaymentStatus, o.Total,
+        o.DiscountAmount, o.CouponCode,
         o.Items.Sum(i => i.Quantity), o.CreatedAt
     );
 }

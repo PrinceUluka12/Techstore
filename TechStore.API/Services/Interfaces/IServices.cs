@@ -1,6 +1,7 @@
 using TechStore.API.DTOs.Admin;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
+using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
@@ -65,6 +66,16 @@ public interface IAdminService
     Task<SalesReportDto> GetSalesReportAsync(DateTime from, DateTime to);
     Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize);
     Task<bool> ToggleUserStatusAsync(int userId);
+}
+
+public interface ICouponService
+{
+    Task<CouponValidationDto?> ValidateAsync(string code, decimal subtotal);
+    Task<CouponDto?> GetByIdAsync(int id);
+    Task<PagedResult<CouponDto>> GetAllAsync(int page, int pageSize, bool? activeOnly);
+    Task<CouponDto> CreateAsync(CreateCouponRequest request);
+    Task<CouponDto?> UpdateAsync(int id, UpdateCouponRequest request);
+    Task<bool> DeleteAsync(int id);
 }
 
 public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int PageSize)

@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Inventory> Inventories => Set<Inventory>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Coupon> Coupons => Set<Coupon>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -54,7 +55,9 @@ public class AppDbContext : DbContext
             e.Property(o => o.SubTotal).HasColumnType("decimal(18,2)");
             e.Property(o => o.Tax).HasColumnType("decimal(18,2)");
             e.Property(o => o.ShippingCost).HasColumnType("decimal(18,2)");
+            e.Property(o => o.DiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(o => o.Total).HasColumnType("decimal(18,2)");
+            e.Property(o => o.CouponCode).HasMaxLength(50);
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.PaymentStatus).HasConversion<string>();
             e.HasOne(o => o.User).WithMany(u => u.Orders)
@@ -85,6 +88,15 @@ public class AppDbContext : DbContext
                 .HasForeignKey(ci => ci.CartId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(ci => ci.Product).WithMany(p => p.CartItems)
                 .HasForeignKey(ci => ci.ProductId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Coupon
+        builder.Entity<Coupon>(e =>
+        {
+            e.HasIndex(c => c.Code).IsUnique();
+            e.Property(c => c.DiscountValue).HasColumnType("decimal(18,2)");
+            e.Property(c => c.MinOrderAmount).HasColumnType("decimal(18,2)");
+            e.Property(c => c.MaxDiscountAmount).HasColumnType("decimal(18,2)");
         });
 
         // Seed categories

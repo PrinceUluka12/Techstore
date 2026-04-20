@@ -12,6 +12,8 @@ public record OrderDto(
     PaymentStatus PaymentStatus,
     string? PaymentMethod,
     decimal SubTotal,
+    decimal DiscountAmount,
+    string? CouponCode,
     decimal Tax,
     decimal ShippingCost,
     decimal Total,
@@ -45,6 +47,8 @@ public record OrderSummaryDto(
     OrderStatus Status,
     PaymentStatus PaymentStatus,
     decimal Total,
+    decimal DiscountAmount,
+    string? CouponCode,
     int ItemCount,
     DateTime CreatedAt
 );
@@ -60,7 +64,8 @@ public record CreateOrderRequest(
     string? ShippingPhone,
     string? PaymentMethod,
     string? TransactionId,
-    string? Notes
+    string? Notes,
+    string? CouponCode
 );
 
 public record UpdateOrderStatusRequest(OrderStatus Status, string? Notes = null);
