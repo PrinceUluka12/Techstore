@@ -257,3 +257,55 @@ public class InventoryRepository : IInventoryRepository
     public Task<int> CountLowStockAsync() =>
         _db.Inventories.CountAsync(i => (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold);
 }
+
+public class RefreshTokenRepository : IRefreshTokenRepository
+{
+    private readonly AppDbContext _db;
+    public RefreshTokenRepository(AppDbContext db) => _db = db;
+
+    public Task<RefreshToken?> GetByTokenAsync(string token) =>
+        _db.RefreshTokens.Include(rt => rt.User).FirstOrDefaultAsync(rt => rt.Token == token);
+
+    public async Task<RefreshToken> CreateAsync(RefreshToken token)
+    {
+        _db.RefreshTokens.Add(token);
+        await _db.SaveChangesAsync();
+        return token;
+    }
+
+    public async Task RevokeAsync(RefreshToken token, string? replacedByToken = null)
+    {
+        token.RevokedAt = DateTime.UtcNow;
+        token.ReplacedByToken = replacedByToken;
+        _db.RefreshTokens.Update(token);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task RevokeAllUserTokensAsync(int userId)
+    {
+        var tokens = await _db.RefreshTokens
+            .Where(rt => rt.UserId == userId && rt.RevokedAt == null)
+            .ToListAsync();
+
+        foreach (var token in tokens)
+            token.RevokedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task RemoveExpiredTokensAsync(int retentionDays = 14)
+    {
+        var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+
+        var tokensToRemove = await _db.RefreshTokens
+            .Where(rt => 
+                // Expired tokens that were never revoked
+                (rt.ExpiresAt < DateTime.UtcNow && rt.RevokedAt == null) ||
+                // Revoked tokens older than retention window
+                (rt.RevokedAt != null && rt.RevokedAt < cutoffDate))
+            .ToListAsync();
+
+        _db.RefreshTokens.RemoveRange(tokensToRemove);
+        await _db.SaveChangesAsync();
+    }
+}

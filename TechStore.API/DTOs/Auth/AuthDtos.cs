@@ -10,6 +10,10 @@ public record RegisterRequest(
 
 public record LoginRequest(string Email, string Password);
 
+public record RefreshTokenRequest(string RefreshToken);
+
+public record LogoutRequest(string? RefreshToken = null);
+
 public record AuthResponse(
     int UserId,
     string Email,

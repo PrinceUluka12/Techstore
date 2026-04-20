@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Inventory> Inventories => Set<Inventory>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -24,6 +25,14 @@ public class AppDbContext : DbContext
         builder.Entity<User>(e =>
         {
             e.HasIndex(u => u.Email).IsUnique();
+        });
+
+        // RefreshToken
+        builder.Entity<RefreshToken>(e =>
+        {
+            e.HasIndex(rt => rt.Token).IsUnique();
+            e.HasOne(rt => rt.User).WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Product

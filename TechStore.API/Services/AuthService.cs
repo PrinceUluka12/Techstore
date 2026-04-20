@@ -9,12 +9,14 @@ namespace TechStore.API.Services;
 public class AuthService : IAuthService
 {
     private readonly IUserRepository _users;
+    private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IJwtHelper _jwt;
     private readonly IConfiguration _config;
 
-    public AuthService(IUserRepository users, IJwtHelper jwt, IConfiguration config)
+    public AuthService(IUserRepository users, IRefreshTokenRepository refreshTokens, IJwtHelper jwt, IConfiguration config)
     {
         _users = users;
+        _refreshTokens = refreshTokens;
         _jwt = jwt;
         _config = config;
     }
@@ -35,7 +37,7 @@ public class AuthService : IAuthService
         };
 
         await _users.CreateAsync(user);
-        return BuildAuthResponse(user);
+        return await BuildAuthResponse(user);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest req)
@@ -49,7 +51,52 @@ public class AuthService : IAuthService
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Account is deactivated.");
 
-        return BuildAuthResponse(user);
+        return await BuildAuthResponse(user);
+    }
+
+    public async Task<AuthResponse> RefreshTokenAsync(string token)
+    {
+        var storedToken = await _refreshTokens.GetByTokenAsync(token);
+
+        if (storedToken == null)
+            throw new UnauthorizedAccessException("Invalid refresh token.");
+
+        if (!storedToken.IsActive)
+        {
+            if (storedToken.IsRevoked && storedToken.ReplacedByToken != null)
+            {
+                await _refreshTokens.RevokeAllUserTokensAsync(storedToken.UserId);
+            }
+            throw new UnauthorizedAccessException("Invalid refresh token.");
+        }
+
+        var user = storedToken.User;
+        var newRefreshToken = GenerateRefreshToken(user.Id);
+        await _refreshTokens.CreateAsync(newRefreshToken);
+        await _refreshTokens.RevokeAsync(storedToken, newRefreshToken.Token);
+
+        return BuildAuthResponse(user, newRefreshToken);
+    }
+
+    public async Task LogoutAsync(int userId, string? token = null)
+    {
+        if (token != null)
+        {
+            var storedToken = await _refreshTokens.GetByTokenAsync(token);
+            if (storedToken != null && storedToken.UserId == userId && storedToken.IsActive)
+            {
+                await _refreshTokens.RevokeAsync(storedToken);
+            }
+        }
+        else
+        {
+            await _refreshTokens.RevokeAllUserTokensAsync(userId);
+        }
+    }
+
+    public async Task LogoutEverywhereAsync(int userId)
+    {
+        await _refreshTokens.RevokeAllUserTokensAsync(userId);
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(int userId)
@@ -72,15 +119,33 @@ public class AuthService : IAuthService
         return MapToProfile(user);
     }
 
-    private AuthResponse BuildAuthResponse(User user)
+    private async Task<AuthResponse> BuildAuthResponse(User user)
     {
-        var expiryHours = double.Parse(_config["Jwt:ExpiryHours"] ?? "24");
+        var refreshToken = GenerateRefreshToken(user.Id);
+        await _refreshTokens.CreateAsync(refreshToken);
+        return BuildAuthResponse(user, refreshToken);
+    }
+
+    private AuthResponse BuildAuthResponse(User user, RefreshToken refreshToken)
+    {
+        var expiryMinutes = double.Parse(_config["Jwt:AccessTokenExpiryMinutes"] ?? "15");
         return new AuthResponse(
             user.Id, user.Email, user.FirstName, user.LastName, user.Role,
             _jwt.GenerateAccessToken(user),
-            _jwt.GenerateRefreshToken(),
-            DateTime.UtcNow.AddHours(expiryHours)
+            refreshToken.Token,
+            DateTime.UtcNow.AddMinutes(expiryMinutes)
         );
+    }
+
+    private RefreshToken GenerateRefreshToken(int userId)
+    {
+        var expiryDays = double.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "7");
+        return new RefreshToken
+        {
+            Token = _jwt.GenerateRefreshToken(),
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(expiryDays)
+        };
     }
 
     private static UserProfileDto MapToProfile(User u) =>
