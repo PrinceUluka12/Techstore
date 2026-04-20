@@ -7,6 +7,7 @@ using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Review;
 using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Controllers;
@@ -418,4 +419,84 @@ public class CouponsController : ControllerBase
         var ok = await _coupons.DeleteAsync(id);
         return ok ? NoContent() : NotFound();
     }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class ReviewsController : ControllerBase
+{
+    private readonly IReviewService _reviews;
+    public ReviewsController(IReviewService reviews) => _reviews = reviews;
+
+    /// <summary>Get approved reviews for a product (public)</summary>
+    [HttpGet("product/{productId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetByProduct(int productId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
+        Ok(await _reviews.GetByProductIdAsync(productId, page, pageSize));
+
+    /// <summary>Get rating distribution for a product (public)</summary>
+    [HttpGet("product/{productId}/summary")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetSummary(int productId) =>
+        Ok(await _reviews.GetProductSummaryAsync(productId));
+
+    /// <summary>Submit a review for a product (authenticated)</summary>
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> Create([FromBody] CreateReviewRequest req)
+    {
+        try
+        {
+            var review = await _reviews.CreateAsync(GetUserId(), req);
+            return CreatedAtAction(nameof(GetById), new { id = review.Id }, review);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Get a single review by id (public)</summary>
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var review = await _reviews.GetByIdAsync(id);
+        return review == null ? NotFound() : Ok(review);
+    }
+
+    /// <summary>Delete your own review (authenticated)</summary>
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var deleted = await _reviews.DeleteAsync(id, GetUserId());
+        return deleted ? NoContent() : NotFound();
+    }
+
+    /// <summary>Get all reviews with optional approval filter (Admin)</summary>
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? approved = null) =>
+        Ok(await _reviews.GetAllAsync(page, pageSize, approved));
+
+    /// <summary>Approve a review (Admin)</summary>
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Approve(int id)
+    {
+        var approved = await _reviews.ApproveAsync(id);
+        return approved ? NoContent() : NotFound();
+    }
+
+    /// <summary>Reject and delete a review (Admin)</summary>
+    [HttpDelete("{id}/reject")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Reject(int id)
+    {
+        var rejected = await _reviews.RejectAsync(id);
+        return rejected ? NoContent() : NotFound();
+    }
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
