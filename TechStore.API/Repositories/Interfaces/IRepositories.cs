@@ -82,3 +82,16 @@ public interface ICouponRepository
     Task IncrementUsageAsync(int couponId);
     Task<int> CountAsync();
 }
+
+public interface IReviewRepository
+{
+    Task<Review?> GetByIdAsync(int id);
+    Task<Review?> GetByUserAndProductAsync(int userId, int productId);
+    Task<(IEnumerable<Review> Items, int Total)> GetByProductIdAsync(int productId, int page, int pageSize, bool? isApproved = null);
+    Task<(IEnumerable<Review> Items, int Total)> GetAllAsync(int page, int pageSize, bool? isApproved = null);
+    Task<Review> CreateAsync(Review review);
+    Task<bool> DeleteAsync(int id);
+    Task<bool> SetApprovalAsync(int id, bool isApproved);
+    Task<(double AverageRating, int Count)> GetApprovedProductStatsAsync(int productId);
+    Task<bool> HasUserPurchasedProductAsync(int userId, int productId);
+}

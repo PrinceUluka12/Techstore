@@ -5,6 +5,7 @@ using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Review;
 using TechStore.API.Models;
 
 namespace TechStore.API.Services.Interfaces;
@@ -87,4 +88,16 @@ public interface ICouponService
     Task<bool> DeleteAsync(int id);
     Task IncrementUsageAsync(int couponId);
     Task<(bool IsValid, string? ErrorMessage, decimal DiscountAmount, Coupon? CouponEntity)> ValidateAndCalculateDiscountAsync(string code, decimal subTotal);
+}
+
+public interface IReviewService
+{
+    Task<ReviewDto?> GetByIdAsync(int id);
+    Task<PagedResult<ReviewDto>> GetByProductIdAsync(int productId, int page, int pageSize);
+    Task<ProductReviewsSummaryDto> GetProductSummaryAsync(int productId);
+    Task<ReviewDto> CreateAsync(int userId, CreateReviewRequest request);
+    Task<bool> DeleteAsync(int id, int userId);
+    Task<PagedResult<ReviewDto>> GetAllAsync(int page, int pageSize, bool? isApproved);
+    Task<bool> ApproveAsync(int id);
+    Task<bool> RejectAsync(int id);
 }
