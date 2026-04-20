@@ -385,6 +385,15 @@ public class ReviewRepository : IReviewRepository
         return stats == null ? (0.0, 0) : (stats.Avg, stats.Count);
     }
 
+    public async Task<Dictionary<int, int>> GetRatingDistributionAsync(int productId)
+    {
+        return await _db.Reviews
+            .Where(r => r.ProductId == productId && r.IsApproved)
+            .GroupBy(r => r.Rating)
+            .Select(g => new { Rating = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Rating, g => g.Count);
+    }
+
     public async Task<bool> HasUserPurchasedProductAsync(int userId, int productId)
     {
         return await _db.OrderItems

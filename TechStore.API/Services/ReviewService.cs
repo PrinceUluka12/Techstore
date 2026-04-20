@@ -31,10 +31,7 @@ public class ReviewService : IReviewService
     public async Task<ProductReviewsSummaryDto> GetProductSummaryAsync(int productId)
     {
         var (avgRating, totalReviews) = await _reviews.GetApprovedProductStatsAsync(productId);
-
-        var reviews = await _reviews.GetByProductIdAsync(productId, 1, int.MaxValue, isApproved: true);
-        var ratingCounts = reviews.Items.GroupBy(r => r.Rating)
-            .ToDictionary(g => g.Key, g => g.Count());
+        var ratingCounts = await _reviews.GetRatingDistributionAsync(productId);
 
         return new ProductReviewsSummaryDto(
             totalReviews > 0 ? avgRating : null,

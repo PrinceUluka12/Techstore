@@ -93,5 +93,6 @@ public interface IReviewRepository
     Task<bool> DeleteAsync(int id);
     Task<bool> SetApprovalAsync(int id, bool isApproved);
     Task<(double AverageRating, int Count)> GetApprovedProductStatsAsync(int productId);
+    Task<Dictionary<int, int>> GetRatingDistributionAsync(int productId);
     Task<bool> HasUserPurchasedProductAsync(int userId, int productId);
 }
