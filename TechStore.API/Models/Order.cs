@@ -34,7 +34,10 @@ public class Order
     public decimal SubTotal { get; set; }
     public decimal Tax { get; set; }
     public decimal ShippingCost { get; set; }
+    public decimal DiscountAmount { get; set; }
     public decimal Total { get; set; }
+
+    public string? CouponCode { get; set; }
 
     // Shipping address snapshot
     public string ShippingFirstName { get; set; } = string.Empty;

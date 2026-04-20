@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
+using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
@@ -353,5 +354,68 @@ public class AdminController : ControllerBase
     {
         var result = await _admin.ToggleUserStatusAsync(userId);
         return result ? Ok(new { message = "User status updated." }) : NotFound();
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
+public class CouponsController : ControllerBase
+{
+    private readonly ICouponService _coupons;
+    public CouponsController(ICouponService coupons) => _coupons = coupons;
+
+    /// <summary>Get all coupons (Admin)</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? active = null) =>
+        Ok(await _coupons.GetAllAsync(page, pageSize, active));
+
+    /// <summary>Get coupon by id (Admin)</summary>
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var c = await _coupons.GetByIdAsync(id);
+        return c == null ? NotFound() : Ok(c);
+    }
+
+    /// <summary>Get coupon by code (public for validation)</summary>
+    [HttpGet("code/{code}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetByCode(string code)
+    {
+        var c = await _coupons.GetByCodeAsync(code);
+        return c == null ? NotFound() : Ok(c);
+    }
+
+    /// <summary>Create a new coupon (Admin)</summary>
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateCouponRequest req)
+    {
+        try
+        {
+            var created = await _coupons.CreateAsync(req);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Update a coupon (Admin)</summary>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateCouponRequest req)
+    {
+        try
+        {
+            var updated = await _coupons.UpdateAsync(id, req);
+            return updated == null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Delete a coupon (Admin)</summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var ok = await _coupons.DeleteAsync(id);
+        return ok ? NoContent() : NotFound();
     }
 }

@@ -1,9 +1,11 @@
 using TechStore.API.DTOs.Admin;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
+using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.Models;
 
 namespace TechStore.API.Services.Interfaces;
 
@@ -72,4 +74,16 @@ public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int Page
     public int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
     public bool HasNext => Page < TotalPages;
     public bool HasPrev => Page > 1;
+}
+
+public interface ICouponService
+{
+    Task<CouponDto?> GetByIdAsync(int id);
+    Task<CouponDto?> GetByCodeAsync(string code);
+    Task<PagedResult<CouponListDto>> GetAllAsync(int page, int pageSize, bool? isActive);
+    Task<CouponDto> CreateAsync(CreateCouponRequest request);
+    Task<CouponDto?> UpdateAsync(int id, UpdateCouponRequest request);
+    Task<bool> DeleteAsync(int id);
+    Task IncrementUsageAsync(int couponId);
+    Task<(bool IsValid, string? ErrorMessage, decimal DiscountAmount, Coupon? CouponEntity)> ValidateAndCalculateDiscountAsync(string code, decimal subTotal);
 }
