@@ -80,6 +80,7 @@ public interface ICouponService
 {
     Task<CouponDto?> GetByIdAsync(int id);
     Task<CouponDto?> GetByCodeAsync(string code);
+    Task<PublicCouponDto?> GetPublicByCodeAsync(string code);
     Task<PagedResult<CouponListDto>> GetAllAsync(int page, int pageSize, bool? isActive);
     Task<CouponDto> CreateAsync(CreateCouponRequest request);
     Task<CouponDto?> UpdateAsync(int id, UpdateCouponRequest request);

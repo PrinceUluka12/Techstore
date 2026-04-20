@@ -56,3 +56,14 @@ public record UpdateCouponRequest(
     DateTime? ValidTo = null,
     bool? IsActive = null
 );
+
+/// <summary>
+/// Minimal public-facing coupon info for unauthenticated users.
+/// Does not expose usage counts, limits, or internal amounts.
+/// </summary>
+public record PublicCouponDto(
+    string Code,
+    string? Description,
+    DiscountType Type,
+    bool IsValid
+);

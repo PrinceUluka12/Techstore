@@ -378,12 +378,12 @@ public class CouponsController : ControllerBase
         return c == null ? NotFound() : Ok(c);
     }
 
-    /// <summary>Get coupon by code (public for validation)</summary>
+    /// <summary>Get public coupon info by code (safe for unauthenticated users)</summary>
     [HttpGet("code/{code}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetByCode(string code)
     {
-        var c = await _coupons.GetByCodeAsync(code);
+        var c = await _coupons.GetPublicByCodeAsync(code);
         return c == null ? NotFound() : Ok(c);
     }
 

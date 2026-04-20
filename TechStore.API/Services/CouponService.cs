@@ -26,6 +26,19 @@ public class CouponService : ICouponService
         return c == null ? null : MapToDto(c);
     }
 
+    public async Task<PublicCouponDto?> GetPublicByCodeAsync(string code)
+    {
+        var c = await _coupons.GetByCodeAsync(code);
+        if (c == null) return null;
+
+        var now = DateTime.UtcNow;
+        bool isValid = c.IsActive &&
+                       (!c.ValidFrom.HasValue || now >= c.ValidFrom.Value) &&
+                       (!c.ValidTo.HasValue || now <= c.ValidTo.Value);
+
+        return new PublicCouponDto(c.Code, c.Description, c.Type, isValid);
+    }
+
     public async Task<PagedResult<CouponListDto>> GetAllAsync(int page, int pageSize, bool? isActive)
     {
         var (items, total) = await _coupons.GetAllAsync(page, pageSize, isActive);
