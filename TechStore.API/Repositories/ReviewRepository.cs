@@ -63,10 +63,9 @@ public class ReviewRepository : IReviewRepository
 
     public async Task<double?> GetAverageRatingForProductAsync(int productId)
     {
-        var approved = await _db.Reviews
+        return await _db.Reviews
             .Where(r => r.ProductId == productId && r.IsApproved)
             .Select(r => (double?)r.Rating)
-            .ToListAsync();
-        return approved.Count > 0 ? approved.Average() : null;
+            .AverageAsync();
     }
 }

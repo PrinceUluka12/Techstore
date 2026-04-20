@@ -93,13 +93,10 @@ public class ReviewService : IReviewService
         var review = await _reviews.GetByIdAsync(reviewId);
         if (review == null) return null;
 
-        if (review.IsApproved)
-        {
-            review.IsApproved = false;
-            await _reviews.UpdateAsync(review);
+        var deleted = await _reviews.DeleteAsync(reviewId);
+        if (deleted)
             await RecalculateProductRatingAsync(review.ProductId);
-        }
-        return MapToDto(review);
+        return deleted ? MapToDto(review) : null;
     }
 
     private async Task RecalculateProductRatingAsync(int productId)
