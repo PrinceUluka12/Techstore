@@ -30,6 +30,7 @@ builder.Services.AddScoped<ICartRepository, CartRepository>();
 builder.Services.AddScoped<IInventoryRepository, InventoryRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICouponRepository, CouponRepository>();
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -39,6 +40,7 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 
 // Validation

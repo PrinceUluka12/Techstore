@@ -309,3 +309,95 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         await _db.SaveChangesAsync();
     }
 }
+
+public class ReviewRepository : IReviewRepository
+{
+    private readonly AppDbContext _db;
+    public ReviewRepository(AppDbContext db) => _db = db;
+
+    public Task<Review?> GetByIdAsync(int id) =>
+        _db.Reviews.Include(r => r.Product).Include(r => r.User)
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+    public Task<Review?> GetByUserAndProductAsync(int userId, int productId) =>
+        _db.Reviews.FirstOrDefaultAsync(r => r.UserId == userId && r.ProductId == productId);
+
+    public async Task<(IEnumerable<Review> Items, int Total)> GetByProductIdAsync(int productId, int page, int pageSize, bool? isApproved = null)
+    {
+        var q = _db.Reviews.Include(r => r.User)
+            .Where(r => r.ProductId == productId);
+
+        if (isApproved.HasValue)
+            q = q.Where(r => r.IsApproved == isApproved.Value);
+
+        q = q.OrderByDescending(r => r.CreatedAt);
+        var total = await q.CountAsync();
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, total);
+    }
+
+    public async Task<(IEnumerable<Review> Items, int Total)> GetAllAsync(int page, int pageSize, bool? isApproved = null)
+    {
+        var q = _db.Reviews.Include(r => r.User).Include(r => r.Product).AsQueryable();
+
+        if (isApproved.HasValue)
+            q = q.Where(r => r.IsApproved == isApproved.Value);
+
+        q = q.OrderByDescending(r => r.CreatedAt);
+        var total = await q.CountAsync();
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, total);
+    }
+
+    public async Task<Review> CreateAsync(Review review)
+    {
+        _db.Reviews.Add(review);
+        await _db.SaveChangesAsync();
+        return review;
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        var review = await _db.Reviews.FindAsync(id);
+        if (review == null) return false;
+        _db.Reviews.Remove(review);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> SetApprovalAsync(int id, bool isApproved)
+    {
+        var review = await _db.Reviews.FindAsync(id);
+        if (review == null) return false;
+        review.IsApproved = isApproved;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<(double AverageRating, int Count)> GetApprovedProductStatsAsync(int productId)
+    {
+        var stats = await _db.Reviews
+            .Where(r => r.ProductId == productId && r.IsApproved)
+            .GroupBy(r => r.ProductId)
+            .Select(g => new { Avg = g.Average(r => r.Rating), Count = g.Count() })
+            .FirstOrDefaultAsync();
+
+        return stats == null ? (0.0, 0) : (stats.Avg, stats.Count);
+    }
+
+    public async Task<Dictionary<int, int>> GetRatingDistributionAsync(int productId)
+    {
+        return await _db.Reviews
+            .Where(r => r.ProductId == productId && r.IsApproved)
+            .GroupBy(r => r.Rating)
+            .Select(g => new { Rating = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Rating, g => g.Count);
+    }
+
+    public async Task<bool> HasUserPurchasedProductAsync(int userId, int productId)
+    {
+        return await _db.OrderItems
+            .Include(oi => oi.Order)
+            .AnyAsync(oi => oi.ProductId == productId && oi.Order.UserId == userId && oi.Order.Status == OrderStatus.Delivered);
+    }
+}
