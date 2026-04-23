@@ -15,6 +15,8 @@ public record OrderDto(
     decimal SubTotal,
     decimal Tax,
     decimal ShippingCost,
+    decimal DiscountAmount,
+    string? CouponCode,
     decimal Total,
     string ShippingAddress,
     string ShippingCity,
@@ -61,7 +63,8 @@ public record CreateOrderRequest(
     string? ShippingPhone,
     string? PaymentMethod,
     string? TransactionId,
-    string? Notes
+    string? Notes,
+    string? CouponCode = null
 );
 
 public record UpdateOrderStatusRequest(OrderStatus Status, string? Notes = null);

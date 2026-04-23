@@ -42,6 +42,7 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<ICouponService, CouponService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 
 // Validation
@@ -117,6 +118,11 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// Ensure uploads directory exists before static file middleware initialises
+var uploadsPath = Path.Combine(app.Environment.WebRootPath
+    ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "uploads", "images");
+Directory.CreateDirectory(uploadsPath);
 
 // Auto-migrate on startup
 using (var scope = app.Services.CreateScope())

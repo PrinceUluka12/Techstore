@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { couponApi } from '../services/api'
 
 // ── Auth Store ────────────────────────────────────────────────────────────────
 export const useAuthStore = create(
@@ -47,6 +48,10 @@ export const useCartStore = create((set, get) => ({
   total: 0,
   itemCount: 0,
   cartId: null,
+  couponCode: null,
+  discountAmount: 0,
+  couponLoading: false,
+  couponError: null,
 
   setCart: (cart) => set({
     items: cart.items,
@@ -55,7 +60,33 @@ export const useCartStore = create((set, get) => ({
     cartId: cart.id,
   }),
 
-  clearLocal: () => set({ items: [], total: 0, itemCount: 0, cartId: null }),
+  clearLocal: () => set({
+    items: [], total: 0, itemCount: 0, cartId: null,
+    couponCode: null, discountAmount: 0, couponError: null,
+  }),
+
+  applyCoupon: async (code) => {
+    const subTotal = get().total
+    set({ couponLoading: true, couponError: null })
+    try {
+      const { data } = await couponApi.validate(code, subTotal)
+      if (data.isValid) {
+        set({ couponCode: code, discountAmount: data.discountAmount, couponError: null })
+        return { success: true, discountAmount: data.discountAmount }
+      } else {
+        set({ couponCode: null, discountAmount: 0, couponError: data.errorMessage })
+        return { success: false, error: data.errorMessage }
+      }
+    } catch {
+      const msg = 'Failed to validate coupon.'
+      set({ couponCode: null, discountAmount: 0, couponError: msg })
+      return { success: false, error: msg }
+    } finally {
+      set({ couponLoading: false })
+    }
+  },
+
+  removeCoupon: () => set({ couponCode: null, discountAmount: 0, couponError: null }),
 
   isInCart: (productId) => get().items.some(i => i.productId === productId),
 }))

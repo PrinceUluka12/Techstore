@@ -9,7 +9,12 @@ export default defineConfig({
       '/api': {
         target: 'https://localhost:5010',
         changeOrigin: true,
-        secure: false,  // allow self-signed cert in dev
+        secure: false,
+      },
+      '/uploads': {
+        target: 'https://localhost:5010',
+        changeOrigin: true,
+        secure: false,
       }
     }
   }

@@ -15,6 +15,7 @@ public class OrderService : IOrderService
     private readonly ICartRepository _carts;
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
+    private readonly ICouponService _coupons;
     private readonly AppDbContext _db;
     private readonly IHttpContextAccessor _http;
 
@@ -23,6 +24,7 @@ public class OrderService : IOrderService
         ICartRepository carts,
         IInventoryRepository inventory,
         IUserRepository users,
+        ICouponService coupons,
         AppDbContext db,
         IHttpContextAccessor http)
     {
@@ -30,6 +32,7 @@ public class OrderService : IOrderService
         _carts = carts;
         _inventory = inventory;
         _users = users;
+        _coupons = coupons;
         _db = db;
         _http = http;
     }
@@ -80,9 +83,27 @@ public class OrderService : IOrderService
         }).ToList();
 
         var subTotal = orderItems.Sum(i => i.LineTotal);
+
+        decimal discountAmount = 0;
+        int? appliedCouponId = null;
+        string? appliedCouponCode = null;
+
+        if (!string.IsNullOrWhiteSpace(req.CouponCode))
+        {
+            var (isValid, errorMessage, discount, couponEntity) =
+                await _coupons.ValidateAndCalculateDiscountAsync(req.CouponCode, subTotal);
+
+            if (!isValid)
+                throw new InvalidOperationException(errorMessage ?? "Invalid coupon code.");
+
+            discountAmount = discount;
+            appliedCouponId = couponEntity!.Id;
+            appliedCouponCode = couponEntity.Code;
+        }
+
         var tax = Math.Round(subTotal * 0.075m, 2); // Nigeria VAT (7.5%)
         var shipping = subTotal >= 100 ? 0 : 9.99m;      // Free shipping over ₦100
-        var total = subTotal + tax + shipping;
+        var total = subTotal - discountAmount + tax + shipping;
 
         var order = new Order
         {
@@ -95,6 +116,8 @@ public class OrderService : IOrderService
             SubTotal = subTotal,
             Tax = tax,
             ShippingCost = shipping,
+            DiscountAmount = discountAmount,
+            CouponCode = appliedCouponCode,
             Total = total,
             ShippingFirstName = req.ShippingFirstName,
             ShippingLastName = req.ShippingLastName,
@@ -109,6 +132,9 @@ public class OrderService : IOrderService
         };
 
         var created = await _orders.CreateAsync(order);
+
+        if (appliedCouponId.HasValue)
+            await _coupons.IncrementUsageAsync(appliedCouponId.Value);
 
         // Write initial status log — placed by customer
         await WriteLogAsync(created.Id, null, OrderStatus.Pending, OrderStatus.Pending,
@@ -255,7 +281,7 @@ public class OrderService : IOrderService
         o.User?.Email ?? "",
         o.Status, o.PaymentStatus, o.PaymentMethod,
         BuildPaymentMethodDetails(o),
-        o.SubTotal, o.Tax, o.ShippingCost, o.Total,
+        o.SubTotal, o.Tax, o.ShippingCost, o.DiscountAmount, o.CouponCode, o.Total,
         o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
         o.ShippingPostalCode, o.ShippingCountry,
         o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,

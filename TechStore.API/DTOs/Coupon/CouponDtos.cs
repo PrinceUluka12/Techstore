@@ -67,3 +67,12 @@ public record PublicCouponDto(
     DiscountType Type,
     bool IsValid
 );
+
+public record ValidateCouponRequest(string Code, decimal SubTotal);
+
+public record ValidateCouponResponse(
+    bool IsValid,
+    string? ErrorMessage,
+    decimal DiscountAmount,
+    decimal FinalTotal
+);

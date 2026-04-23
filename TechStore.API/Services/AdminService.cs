@@ -70,10 +70,13 @@ public class AdminService : IAdminService
                 g.Count()))
             .ToList();
 
-        var topProducts = await _db.OrderItems
-            .Include(i => i.Product)
+        var rawItems = await _db.OrderItems
             .Where(i => i.Order.CreatedAt >= from && i.Order.CreatedAt <= to
                      && i.Order.PaymentStatus == PaymentStatus.Paid)
+            .Select(i => new { i.ProductId, i.ProductName, i.Quantity, i.LineTotal })
+            .ToListAsync();
+
+        var topProducts = rawItems
             .GroupBy(i => new { i.ProductId, i.ProductName })
             .Select(g => new TopProductDto(
                 g.Key.ProductId,
@@ -82,7 +85,7 @@ public class AdminService : IAdminService
                 g.Sum(i => i.LineTotal)))
             .OrderByDescending(t => t.Revenue)
             .Take(10)
-            .ToListAsync();
+            .ToList();
 
         var totalRevenue = orders.Sum(o => o.Total);
         var avgOrderValue = orders.Count > 0 ? totalRevenue / orders.Count : 0;
@@ -131,15 +134,18 @@ public class AdminService : IAdminService
 
     private async Task<List<TopProductDto>> GetTopProductsAsync(int count)
     {
-        return await _db.OrderItems
-            .Include(i => i.Product)
+        var items = await _db.OrderItems
+            .Select(i => new { i.ProductId, i.ProductName, i.Quantity, i.LineTotal })
+            .ToListAsync();
+
+        return items
             .GroupBy(i => new { i.ProductId, i.ProductName })
             .Select(g => new TopProductDto(
                 g.Key.ProductId, g.Key.ProductName,
                 g.Sum(i => i.Quantity), g.Sum(i => i.LineTotal)))
             .OrderByDescending(t => t.TotalSold)
             .Take(count)
-            .ToListAsync();
+            .ToList();
     }
 
     private async Task<List<OrdersByStatusDto>> GetOrdersByStatusAsync()

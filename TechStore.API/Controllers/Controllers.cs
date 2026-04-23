@@ -1,11 +1,14 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
+using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Review;
+using TechStore.API.Services;
 using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Controllers;
@@ -329,5 +332,194 @@ public class AdminController : ControllerBase
     {
         var result = await _admin.ToggleUserStatusAsync(userId);
         return result ? Ok(new { message = "User status updated." }) : NotFound();
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
+public class CouponsController : ControllerBase
+{
+    private readonly ICouponService _coupons;
+    public CouponsController(ICouponService coupons) => _coupons = coupons;
+
+    /// <summary>Get all coupons (Admin)</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? active = null) =>
+        Ok(await _coupons.GetAllAsync(page, pageSize, active));
+
+    /// <summary>Get coupon by id (Admin)</summary>
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var c = await _coupons.GetByIdAsync(id);
+        return c == null ? NotFound() : Ok(c);
+    }
+
+    /// <summary>Get public coupon info by code (safe for unauthenticated users)</summary>
+    [HttpGet("code/{code}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetByCode(string code)
+    {
+        var c = await _coupons.GetPublicByCodeAsync(code);
+        return c == null ? NotFound() : Ok(c);
+    }
+
+    /// <summary>Validate a coupon code and preview the discount (authenticated users)</summary>
+    [HttpPost("validate")]
+    [Authorize]
+    public async Task<IActionResult> Validate([FromBody] ValidateCouponRequest req)
+    {
+        var (isValid, errorMessage, discountAmount, _) =
+            await _coupons.ValidateAndCalculateDiscountAsync(req.Code, req.SubTotal);
+
+        var finalTotal = isValid ? req.SubTotal - discountAmount : req.SubTotal;
+        return Ok(new ValidateCouponResponse(isValid, errorMessage, discountAmount, finalTotal));
+    }
+
+    /// <summary>Create a new coupon (Admin)</summary>
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateCouponRequest req)
+    {
+        try
+        {
+            var created = await _coupons.CreateAsync(req);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Update a coupon (Admin)</summary>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateCouponRequest req)
+    {
+        try
+        {
+            var updated = await _coupons.UpdateAsync(id, req);
+            return updated == null ? NotFound() : Ok(updated);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Delete a coupon (Admin)</summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var ok = await _coupons.DeleteAsync(id);
+        return ok ? NoContent() : NotFound();
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class ReviewsController : ControllerBase
+{
+    private readonly IReviewService _reviews;
+    public ReviewsController(IReviewService reviews) => _reviews = reviews;
+
+    /// <summary>Get approved reviews for a product (public)</summary>
+    [HttpGet("product/{productId}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetByProduct(int productId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
+        Ok(await _reviews.GetByProductIdAsync(productId, page, pageSize));
+
+    /// <summary>Get rating distribution for a product (public)</summary>
+    [HttpGet("product/{productId}/summary")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetSummary(int productId) =>
+        Ok(await _reviews.GetProductSummaryAsync(productId));
+
+    /// <summary>Submit a review for a product (authenticated)</summary>
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> Create([FromBody] CreateReviewRequest req)
+    {
+        try
+        {
+            var review = await _reviews.CreateAsync(GetUserId(), req);
+            return CreatedAtAction(nameof(GetById), new { id = review.Id }, review);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Get a single review by id (public)</summary>
+    [HttpGet("{id}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var review = await _reviews.GetByIdAsync(id);
+        return review == null ? NotFound() : Ok(review);
+    }
+
+    /// <summary>Delete your own review (authenticated)</summary>
+    [HttpDelete("{id}")]
+    [Authorize]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var deleted = await _reviews.DeleteAsync(id, GetUserId());
+        return deleted ? NoContent() : NotFound();
+    }
+
+    /// <summary>Get all reviews with optional approval filter (Admin)</summary>
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? approved = null) =>
+        Ok(await _reviews.GetAllAsync(page, pageSize, approved));
+
+    /// <summary>Approve a review (Admin)</summary>
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Approve(int id)
+    {
+        var approved = await _reviews.ApproveAsync(id);
+        return approved ? NoContent() : NotFound();
+    }
+
+    /// <summary>Reject and delete a review (Admin)</summary>
+    [HttpDelete("{id}/reject")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Reject(int id)
+    {
+        var rejected = await _reviews.RejectAsync(id);
+        return rejected ? NoContent() : NotFound();
+    }
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+}
+
+[ApiController]
+[Route("api/uploads/images")]
+[Authorize(Roles = "Admin")]
+public class ImagesController : ControllerBase
+{
+    private readonly IImageService _images;
+    public ImagesController(IImageService images) => _images = images;
+
+    /// <summary>List all uploaded images (Admin)</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll() =>
+        Ok(await _images.GetAllAsync());
+
+    /// <summary>Upload one or more images (Admin)</summary>
+    [HttpPost("upload")]
+    [RequestSizeLimit(50 * 1024 * 1024)]
+    public async Task<IActionResult> Upload([FromForm] IFormFileCollection files)
+    {
+        if (files == null || files.Count == 0)
+            return BadRequest(new { message = "No files provided." });
+
+        var result = await _images.UploadAsync(files);
+        return Ok(result);
+    }
+
+    /// <summary>Delete an image by file name (Admin)</summary>
+    [HttpDelete("{fileName}")]
+    public async Task<IActionResult> Delete(string fileName)
+    {
+        var deleted = await _images.DeleteAsync(fileName);
+        return deleted ? NoContent() : NotFound();
     }
 }

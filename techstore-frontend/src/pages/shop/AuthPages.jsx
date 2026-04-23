@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   Package, CreditCard, Building2, Lock,
-  ChevronDown, ChevronUp, CheckCircle, Truck, Shield
+  ChevronDown, ChevronUp, CheckCircle, Truck, Shield,
+  Tag, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authApi, cartApi, orderApi } from '../../services/api'
@@ -347,14 +348,31 @@ function BankTransferDetails({ orderTotal }) {
 // ── Checkout ──────────────────────────────────────────────────────────────────
 export function CheckoutPage() {
   const { register, handleSubmit, formState: { errors } } = useForm()
-  const [loading, setLoading]           = useState(false)
+  const [loading, setLoading]             = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('Card')
-  const { items, total, clearLocal }    = useCartStore()
-  const navigate                        = useNavigate()
+  const [couponInput, setCouponInput]     = useState('')
+  const {
+    items, total, clearLocal,
+    couponCode, discountAmount, couponLoading, couponError,
+    applyCoupon, removeCoupon,
+  } = useCartStore()
+  const navigate = useNavigate()
 
-  const tax         = +(total * 0.075).toFixed(2)
-  const shipping    = total >= 100 ? 0 : 9.99
-  const orderTotal  = +(total + tax + shipping).toFixed(2)
+  const tax        = +(total * 0.075).toFixed(2)
+  const shipping   = total >= 100 ? 0 : 9.99
+  const orderTotal = +(total - discountAmount + tax + shipping).toFixed(2)
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return
+    const result = await applyCoupon(couponInput.trim().toUpperCase())
+    if (result.success) toast.success(`Coupon applied! You saved ₦${result.discountAmount.toFixed(2)}`)
+    else toast.error(result.error)
+  }
+
+  const handleRemoveCoupon = () => {
+    removeCoupon()
+    setCouponInput('')
+  }
 
   const onSubmit = async (data) => {
     setLoading(true)
@@ -371,6 +389,7 @@ export function CheckoutPage() {
         paymentMethod,
         transactionId:      paymentMethod === 'Card' ? data.cardNumber?.slice(-4) : data.transferRef,
         notes:              data.notes,
+        couponCode:         couponCode || null,
       })
       clearLocal()
       toast.success(
@@ -463,6 +482,47 @@ export function CheckoutPage() {
               )}
             </div>
 
+            {/* Coupon */}
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Tag className="w-4 h-4 text-brand-500" />
+                <span className="font-medium text-surface-900 text-sm">Coupon Code</span>
+              </div>
+
+              {couponCode ? (
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-emerald-700 font-mono">{couponCode}</span>
+                    <span className="text-xs text-emerald-600">— you save ₦{discountAmount.toFixed(2)}</span>
+                  </div>
+                  <button type="button" onClick={handleRemoveCoupon}
+                    className="text-emerald-500 hover:text-emerald-700 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="input flex-1 font-mono uppercase"
+                    placeholder="Enter coupon code"
+                    value={couponInput}
+                    onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleApplyCoupon())}
+                  />
+                  <button type="button" onClick={handleApplyCoupon} disabled={couponLoading || !couponInput.trim()}
+                    className="btn-primary px-4 flex-shrink-0">
+                    {couponLoading ? <Spinner size="sm" /> : 'Apply'}
+                  </button>
+                </div>
+              )}
+
+              {couponError && !couponCode && (
+                <p className="text-xs text-red-500 mt-2">{couponError}</p>
+              )}
+            </div>
+
             {/* Notes */}
             <div className="card p-5">
               <label className="label">Order Notes <span className="text-surface-400 font-normal">(optional)</span></label>
@@ -516,6 +576,14 @@ export function CheckoutPage() {
                   <span>Subtotal</span>
                   <span>₦{total.toFixed(2)}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-medium">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3 h-3" /> {couponCode}
+                    </span>
+                    <span>-₦{discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-surface-500">
                   <span>VAT (7.5%)</span>
                   <span>₦{tax.toFixed(2)}</span>
