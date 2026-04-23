@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Azure.Storage.Blobs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -40,9 +41,12 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
-//builder.Services.AddScoped<ICouponService, CouponService>();
-//builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
+
+// Azure Blob Storage
+var blobConnStr = builder.Configuration["AzureStorage:ConnectionString"]!;
+builder.Services.AddSingleton(new BlobServiceClient(blobConnStr));
+builder.Services.AddScoped<IImageService, ImageService>();
 
 // Validation
 builder.Services.AddFluentValidationAutoValidation();
@@ -135,14 +139,6 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
-
-var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
-if (!Directory.Exists(uploadsPath))
-    Directory.CreateDirectory(uploadsPath);
-
-app.UseStaticFiles(); // serves wwwroot/uploads/images/*
-
-
 app.UseCors("FrontendPolicy");
 
 
