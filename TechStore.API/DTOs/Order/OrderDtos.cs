@@ -11,17 +11,16 @@ public record OrderDto(
     OrderStatus Status,
     PaymentStatus PaymentStatus,
     string? PaymentMethod,
+    string? PaymentMethodDetails,  // e.g. "Card ending 4242" or transfer ref
     decimal SubTotal,
     decimal Tax,
     decimal ShippingCost,
-    decimal DiscountAmount,
     decimal Total,
     string ShippingAddress,
     string ShippingCity,
-    string ShippingProvince,
+    string ShippingProvince,       // = State in Nigeria
     string ShippingPostalCode,
     string ShippingCountry,
-    string? CouponCode,
     string? Notes,
     DateTime? ShippedAt,
     DateTime? DeliveredAt,
@@ -62,8 +61,17 @@ public record CreateOrderRequest(
     string? ShippingPhone,
     string? PaymentMethod,
     string? TransactionId,
-    string? CouponCode,
     string? Notes
 );
 
 public record UpdateOrderStatusRequest(OrderStatus Status, string? Notes = null);
+
+public record OrderStatusLogDto(
+    int Id,
+    string FromStatus,
+    string ToStatus,
+    string ChangedByName,
+    string ChangedByEmail,
+    string? Note,
+    DateTime ChangedAt
+);

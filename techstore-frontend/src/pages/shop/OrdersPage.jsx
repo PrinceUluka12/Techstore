@@ -46,7 +46,7 @@ export function MyOrdersPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <StatusBadge status={order.status} />
-                  <span className="font-semibold text-surface-900">${order.total.toFixed(2)}</span>
+                  <span className="font-semibold text-surface-900">₦{order.total.toFixed(2)}</span>
                   <ChevronRight className="w-4 h-4 text-surface-300 group-hover:text-surface-600 transition-colors" />
                 </div>
               </Link>
@@ -94,17 +94,17 @@ export function OrderDetailPage() {
               <div className="space-y-4">
                 {order.items.map(item => (
                   <div key={item.id} className="flex gap-3">
-                    <div className="w-14 h-14 bg-surface-100 rounded-xl flex-shrink-0 overflow-hidden">
+                    <div className="w-14 h-14 bg-white border border-surface-100 rounded-xl flex-shrink-0 overflow-hidden">
                       {item.productImageUrl
-                        ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                        ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
                         : <div className="w-full h-full flex items-center justify-center text-surface-200"><Package className="w-5 h-5" /></div>}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">{item.productName}</p>
                       <p className="text-xs text-surface-400">{item.productSKU}</p>
-                      <p className="text-xs text-surface-500 mt-1">${item.unitPrice.toFixed(2)} × {item.quantity}</p>
+                      <p className="text-xs text-surface-500 mt-1">₦{item.unitPrice.toFixed(2)} × {item.quantity}</p>
                     </div>
-                    <p className="font-semibold text-sm">${item.lineTotal.toFixed(2)}</p>
+                    <p className="font-semibold text-sm">₦{item.lineTotal.toFixed(2)}</p>
                   </div>
                 ))}
               </div>
@@ -115,11 +115,11 @@ export function OrderDetailPage() {
             <div className="card p-5">
               <h2 className="font-semibold mb-3">Order Summary</h2>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>${order.subTotal.toFixed(2)}</span></div>
-                <div className="flex justify-between text-surface-500"><span>Tax</span><span>${order.tax.toFixed(2)}</span></div>
-                <div className="flex justify-between text-surface-500"><span>Shipping</span><span>${order.shippingCost.toFixed(2)}</span></div>
+                <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toFixed(2)}</span></div>
+                <div className="flex justify-between text-surface-500"><span>Tax</span><span>₦{order.tax.toFixed(2)}</span></div>
+                <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toFixed(2)}</span></div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-surface-100 text-base">
-                  <span>Total</span><span>${order.total.toFixed(2)}</span>
+                  <span>Total</span><span>₦{order.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>

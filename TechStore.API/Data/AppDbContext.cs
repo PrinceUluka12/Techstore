@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TechStore.API.Models;
 
 namespace TechStore.API.Data;
@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();  // ← new
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -73,6 +74,15 @@ public class AppDbContext : DbContext
                 .HasForeignKey(i => i.OrderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(i => i.Product).WithMany(p => p.OrderItems)
                 .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // OrderStatusLog ← new
+        builder.Entity<OrderStatusLog>(e =>
+        {
+            e.Property(l => l.FromStatus).HasConversion<string>();
+            e.Property(l => l.ToStatus).HasConversion<string>();
+            e.HasOne(l => l.Order).WithMany()
+                .HasForeignKey(l => l.OrderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Coupon

@@ -1,4 +1,4 @@
-using TechStore.API.DTOs.Admin;
+﻿using TechStore.API.DTOs.Admin;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Coupon;
@@ -42,6 +42,7 @@ public interface IOrderService
     Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
+    Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId);  // ← new
 }
 
 public interface ICartService

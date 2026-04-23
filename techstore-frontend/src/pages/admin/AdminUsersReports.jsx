@@ -78,7 +78,7 @@ export function AdminUsers() {
                     <span className={`badge ${u.role === 'Admin' ? 'badge-blue' : 'badge-gray'}`}>{u.role}</span>
                   </td>
                   <td><span className="text-sm font-medium">{u.totalOrders}</span></td>
-                  <td><span className="text-sm font-semibold text-surface-900">${u.totalSpent.toFixed(2)}</span></td>
+                  <td><span className="text-sm font-semibold text-surface-900">₦{u.totalSpent.toFixed(2)}</span></td>
                   <td>
                     <span className={`badge ${u.isActive ? 'badge-green' : 'badge-red'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
@@ -149,8 +149,8 @@ export function AdminReports() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: 'Total Orders', value: report.totalOrders?.toLocaleString() ?? '0' },
-                { label: 'Total Revenue', value: `$${(report.totalRevenue ?? 0).toFixed(2)}` },
-                { label: 'Avg Order Value', value: `$${(report.averageOrderValue ?? 0).toFixed(2)}` },
+                { label: 'Total Revenue', value: `₦${(report.totalRevenue ?? 0).toFixed(2)}` },
+                { label: 'Avg Order Value', value: `₦${(report.averageOrderValue ?? 0).toFixed(2)}` },
                 { label: 'Date Range', value: `${format(new Date(report.fromDate), 'MMM d')} – ${format(new Date(report.toDate), 'MMM d')}` },
               ].map(k => (
                 <div key={k.label} className="card p-5">
@@ -177,9 +177,9 @@ export function AdminReports() {
                   <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#a1a1aa' }}
                     tickFormatter={d => d.slice(5)} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false}
-                    tickFormatter={v => `$${v}`} />
+                    tickFormatter={v => `₦${v}`} />
                   <Tooltip contentStyle={{ borderRadius: 12, border: 'none', fontSize: 13 }}
-                    formatter={v => [`$${Number(v).toFixed(2)}`, 'Revenue']} />
+                    formatter={v => [`₦${Number(v).toFixed(2)}`, 'Revenue']} />
                   <Area type="monotone" dataKey="revenue" stroke="#2d52ff" strokeWidth={2}
                     fill="url(#repGrad)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                 </AreaChart>
@@ -193,12 +193,12 @@ export function AdminReports() {
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={(report.topProducts ?? []).slice(0, 6)} layout="vertical" margin={{ left: 0, right: 20 }}>
                     <XAxis type="number" tick={{ fontSize: 11, fill: '#a1a1aa' }} tickLine={false} axisLine={false}
-                      tickFormatter={v => `$${v}`} />
+                      tickFormatter={v => `₦${v}`} />
                     <YAxis dataKey="productName" type="category" tick={{ fontSize: 11, fill: '#71717a' }}
                       width={120} tickLine={false} axisLine={false}
                       tickFormatter={v => v.length > 16 ? v.slice(0, 16) + '…' : v} />
                     <Tooltip contentStyle={{ borderRadius: 10, border: 'none', fontSize: 12 }}
-                      formatter={v => [`$${Number(v).toFixed(2)}`, 'Revenue']} />
+                      formatter={v => [`₦${Number(v).toFixed(2)}`, 'Revenue']} />
                     <Bar dataKey="revenue" fill="#2d52ff" radius={[0, 6, 6, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

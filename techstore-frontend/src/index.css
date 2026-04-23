@@ -18,13 +18,16 @@
 
   body {
     @apply bg-white text-surface-900 font-body;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "kern", "liga", "calt";
+    letter-spacing: -0.01em;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-tight;
+    letter-spacing: -0.02em;
   }
-}
+  }
+
 
 @layer components {
   /* ── Buttons ── */

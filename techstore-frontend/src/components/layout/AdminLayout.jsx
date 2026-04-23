@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight
+  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
@@ -19,8 +19,9 @@ const navSections = [
   {
     label: 'Catalog',
     items: [
-      { to: '/admin/products', label: 'Products', icon: Package },
+      { to: '/admin/products',  label: 'Products',  icon: Package },
       { to: '/admin/inventory', label: 'Inventory', icon: Warehouse },
+      { to: '/admin/images',    label: 'Images',    icon: Image },
     ]
   },
   {
@@ -62,12 +63,14 @@ export function AdminLayout({ children }) {
     <aside className="flex flex-col h-full w-64 bg-white border-r border-surface-100">
       {/* Brand */}
       <div className="flex items-center justify-between p-5 border-b border-surface-100">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-            <Package2 className="w-4 h-4 text-white" />
-          </div>
+        <Link to="/" className="flex items-center gap-3">
+          <img
+            src="/hytel-logo.png"
+            alt="Hytel Phones"
+            className="h-9 w-auto object-contain"
+          />
           <div>
-            <p className="font-display font-semibold text-sm leading-none">TechStore</p>
+            <p className="font-display font-semibold text-sm leading-none">Hytel Phones</p>
             <p className="text-[10px] text-surface-400 mt-0.5">Admin Panel</p>
           </div>
         </Link>

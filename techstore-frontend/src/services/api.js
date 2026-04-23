@@ -61,6 +61,7 @@ export const orderApi = {
   checkout:     (data)     => api.post('/orders/checkout', data),
   getAll:       (p)        => api.get('/orders', { params: p }),
   updateStatus: (id, data) => api.put(`/orders/${id}/status`, data),
+  getHistory:   (id)       => api.get(`/orders/${id}/history`),
 }
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
@@ -72,7 +73,24 @@ export const inventoryApi = {
   updateThreshold: (id, d)   => api.put(`/inventory/product/${id}/threshold`, d),
 }
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
+// ── Images ────────────────────────────────────────────────────────────────────
+export const imageApi = {
+  upload: (formData) => api.post('/images/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getAll:  ()         => api.get('/images'),
+  delete:  (fileName) => api.delete(`/images/${encodeURIComponent(fileName)}`),
+}
+
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+export const reviewApi = {
+  getByProduct: (productId, p) => api.get(`/reviews/product/${productId}`, { params: p }),
+  getSummary:   (productId)    => api.get(`/reviews/product/${productId}/summary`),
+  create:       (data)         => api.post('/reviews', data),
+  delete:       (id)           => api.delete(`/reviews/${id}`),
+}
+
 export const adminApi = {
   dashboard:   ()       => api.get('/admin/dashboard'),
   salesReport: (params) => api.get('/admin/reports/sales', { params }),

@@ -35,10 +35,10 @@ export function ProductCard({ product }) {
     <Link to={`/products/${product.id}`}
       className="card-hover group relative flex flex-col overflow-hidden">
       {/* Image */}
-      <div className="relative aspect-square bg-surface-50 overflow-hidden">
+      <div className="relative aspect-square bg-white overflow-hidden">
         {product.imageUrl
           ? <img src={product.imageUrl} alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
           : <div className="w-full h-full flex items-center justify-center">
               <Package className="w-16 h-16 text-surface-200" />
             </div>

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,7 +16,7 @@ using TechStore.API.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Database
+// Database — SQL Server (unchanged from your repo)
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
 builder.Services.AddDbContext<AppDbContext>(opts =>
     opts.UseSqlServer(connStr,
@@ -33,6 +33,7 @@ builder.Services.AddScoped<ICouponRepository, CouponRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 
 // Services
+builder.Services.AddHttpContextAccessor(); // ← needed for audit log (who changed the status)
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
@@ -92,7 +93,7 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "TechStore API",
+        Title = "Hytel Phones API",
         Version = "v1",
         Description = "E-commerce backend for phones, tablets, smart watches and more."
     });
@@ -129,12 +130,13 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "TechStore API v1");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Hytel Phones API v1");
     c.RoutePrefix = string.Empty;
 });
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
+app.UseStaticFiles(); // serves wwwroot/uploads/images/*
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
