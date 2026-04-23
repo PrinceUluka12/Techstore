@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -16,6 +17,16 @@ using TechStore.API.Services.Interfaces;
 using TechStore.API.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Key Vault — loaded first so all subsequent config reads get vault values
+// Uses Managed Identity on App Service, falls back to local dev credentials locally
+var keyVaultUrl = builder.Configuration["KeyVault:Url"];
+if (!string.IsNullOrEmpty(keyVaultUrl))
+{
+    builder.Configuration.AddAzureKeyVault(
+        new Uri(keyVaultUrl),
+        new DefaultAzureCredential());
+}
 
 // Database — SQL Server (unchanged from your repo)
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
