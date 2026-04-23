@@ -183,8 +183,8 @@ UPDATE techstore_db.Users SET Role = 'Admin' WHERE Email = 'your@email.com';
 
 ## Business Rules
 
-- **Tax:** 13% HST (Ontario) applied automatically at checkout
-- **Free shipping:** Orders over $100 ship free; otherwise $9.99
+- **Tax:** 7.5% VAT (Nigeria) applied automatically at checkout
+- **Free shipping:** Orders over ₦100 ship free; otherwise ₦9.99
 - **Inventory reservation:** Stock reserved when order is placed; released on cancellation
 - **Soft delete:** Products are deactivated, not deleted
 - **Order number format:** `TS-YYYYMMDD-XXXXXX`

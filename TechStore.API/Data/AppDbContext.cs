@@ -18,7 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Review> Reviews => Set<Review>();
-    public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();  // ← new
+    public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();  // ← NEW
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -57,7 +57,7 @@ public class AppDbContext : DbContext
             e.Property(o => o.SubTotal).HasColumnType("decimal(18,2)");
             e.Property(o => o.Tax).HasColumnType("decimal(18,2)");
             e.Property(o => o.ShippingCost).HasColumnType("decimal(18,2)");
-            e.Property(o => o.DiscountAmount).HasColumnType("decimal(18,2)");
+            //e.Property(o => o.DiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(o => o.Total).HasColumnType("decimal(18,2)");
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.PaymentStatus).HasConversion<string>();
@@ -76,7 +76,7 @@ public class AppDbContext : DbContext
                 .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Restrict);
         });
 
-        // OrderStatusLog ← new
+        // OrderStatusLog ← NEW
         builder.Entity<OrderStatusLog>(e =>
         {
             e.Property(l => l.FromStatus).HasConversion<string>();

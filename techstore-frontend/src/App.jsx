@@ -16,7 +16,6 @@ import AdminOrders from './pages/admin/AdminOrders'
 import AdminInventory from './pages/admin/AdminInventory'
 import { AdminUsers, AdminReports } from './pages/admin/AdminUsersReports'
 import AdminImages from './pages/admin/AdminImages'
-import AdminCoupons from './pages/admin/AdminCoupons'
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 function RequireAuth({ children }) {
@@ -79,7 +78,6 @@ export default function App() {
         <Route path="/admin/users"      element={<RequireAdmin><AdminUsers /></RequireAdmin>} />
         <Route path="/admin/reports"    element={<RequireAdmin><AdminReports /></RequireAdmin>} />
         <Route path="/admin/images"     element={<RequireAdmin><AdminImages /></RequireAdmin>} />
-        <Route path="/admin/coupons"    element={<RequireAdmin><AdminCoupons /></RequireAdmin>} />
 
         {/* ── 404 ── */}
         <Route path="*" element={

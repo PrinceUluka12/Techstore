@@ -75,11 +75,11 @@ export const inventoryApi = {
 
 // ── Images ────────────────────────────────────────────────────────────────────
 export const imageApi = {
-  upload: (formData) => api.post('/uploads/images/upload', formData, {
+  upload: (formData) => api.post('/images/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  getAll:  ()         => api.get('/uploads/images'),
-  delete:  (fileName) => api.delete(`/uploads/images/${encodeURIComponent(fileName)}`),
+  getAll:  ()         => api.get('/images'),
+  delete:  (fileName) => api.delete(`/images/${encodeURIComponent(fileName)}`),
 }
 
 
@@ -89,16 +89,6 @@ export const reviewApi = {
   getSummary:   (productId)    => api.get(`/reviews/product/${productId}/summary`),
   create:       (data)         => api.post('/reviews', data),
   delete:       (id)           => api.delete(`/reviews/${id}`),
-}
-
-// ── Coupons ───────────────────────────────────────────────────────────────────
-export const couponApi = {
-  validate:  (code, subTotal) => api.post('/coupons/validate', { code, subTotal }),
-  getAll:    (p)              => api.get('/coupons', { params: p }),
-  getById:   (id)             => api.get(`/coupons/${id}`),
-  create:    (data)           => api.post('/coupons', data),
-  update:    (id, data)       => api.put(`/coupons/${id}`, data),
-  delete:    (id)             => api.delete(`/coupons/${id}`),
 }
 
 export const adminApi = {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Package, ArrowLeft, ChevronRight, Tag } from 'lucide-react'
+import { Package, ArrowLeft, ChevronRight } from 'lucide-react'
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { StatusBadge, LoadingPage, EmptyState, Pagination } from '../../components/ui'
@@ -116,15 +116,6 @@ export function OrderDetailPage() {
               <h2 className="font-semibold mb-3">Order Summary</h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toFixed(2)}</span></div>
-                {order.discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-medium">
-                    <span className="flex items-center gap-1">
-                      <Tag className="w-3 h-3" />
-                      {order.couponCode ?? 'Discount'}
-                    </span>
-                    <span>-₦{order.discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between text-surface-500"><span>Tax</span><span>₦{order.tax.toFixed(2)}</span></div>
                 <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toFixed(2)}</span></div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-surface-100 text-base">

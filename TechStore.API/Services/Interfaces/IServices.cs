@@ -1,12 +1,9 @@
 ﻿using TechStore.API.DTOs.Admin;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
-using TechStore.API.DTOs.Coupon;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
-using TechStore.API.DTOs.Review;
-using TechStore.API.Models;
 
 namespace TechStore.API.Services.Interfaces;
 
@@ -14,9 +11,6 @@ public interface IAuthService
 {
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<AuthResponse> LoginAsync(LoginRequest request);
-    Task<AuthResponse> RefreshTokenAsync(string token);
-    Task LogoutAsync(int userId, string? token = null);
-    Task LogoutEverywhereAsync(int userId);
     Task<UserProfileDto?> GetProfileAsync(int userId);
     Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileRequest request);
 }
@@ -42,7 +36,7 @@ public interface IOrderService
     Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
-    Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId);  // ← new
+    Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId);
 }
 
 public interface ICartService
@@ -76,29 +70,4 @@ public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int Page
     public int TotalPages => (int)Math.Ceiling((double)Total / PageSize);
     public bool HasNext => Page < TotalPages;
     public bool HasPrev => Page > 1;
-}
-
-public interface ICouponService
-{
-    Task<CouponDto?> GetByIdAsync(int id);
-    Task<CouponDto?> GetByCodeAsync(string code);
-    Task<PublicCouponDto?> GetPublicByCodeAsync(string code);
-    Task<PagedResult<CouponListDto>> GetAllAsync(int page, int pageSize, bool? isActive);
-    Task<CouponDto> CreateAsync(CreateCouponRequest request);
-    Task<CouponDto?> UpdateAsync(int id, UpdateCouponRequest request);
-    Task<bool> DeleteAsync(int id);
-    Task IncrementUsageAsync(int couponId);
-    Task<(bool IsValid, string? ErrorMessage, decimal DiscountAmount, Coupon? CouponEntity)> ValidateAndCalculateDiscountAsync(string code, decimal subTotal);
-}
-
-public interface IReviewService
-{
-    Task<ReviewDto?> GetByIdAsync(int id);
-    Task<PagedResult<ReviewDto>> GetByProductIdAsync(int productId, int page, int pageSize);
-    Task<ProductReviewsSummaryDto> GetProductSummaryAsync(int productId);
-    Task<ReviewDto> CreateAsync(int userId, CreateReviewRequest request);
-    Task<bool> DeleteAsync(int id, int userId);
-    Task<PagedResult<ReviewDto>> GetAllAsync(int page, int pageSize, bool? isApproved);
-    Task<bool> ApproveAsync(int id);
-    Task<bool> RejectAsync(int id);
 }

@@ -34,10 +34,7 @@ public class Order
     public decimal SubTotal { get; set; }
     public decimal Tax { get; set; }
     public decimal ShippingCost { get; set; }
-    public decimal DiscountAmount { get; set; }
     public decimal Total { get; set; }
-
-    public string? CouponCode { get; set; }
 
     // Shipping address snapshot
     public string ShippingFirstName { get; set; } = string.Empty;
@@ -46,7 +43,7 @@ public class Order
     public string ShippingCity { get; set; } = string.Empty;
     public string ShippingProvince { get; set; } = string.Empty;
     public string ShippingPostalCode { get; set; } = string.Empty;
-    public string ShippingCountry { get; set; } = "Canada";
+    public string ShippingCountry { get; set; } = "Nigeria";
     public string? ShippingPhone { get; set; }
 
     public string? Notes { get; set; }

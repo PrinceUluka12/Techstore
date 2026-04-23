@@ -18,7 +18,11 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
             .MinimumLength(8)
             .Matches(@"[A-Z]").WithMessage("Password must contain at least one uppercase letter.")
             .Matches(@"[0-9]").WithMessage("Password must contain at least one digit.");
-        RuleFor(x => x.Phone).MaximumLength(20).When(x => x.Phone != null);
+        RuleFor(x => x.Phone)
+            .MaximumLength(20)
+            .Matches(@"^(\+234|0)[789]\d{9}$")
+            .WithMessage("Enter a valid Nigerian phone number (e.g. 08012345678).")
+            .When(x => x.Phone != null);
     }
 }
 
@@ -38,9 +42,10 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.SKU).NotEmpty().MaximumLength(50);
         RuleFor(x => x.Price).GreaterThan(0);
-        RuleFor(x => x.CompareAtPrice).GreaterThan(x => x.Price)
+        RuleFor(x => x.CompareAtPrice)
+            .GreaterThan(x => x.Price)
             .When(x => x.CompareAtPrice.HasValue)
-            .WithMessage("Compare-at price must be greater than sale price.");
+            .WithMessage("Compare-at price must be greater than the sale price.");
         RuleFor(x => x.CategoryId).GreaterThan(0);
         RuleFor(x => x.InitialStock).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(1);
@@ -49,17 +54,33 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
 
 public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 {
+    // Valid Nigerian payment methods accepted by the system
+    private static readonly string[] ValidPaymentMethods = { "Card", "BankTransfer" };
+
     public CreateOrderRequestValidator()
     {
         RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50);
         RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50);
         RuleFor(x => x.ShippingAddress).NotEmpty().MaximumLength(200);
         RuleFor(x => x.ShippingCity).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.ShippingProvince).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.ShippingPostalCode).NotEmpty()
-            .Matches(@"^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$")
-            .WithMessage("Enter a valid Canadian postal code (e.g. M5V 2T6).");
+
+        // Province = State in Nigeria
+        RuleFor(x => x.ShippingProvince)
+            .NotEmpty().WithMessage("State is required.")
+            .MaximumLength(50);
+
+        // Nigerian postal code — 6 digits (e.g. 100001 for Lagos Island)
+        RuleFor(x => x.ShippingPostalCode)
+            .NotEmpty()
+            .Matches(@"^\d{6}$")
+            .WithMessage("Enter a valid Nigerian postal code (6 digits, e.g. 100001).");
+
         RuleFor(x => x.ShippingCountry).NotEmpty().MaximumLength(50);
+
+        // Validate payment method when provided
+        RuleFor(x => x.PaymentMethod)
+            .Must(m => m == null || ValidPaymentMethods.Contains(m))
+            .WithMessage($"Payment method must be one of: {string.Join(", ", ValidPaymentMethods)}.");
     }
 }
 

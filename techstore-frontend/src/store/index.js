@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { couponApi } from '../services/api'
+
 
 // ── Auth Store ────────────────────────────────────────────────────────────────
 export const useAuthStore = create(

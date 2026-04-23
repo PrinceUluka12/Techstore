@@ -1,69 +1,20 @@
-# TechStore 🛍️
+# TechStore API — .NET 8 + MySQL Backend
 
-A full-stack e-commerce platform for phones, tablets, smart watches, laptops, and accessories — built with React, .NET 8, and MySQL.
-
-![License](https://img.shields.io/badge/license-MIT-blue)
-![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql)
-
----
-
-## Overview
-
-TechStore is a production-ready e-commerce application with two parts:
-
-- **`techstore-frontend/`** — React storefront + admin dashboard
-- **`TechStore.API/`** — ASP.NET Core REST API + MySQL database
-
----
-
-## Features
-
-### Storefront
-- Product catalog with search, filter by category/price/brand, and sorting
-- Product detail pages with add-to-cart and stock indicators
-- Persistent shopping cart with a slide-out drawer
-- Checkout with Canadian postal code validation and HST calculation
-- Customer account — order history and order detail view
-- User registration and JWT-based authentication
-
-### Admin Dashboard
-- KPI cards — revenue, orders, customers, low-stock alerts
-- Revenue chart — daily revenue over the last 30 days
-- Orders by status breakdown
-- Top selling products
-- Full product CRUD — create, edit, deactivate with image and pricing
-- Order management — view details, update status through the full lifecycle
-- Inventory management — restock, adjust stock, set low-stock thresholds
-- Customer management — activate/deactivate accounts
-- Date-range sales reports with revenue and units-sold charts
+Full-stack e-commerce REST API for phones, tablets, smart watches and accessories.
 
 ---
 
 ## Tech Stack
 
-### Frontend
-| | |
-|---|---|
-| Framework | React 18 + Vite 5 |
-| Routing | React Router v6 |
-| Styling | Tailwind CSS v3 |
-| State | Zustand |
-| HTTP | Axios |
-| Forms | React Hook Form |
-| Charts | Recharts |
-| Fonts | Clash Display + DM Sans |
-
-### Backend
-| | |
+| Layer | Technology |
 |---|---|
 | Runtime | .NET 8 / ASP.NET Core Web API |
 | ORM | Entity Framework Core 8 |
-| Database | MySQL 8+ (Pomelo driver) |
-| Auth | JWT Bearer + BCrypt |
-| Validation | FluentValidation |
-| Docs | Swagger / OpenAPI |
+| Database | MySQL 8+ via Pomelo EF Core driver |
+| Auth | JWT Bearer + BCrypt password hashing |
+| Mapping | AutoMapper 12 |
+| Validation | FluentValidation 11 |
+| API Docs | Swagger / OpenAPI (Swashbuckle) |
 | Architecture | Clean Architecture — Repository + Service pattern |
 
 ---
@@ -71,69 +22,58 @@ TechStore is a production-ready e-commerce application with two parts:
 ## Project Structure
 
 ```
-Techstore/
-├── TechStore.API/
-│   ├── Controllers/         # Auth, Products, Cart, Orders, Inventory, Admin
-│   ├── Data/                # EF Core DbContext + seeded categories
-│   ├── DTOs/                # Request/response models for all features
-│   ├── Helpers/             # JWT token generation
-│   ├── Middleware/          # Global exception handler
-│   ├── Models/              # User, Product, Order, Cart, Inventory
-│   ├── Repositories/        # Data access layer (interfaces + implementations)
-│   ├── Services/            # Business logic layer
-│   ├── Validators/          # FluentValidation rules
-│   ├── Program.cs           # DI, auth, CORS, Swagger setup
-│   ├── appsettings.json     # Configuration
-│   └── db-setup.sql         # MySQL database + user creation script
-│
-├── techstore-frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── layout/      # Navbar, CartDrawer, Footer, AdminSidebar
-│   │   │   ├── shop/        # ProductCard, ProductGrid
-│   │   │   └── ui/          # Button, Modal, Input, Badge, Spinner, etc.
-│   │   ├── pages/
-│   │   │   ├── shop/        # Home, Products, ProductDetail, Auth, Orders
-│   │   │   └── admin/       # Dashboard, Products, Orders, Inventory, Users, Reports
-│   │   ├── services/        # Axios API client
-│   │   ├── store/           # Zustand auth + cart + UI stores
-│   │   ├── App.jsx          # Router + route guards
-│   │   └── index.css        # Tailwind + component classes
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── package.json
-│
-└── README.md
+TechStore.API/
+├── Controllers/
+│   └── Controllers.cs          # Auth, Products, Cart, Orders, Inventory, Admin
+├── Data/
+│   └── AppDbContext.cs          # EF Core DbContext + seeded categories
+├── DTOs/
+│   ├── Auth/                    # RegisterRequest, LoginRequest, AuthResponse
+│   ├── Product/                 # ProductDto, CreateProductRequest, SearchParams
+│   ├── Order/                   # OrderDto, CreateOrderRequest, UpdateStatusRequest
+│   ├── Cart/                    # CartDto, AddToCartRequest
+│   ├── Inventory/               # InventoryDto, AdjustStockRequest, RestockRequest
+│   └── Admin/                   # DashboardStatsDto, SalesReportDto, UserAdminDto
+├── Helpers/
+│   └── JwtHelper.cs             # Token generation + validation
+├── Middleware/
+│   └── ExceptionMiddleware.cs   # Global error handling → consistent JSON errors
+├── Models/
+│   ├── User.cs
+│   ├── Product.cs               # Product + Category
+│   ├── Order.cs                 # Order + OrderItem + enums
+│   └── Cart.cs                  # Cart + CartItem + Inventory
+├── Repositories/
+│   ├── Interfaces/IRepositories.cs
+│   └── Repositories.cs
+├── Services/
+│   ├── Interfaces/IServices.cs
+│   ├── AuthService.cs
+│   ├── ProductService.cs
+│   ├── CartService.cs
+│   ├── OrderService.cs
+│   ├── InventoryService.cs
+│   └── AdminService.cs
+├── Validators/
+│   └── Validators.cs            # FluentValidation rules
+├── Program.cs                   # DI, middleware pipeline, JWT, CORS, Swagger
+├── appsettings.json
+└── db-setup.sql                 # MySQL user + database creation script
 ```
 
 ---
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
-
-- [.NET 8 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 18+](https://nodejs.org)
-- [MySQL 8+](https://dev.mysql.com/downloads/)
-
-### 1. Clone the repo
+### 1. MySQL Setup
 
 ```bash
-git clone https://github.com/PrinceUluka12/Techstore.git
-cd Techstore
+mysql -u root -p < db-setup.sql
 ```
 
-### 2. Set up the database
+### 2. Configure `appsettings.json`
 
-```bash
-mysql -u root -p < TechStore.API/db-setup.sql
-```
-
-This creates the `techstore_db` database and a `techstore_user` account.
-
-### 3. Configure the backend
-
-Edit `TechStore.API/appsettings.json`:
+Update the connection string and JWT secret:
 
 ```json
 {
@@ -147,149 +87,130 @@ Edit `TechStore.API/appsettings.json`:
     "ExpiryHours": "24"
   },
   "Cors": {
-    "AllowedOrigins": ["http://localhost:5173"]
+    "AllowedOrigins": ["http://localhost:3000", "http://localhost:5173"]
   }
 }
 ```
 
-### 4. Run the backend
+### 3. Restore + Run
 
 ```bash
-cd TechStore.API
-dotnet ef migrations add InitialCreate
+dotnet restore
+dotnet ef migrations add InitialCreate    # First time only
 dotnet run
 ```
 
-The API starts at `http://localhost:5000`. Swagger UI is available at the root URL.  
-Tables are created automatically on first run.
+Tables are auto-created on startup. Swagger UI opens at `http://localhost:5000`.
 
-### 5. Run the frontend
+### 4. Create Admin User
 
-```bash
-cd techstore-frontend
-npm install
-npm run dev
-```
-
-Opens at `http://localhost:5173`. The dev server proxies `/api` to `http://localhost:5000` automatically.
-
-### 6. Create an admin account
-
-Register a new account through the UI, then promote it in MySQL:
+Register normally via `POST /api/auth/register`, then promote in MySQL:
 
 ```sql
 UPDATE techstore_db.Users SET Role = 'Admin' WHERE Email = 'your@email.com';
 ```
 
-The `/admin` route and all admin endpoints will now be accessible.
-
 ---
 
 ## API Reference
 
-### Auth
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | — | Register new account |
-| POST | `/api/auth/login` | — | Login, returns JWT |
-| GET | `/api/auth/me` | ✓ | Get own profile |
-| PUT | `/api/auth/me` | ✓ | Update profile |
+### Auth — `/api/auth`
 
-### Products
 | Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/api/products` | — | Search & filter (query, categoryId, minPrice, maxPrice, brand, inStock, sortBy, page) |
-| GET | `/api/products/featured` | — | Featured products |
-| GET | `/api/products/categories` | — | All categories |
-| GET | `/api/products/:id` | — | Product detail |
-| POST | `/api/products` | Admin | Create product |
-| PUT | `/api/products/:id` | Admin | Update product |
-| DELETE | `/api/products/:id` | Admin | Deactivate product |
+|--------|----------|------|-------------|
+| POST | `/register` | — | Register new customer |
+| POST | `/login` | — | Login, returns JWT |
+| GET | `/me` | ✓ | Get own profile |
+| PUT | `/me` | ✓ | Update profile |
 
-### Cart
+### Products — `/api/products`
+
 | Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/api/cart` | ✓ | Get cart |
-| POST | `/api/cart/items` | ✓ | Add item |
-| PUT | `/api/cart/items/:id` | ✓ | Update quantity |
-| DELETE | `/api/cart/items/:id` | ✓ | Remove item |
-| DELETE | `/api/cart` | ✓ | Clear cart |
+|--------|----------|------|-------------|
+| GET | `/` | — | Search + filter products |
+| GET | `/featured` | — | Featured products |
+| GET | `/categories` | — | All categories |
+| GET | `/category/{id}` | — | Products by category |
+| GET | `/{id}` | — | Product detail |
+| POST | `/` | Admin | Create product |
+| PUT | `/{id}` | Admin | Update product |
+| DELETE | `/{id}` | Admin | Deactivate product |
 
-### Orders
+**Search query params:** `query`, `categoryId`, `minPrice`, `maxPrice`, `brand`, `inStock`, `sortBy`, `sortDir`, `page`, `pageSize`
+
+### Cart — `/api/cart`
+
 | Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| GET | `/api/orders/my` | ✓ | My order history |
-| POST | `/api/orders/checkout` | ✓ | Place order from cart |
-| GET | `/api/orders/:id` | ✓ | Order detail |
-| GET | `/api/orders` | Admin | All orders |
-| PUT | `/api/orders/:id/status` | Admin | Update order status |
+|--------|----------|------|-------------|
+| GET | `/` | ✓ | Get user's cart |
+| POST | `/items` | ✓ | Add item |
+| PUT | `/items/{itemId}` | ✓ | Update quantity |
+| DELETE | `/items/{itemId}` | ✓ | Remove item |
+| DELETE | `/` | ✓ | Clear cart |
 
-### Inventory *(Admin)*
+### Orders — `/api/orders`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/my` | ✓ | My order history |
+| POST | `/checkout` | ✓ | Place order from cart |
+| GET | `/{id}` | ✓ | Get order detail |
+| GET | `/` | Admin | All orders (filterable by status) |
+| PUT | `/{id}/status` | Admin | Update order status |
+
+**Order statuses:** `Pending → Confirmed → Processing → Shipped → Delivered` or `Cancelled / Refunded`
+
+### Inventory — `/api/inventory` *(Admin only)*
+
 | Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/inventory/low-stock` | All low-stock items |
-| POST | `/api/inventory/product/:id/restock` | Add stock |
-| POST | `/api/inventory/product/:id/adjust` | Adjust stock (±) |
-| PUT | `/api/inventory/product/:id/threshold` | Update alert threshold |
+|--------|----------|-------------|
+| GET | `/product/{productId}` | Get inventory for product |
+| GET | `/low-stock` | All low-stock items |
+| POST | `/product/{productId}/adjust` | Adjust stock (±) |
+| POST | `/product/{productId}/restock` | Add stock + update timestamp |
+| PUT | `/product/{productId}/threshold` | Update low-stock threshold |
 
-### Admin *(Admin)*
+### Admin — `/api/admin` *(Admin only)*
+
 | Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/admin/dashboard` | KPIs + charts data |
-| GET | `/api/admin/reports/sales` | Sales report (from/to params) |
-| GET | `/api/admin/users` | Customer list |
-| PUT | `/api/admin/users/:id/toggle` | Activate / deactivate user |
+|--------|----------|-------------|
+| GET | `/dashboard` | KPIs: revenue, orders, customers, top products |
+| GET | `/reports/sales?from=&to=` | Sales report for date range |
+| GET | `/users` | Paginated user list with spend totals |
+| PUT | `/users/{userId}/toggle` | Activate / deactivate user |
 
 ---
 
 ## Business Rules
 
-- **Tax:** 13% Ontario HST applied at checkout
-- **Shipping:** Free on orders over $100, otherwise $9.99
-- **Inventory:** Stock is reserved when an order is placed and released on cancellation
+- **Tax:** 7.5% VAT (Nigeria) applied automatically at checkout
+- **Free shipping:** Orders over ₦100 ship free; otherwise ₦9.99
+- **Inventory reservation:** Stock reserved when order is placed; released on cancellation
+- **Soft delete:** Products are deactivated, not deleted
 - **Order number format:** `TS-YYYYMMDD-XXXXXX`
-- **Soft delete:** Products are deactivated, not permanently deleted
-- **Roles:** `Customer` (default) and `Admin`
 
 ---
 
-## Environment Variables
-
-For production, use environment variables instead of editing `appsettings.json`:
+## EF Core Migrations
 
 ```bash
-ConnectionStrings__DefaultConnection="Server=...;Database=techstore_db;..."
-Jwt__Secret="your-production-secret-min-32-chars"
-Jwt__ExpiryHours="12"
-```
-
-For the frontend, create a `.env` file:
-
-```env
-VITE_API_BASE_URL=https://your-api-domain.com/api
-```
-
-And update `src/services/api.js` to use `import.meta.env.VITE_API_BASE_URL`.
-
----
-
-## Database Migrations
-
-```bash
-cd TechStore.API
-
-# Create a new migration after model changes
+# Add a new migration
 dotnet ef migrations add <MigrationName>
 
 # Apply to database
 dotnet ef database update
 
-# Rollback to a previous migration
+# Rollback
 dotnet ef database update <PreviousMigrationName>
 ```
 
 ---
 
-## License
+## Environment Variables (Production)
 
-MIT — free to use, modify, and distribute.
+Use environment variables or Docker secrets instead of appsettings for production:
+
+```bash
+ConnectionStrings__DefaultConnection="..."
+Jwt__Secret="your-production-secret"
+```

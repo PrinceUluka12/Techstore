@@ -15,7 +15,6 @@ public class OrderService : IOrderService
     private readonly ICartRepository _carts;
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
-    private readonly ICouponService _coupons;
     private readonly AppDbContext _db;
     private readonly IHttpContextAccessor _http;
 
@@ -24,17 +23,15 @@ public class OrderService : IOrderService
         ICartRepository carts,
         IInventoryRepository inventory,
         IUserRepository users,
-        ICouponService coupons,
         AppDbContext db,
         IHttpContextAccessor http)
     {
-        _orders = orders;
-        _carts = carts;
+        _orders    = orders;
+        _carts     = carts;
         _inventory = inventory;
-        _users = users;
-        _coupons = coupons;
-        _db = db;
-        _http = http;
+        _users     = users;
+        _db        = db;
+        _http      = http;
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -74,67 +71,44 @@ public class OrderService : IOrderService
 
         var orderItems = cart.Items.Select(i => new OrderItem
         {
-            ProductId = i.ProductId,
+            ProductId   = i.ProductId,
             ProductName = i.Product?.Name ?? "",
-            ProductSKU = i.Product?.SKU,
-            UnitPrice = i.Product?.Price ?? 0,
-            Quantity = i.Quantity,
-            LineTotal = (i.Product?.Price ?? 0) * i.Quantity
+            ProductSKU  = i.Product?.SKU,
+            UnitPrice   = i.Product?.Price ?? 0,
+            Quantity    = i.Quantity,
+            LineTotal   = (i.Product?.Price ?? 0) * i.Quantity
         }).ToList();
 
         var subTotal = orderItems.Sum(i => i.LineTotal);
-
-        decimal discountAmount = 0;
-        int? appliedCouponId = null;
-        string? appliedCouponCode = null;
-
-        if (!string.IsNullOrWhiteSpace(req.CouponCode))
-        {
-            var (isValid, errorMessage, discount, couponEntity) =
-                await _coupons.ValidateAndCalculateDiscountAsync(req.CouponCode, subTotal);
-
-            if (!isValid)
-                throw new InvalidOperationException(errorMessage ?? "Invalid coupon code.");
-
-            discountAmount = discount;
-            appliedCouponId = couponEntity!.Id;
-            appliedCouponCode = couponEntity.Code;
-        }
-
-        var tax = Math.Round(subTotal * 0.075m, 2); // Nigeria VAT (7.5%)
+        var tax      = Math.Round(subTotal * 0.075m, 2); // Nigeria VAT (7.5%)
         var shipping = subTotal >= 100 ? 0 : 9.99m;      // Free shipping over ₦100
-        var total = subTotal - discountAmount + tax + shipping;
+        var total    = subTotal + tax + shipping;
 
         var order = new Order
         {
-            OrderNumber = GenerateOrderNumber(),
-            UserId = userId,
-            Status = OrderStatus.Pending,
-            PaymentStatus = PaymentStatus.Pending,
-            PaymentMethod = req.PaymentMethod,
-            TransactionId = req.TransactionId,
-            SubTotal = subTotal,
-            Tax = tax,
-            ShippingCost = shipping,
-            DiscountAmount = discountAmount,
-            CouponCode = appliedCouponCode,
-            Total = total,
-            ShippingFirstName = req.ShippingFirstName,
-            ShippingLastName = req.ShippingLastName,
-            ShippingAddress = req.ShippingAddress,
-            ShippingCity = req.ShippingCity,
-            ShippingProvince = req.ShippingProvince,
+            OrderNumber        = GenerateOrderNumber(),
+            UserId             = userId,
+            Status             = OrderStatus.Pending,
+            PaymentStatus      = PaymentStatus.Pending,
+            PaymentMethod      = req.PaymentMethod,
+            TransactionId      = req.TransactionId,
+            SubTotal           = subTotal,
+            Tax                = tax,
+            ShippingCost       = shipping,
+            Total              = total,
+            ShippingFirstName  = req.ShippingFirstName,
+            ShippingLastName   = req.ShippingLastName,
+            ShippingAddress    = req.ShippingAddress,
+            ShippingCity       = req.ShippingCity,
+            ShippingProvince   = req.ShippingProvince,
             ShippingPostalCode = req.ShippingPostalCode,
-            ShippingCountry = req.ShippingCountry,
-            ShippingPhone = req.ShippingPhone,
-            Notes = req.Notes,
-            Items = orderItems
+            ShippingCountry    = req.ShippingCountry,
+            ShippingPhone      = req.ShippingPhone,
+            Notes              = req.Notes,
+            Items              = orderItems
         };
 
         var created = await _orders.CreateAsync(order);
-
-        if (appliedCouponId.HasValue)
-            await _coupons.IncrementUsageAsync(appliedCouponId.Value);
 
         // Write initial status log — placed by customer
         await WriteLogAsync(created.Id, null, OrderStatus.Pending, OrderStatus.Pending,
@@ -172,8 +146,8 @@ public class OrderService : IOrderService
 
         if (req.Status == OrderStatus.Delivered && order.DeliveredAt == null)
         {
-            order.DeliveredAt = DateTime.UtcNow;
-            order.PaymentStatus = PaymentStatus.Paid;
+            order.DeliveredAt     = DateTime.UtcNow;
+            order.PaymentStatus   = PaymentStatus.Paid;
         }
 
         if (req.Status == OrderStatus.Cancelled && prevStatus != OrderStatus.Cancelled)
@@ -228,7 +202,7 @@ public class OrderService : IOrderService
         string? note,
         bool isSystem = false)
     {
-        string name = "System";
+        string name  = "System";
         string email = "system";
 
         if (!isSystem && adminUserId.HasValue)
@@ -236,21 +210,21 @@ public class OrderService : IOrderService
             var admin = await _users.GetByIdAsync(adminUserId.Value);
             if (admin != null)
             {
-                name = $"{admin.FirstName} {admin.LastName}".Trim();
+                name  = $"{admin.FirstName} {admin.LastName}".Trim();
                 email = admin.Email;
             }
         }
 
         _db.OrderStatusLogs.Add(new OrderStatusLog
         {
-            OrderId = orderId,
+            OrderId         = orderId,
             ChangedByUserId = adminUserId ?? 0,
-            ChangedByName = name,
-            ChangedByEmail = email,
-            FromStatus = from,
-            ToStatus = to,
-            Note = note,
-            ChangedAt = DateTime.UtcNow
+            ChangedByName   = name,
+            ChangedByEmail  = email,
+            FromStatus      = from,
+            ToStatus        = to,
+            Note            = note,
+            ChangedAt       = DateTime.UtcNow
         });
 
         await _db.SaveChangesAsync();
@@ -281,7 +255,7 @@ public class OrderService : IOrderService
         o.User?.Email ?? "",
         o.Status, o.PaymentStatus, o.PaymentMethod,
         BuildPaymentMethodDetails(o),
-        o.SubTotal, o.Tax, o.ShippingCost, o.DiscountAmount, o.CouponCode, o.Total,
+        o.SubTotal, o.Tax, o.ShippingCost, o.Total,
         o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
         o.ShippingPostalCode, o.ShippingCountry,
         o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,
