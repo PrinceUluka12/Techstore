@@ -21,7 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Key Vault — loaded first so all subsequent config reads get vault values
 // Uses Managed Identity on App Service, falls back to local dev credentials locally
 var keyVaultUrl = builder.Configuration["KeyVault:Url"];
-if (!string.IsNullOrEmpty(keyVaultUrl))
+if (!string.IsNullOrEmpty(keyVaultUrl) && !builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddAzureKeyVault(
         new Uri(keyVaultUrl),
