@@ -103,7 +103,7 @@ export function RegisterPage() {
           </div>
           <div className="card p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
                 <Input label="First Name" placeholder="Jane" error={errors.firstName?.message}
                   {...register('firstName', { required: 'Required' })} />
                 <Input label="Last Name" placeholder="Doe" error={errors.lastName?.message}
@@ -160,7 +160,7 @@ function PaymentSelector({ selected, onChange }) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
       {options.map(opt => (
         <button key={opt.id} type="button" onClick={() => onChange(opt.id)}
           className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150
@@ -315,7 +315,7 @@ function BankTransferDetails({ orderTotal }) {
         {bankDetails.map((row, i) => (
           <div key={row.label}
             className={`flex items-center justify-between px-4 py-3 text-sm ${i % 2 === 0 ? 'bg-surface-50' : 'bg-white'} ${i > 0 ? 'border-t border-surface-100' : ''}`}>
-            <span className="text-surface-500 flex-shrink-0 w-36">{row.label}</span>
+            <span className="text-surface-500 flex-shrink-0 w-28 sm:w-36">{row.label}</span>
             <div className="flex items-center gap-2">
               <span className="font-semibold text-surface-900">{row.value}</span>
               {row.copyable && (
@@ -505,7 +505,7 @@ export function CheckoutPage() {
                       <p className="text-xs font-medium text-surface-900 truncate">{item.productName}</p>
                       <p className="text-xs text-surface-400">× {item.quantity}</p>
                     </div>
-                    <span className="text-sm font-semibold flex-shrink-0">₦{item.lineTotal.toFixed(2)}</span>
+                    <span className="text-sm font-semibold flex-shrink-0">₦{item.lineTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 ))}
               </div>
@@ -514,23 +514,23 @@ export function CheckoutPage() {
               <div className="border-t border-surface-100 pt-3 space-y-2 text-sm">
                 <div className="flex justify-between text-surface-500">
                   <span>Subtotal</span>
-                  <span>₦{total.toFixed(2)}</span>
+                  <span>₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-surface-500">
                   <span>VAT (7.5%)</span>
-                  <span>₦{tax.toFixed(2)}</span>
+                  <span>₦{tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-surface-500">
                   <span>Shipping</span>
                   <span>
                     {shipping === 0
                       ? <span className="text-emerald-600 font-medium">Free</span>
-                      : `₦${shipping.toFixed(2)}`}
+                      : `₦${Number(shipping).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </span>
                 </div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-surface-100">
                   <span>Total</span>
-                  <span>₦{orderTotal.toFixed(2)}</span>
+                  <span>₦{orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 

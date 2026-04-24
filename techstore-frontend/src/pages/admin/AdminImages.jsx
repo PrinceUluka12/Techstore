@@ -71,7 +71,7 @@ export default function AdminImages() {
       <div className="space-y-6 max-w-[1400px]">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold">Image Library</h1>
             <p className="text-surface-400 text-sm mt-0.5">{images.length} images</p>
@@ -80,7 +80,8 @@ export default function AdminImages() {
             <Link to="/admin/products" className="btn-secondary text-sm">← Products</Link>
             <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-primary gap-2">
               {uploading ? <Spinner size="sm" /> : <Upload className="w-4 h-4" />}
-              Upload Images
+              <span className="hidden sm:inline">Upload Images</span>
+              <span className="sm:hidden">Upload</span>
             </button>
           </div>
           <input ref={fileRef} type="file" multiple accept="image/*" className="hidden"
@@ -93,7 +94,7 @@ export default function AdminImages() {
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => !uploading && fileRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all duration-200
+          className={`border-2 border-dashed rounded-2xl p-6 sm:p-10 text-center cursor-pointer transition-all duration-200
             ${dragOver ? 'border-brand-400 bg-brand-50' : 'border-surface-200 hover:border-brand-300 hover:bg-surface-50'}`}>
           {uploading ? (
             <div className="flex flex-col items-center gap-3">
@@ -139,8 +140,8 @@ export default function AdminImages() {
                     alt={img.fileName}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                  {/* Hover overlay — desktop only */}
+                  <div className="hidden sm:flex absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                     <button onClick={() => copyUrl(img.url, img.fileName)}
                       className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md hover:bg-brand-50 transition-colors"
                       title="Copy URL">
@@ -154,6 +155,12 @@ export default function AdminImages() {
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </button>
                   </div>
+                  {/* Mobile delete button — always visible */}
+                  <button onClick={() => handleDelete(img)}
+                    className="sm:hidden absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center shadow"
+                    title="Delete">
+                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                  </button>
                 </div>
 
                 {/* Info */}

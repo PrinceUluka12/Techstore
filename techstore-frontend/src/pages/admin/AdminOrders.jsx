@@ -223,11 +223,11 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                 <div>
                   <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Order Total</p>
                   <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                    <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                     <div className="flex justify-between font-bold text-surface-900 border-t border-surface-100 pt-2 mt-2">
-                      <span>Total</span><span>₦{order.total.toFixed(2)}</span>
+                      <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   </div>
                 </div>
@@ -252,8 +252,8 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                         <p className="text-xs text-surface-400 font-mono">{item.productSKU}</p>
                       </div>
                       <div className="text-right text-sm">
-                        <p className="font-semibold">₦{item.lineTotal.toFixed(2)}</p>
-                        <p className="text-xs text-surface-400">₦{item.unitPrice.toFixed(2)} × {item.quantity}</p>
+                        <p className="font-semibold">₦{item.lineTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-xs text-surface-400">₦{item.unitPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {item.quantity}</p>
                       </div>
                     </div>
                   ))}
@@ -347,7 +347,7 @@ export default function AdminOrders() {
                   <td><span className="text-sm font-medium">{o.customerName}</span></td>
                   <td><span className="text-sm text-surface-500">{format(new Date(o.createdAt), 'MMM d, yyyy')}</span></td>
                   <td><span className="text-sm text-surface-500">{o.itemCount} items</span></td>
-                  <td><span className="font-semibold">₦{o.total.toFixed(2)}</span></td>
+                  <td><span className="font-semibold">₦{o.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
                   <td><StatusBadge status={o.status} /></td>
                   <td><StatusBadge status={o.paymentStatus} /></td>
                   <td>

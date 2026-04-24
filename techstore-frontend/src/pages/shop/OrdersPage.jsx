@@ -46,7 +46,7 @@ export function MyOrdersPage() {
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
                   <StatusBadge status={order.status} />
-                  <span className="font-semibold text-surface-900 whitespace-nowrap">₦{order.total.toFixed(2)}</span>
+                  <span className="font-semibold text-surface-900 whitespace-nowrap">₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   <ChevronRight className="w-4 h-4 text-surface-300 group-hover:text-surface-600 transition-colors flex-shrink-0" />
                 </div>
               </Link>
@@ -102,9 +102,9 @@ export function OrderDetailPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium">{item.productName}</p>
                       <p className="text-xs text-surface-400">{item.productSKU}</p>
-                      <p className="text-xs text-surface-500 mt-1">₦{item.unitPrice.toFixed(2)} × {item.quantity}</p>
+                      <p className="text-xs text-surface-500 mt-1">₦{item.unitPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {item.quantity}</p>
                     </div>
-                    <p className="font-semibold text-sm">₦{item.lineTotal.toFixed(2)}</p>
+                    <p className="font-semibold text-sm">₦{item.lineTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 ))}
               </div>
@@ -115,11 +115,11 @@ export function OrderDetailPage() {
             <div className="card p-5">
               <h2 className="font-semibold mb-3">Order Summary</h2>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toFixed(2)}</span></div>
-                <div className="flex justify-between text-surface-500"><span>Tax</span><span>₦{order.tax.toFixed(2)}</span></div>
-                <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toFixed(2)}</span></div>
+                <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between text-surface-500"><span>Tax</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-surface-100 text-base">
-                  <span>Total</span><span>₦{order.total.toFixed(2)}</span>
+                  <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>

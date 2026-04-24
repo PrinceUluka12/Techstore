@@ -116,7 +116,20 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-surface-100 bg-white py-3 px-4 animate-fade-in">
+        <div className="md:hidden border-t border-surface-100 bg-white py-3 px-4 animate-fade-in space-y-1">
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 pointer-events-none" />
+            <input
+              className="input pl-9 text-sm"
+              placeholder="Search products…"
+              onKeyDown={e => {
+                if (e.key === 'Enter' && e.target.value.trim()) {
+                  navigate(`/products?query=${encodeURIComponent(e.target.value.trim())}`)
+                  setMenuOpen(false)
+                }
+              }}
+            />
+          </div>
           {navLinks.map(l => (
             <Link key={l.to} to={l.to} onClick={() => setMenuOpen(false)}
               className="block py-2.5 text-sm text-surface-700 hover:text-brand-600">
@@ -182,8 +195,8 @@ export function CartDrawer() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-surface-900 truncate">{item.productName}</p>
-                <p className="text-xs text-surface-400">₦{item.unitPrice.toFixed(2)} × {item.quantity}</p>
-                <p className="text-sm font-semibold text-brand-600">₦{item.lineTotal.toFixed(2)}</p>
+                <p className="text-xs text-surface-400">₦{item.unitPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {item.quantity}</p>
+                <p className="text-sm font-semibold text-brand-600">₦{item.lineTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
               <button onClick={() => handleRemove(item.id)} disabled={loadingItem === item.id}
                 className="btn-icon text-surface-400 hover:text-red-500 self-start">
@@ -198,7 +211,7 @@ export function CartDrawer() {
           <div className="p-5 border-t border-surface-100 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-surface-500">Subtotal</span>
-              <span className="font-semibold">₦{total.toFixed(2)}</span>
+              <span className="font-semibold">₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <p className="text-xs text-surface-400">Tax + shipping calculated at checkout</p>
             <button onClick={handleCheckout} className="btn-primary w-full btn-lg">

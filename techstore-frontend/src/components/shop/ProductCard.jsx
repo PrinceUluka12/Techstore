@@ -52,11 +52,12 @@ export function ProductCard({ product }) {
           )}
           {outOfStock && <span className="badge-gray text-[10px]">Out of stock</span>}
         </div>
-        {/* Wishlist */}
+        {/* Wishlist — always visible on mobile, hover-reveal on desktop */}
         <button onClick={e => { e.preventDefault(); setWished(v => !v) }}
           className={clsx(
-            'absolute top-3 right-3 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200',
-            wished && 'opacity-100'
+            'absolute top-3 right-3 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center transition-all duration-200',
+            'opacity-100 sm:opacity-0 sm:group-hover:opacity-100',
+            wished && 'sm:opacity-100'
           )}>
           <Heart className={clsx('w-3.5 h-3.5', wished ? 'fill-red-500 text-red-500' : 'text-surface-400')} />
         </button>
@@ -82,7 +83,7 @@ export function ProductCard({ product }) {
           <Price value={product.price} compare={product.compareAtPrice} />
           <button onClick={addToCart} disabled={loading || outOfStock}
             className={clsx(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+              'flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
               outOfStock
                 ? 'bg-surface-100 text-surface-400 cursor-not-allowed'
                 : inCart

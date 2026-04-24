@@ -252,10 +252,10 @@ export default function AdminCoupons() {
                         {c.type === 'Percentage' ? 'Percentage' : 'Fixed'}
                       </td>
                       <td className="px-4 py-3 font-medium">
-                        {c.type === 'Percentage' ? `${c.value}%` : `₦${c.value.toFixed(2)}`}
+                        {c.type === 'Percentage' ? `${c.value}%` : `₦${c.value.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       </td>
                       <td className="px-4 py-3 text-surface-500">
-                        {c.minimumOrderAmount ? `₦${c.minimumOrderAmount.toFixed(2)}` : '—'}
+                        {c.minimumOrderAmount ? `₦${c.minimumOrderAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                       </td>
                       <td className="px-4 py-3 text-surface-500">
                         {c.usageLimit ? `${c.usedCount}/${c.usageLimit}` : `${c.usedCount} uses`}

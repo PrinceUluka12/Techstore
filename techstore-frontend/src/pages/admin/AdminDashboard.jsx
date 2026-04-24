@@ -42,7 +42,7 @@ function RecentOrdersTable({ orders }) {
             <p className="text-xs text-surface-400 truncate">{o.customerName}</p>
           </div>
           <div className="text-right flex-shrink-0 space-y-0.5">
-            <p className="text-sm font-semibold text-surface-900">₦{Number(o.total).toFixed(2)}</p>
+            <p className="text-sm font-semibold text-surface-900">₦{Number(o.total).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             <StatusBadge status={o.status} />
           </div>
         </div>
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
           <StatCard
             label="Total Revenue"
             value={`₦${Number(s.totalRevenue).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            sub={`₦${Number(s.monthRevenue).toFixed(2)} this month`}
+            sub={`₦${Number(s.monthRevenue).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} this month`}
             icon={DollarSign} color="brand"
           />
           <StatCard
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
                   tickFormatter={v => `₦${v}`} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 24px rgba(0,0,0,.12)', fontSize: 13 }}
-                  formatter={v => [`₦${Number(v).toFixed(2)}`, 'Revenue']}
+                  formatter={v => [`₦${Number(v).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
                   labelFormatter={l => `Date: ${l}`}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#2d52ff" strokeWidth={2}
@@ -251,8 +251,8 @@ export default function AdminDashboard() {
                 <BarChart data={s.ordersByStatus} layout="vertical" margin={{ left: 0, right: 16 }}>
                   <XAxis type="number" tick={{ fontSize: 11, fill: '#a1a1aa' }}
                     tickLine={false} axisLine={false} allowDecimals={false} />
-                  <YAxis dataKey="status" type="category" tick={{ fontSize: 11, fill: '#71717a' }}
-                    width={80} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="status" type="category" tick={{ fontSize: 10, fill: '#71717a' }}
+                    width={70} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ borderRadius: 10, border: 'none', fontSize: 12 }}
                     formatter={v => [v, 'Orders']} />
                   <Bar dataKey="count" radius={[0, 6, 6, 0]}>
@@ -289,7 +289,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <span className="text-sm font-semibold text-surface-900 flex-shrink-0">
-                      ${Number(p.revenue).toFixed(0)}
+                      ₦{Number(p.revenue).toLocaleString('en-NG', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </span>
                   </div>
                 ))}

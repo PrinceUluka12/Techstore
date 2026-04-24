@@ -140,6 +140,11 @@ function ImageGallery({ imageUrl, name }) {
     setPos({ x, y })
   }
 
+  const handleTap = () => {
+    setZoomed(v => !v)
+    if (!zoomed) setPos({ x: 50, y: 50 })
+  }
+
   if (!imageUrl) return (
     <div className="aspect-square bg-surface-50 rounded-2xl flex items-center justify-center">
       <Package className="w-24 h-24 text-surface-200" />
@@ -155,6 +160,7 @@ function ImageGallery({ imageUrl, name }) {
         onMouseEnter={() => setZoomed(true)}
         onMouseLeave={() => setZoomed(false)}
         onMouseMove={handleMouseMove}
+        onClick={handleTap}
       >
         <img
           src={imageUrl} alt={name}
@@ -165,8 +171,16 @@ function ImageGallery({ imageUrl, name }) {
           } : {}}
         />
         {!zoomed && (
-          <div className="absolute bottom-3 right-3 bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1.5 text-xs text-surface-600 opacity-0 group-hover:opacity-100 transition-opacity">
-            <ZoomIn className="w-3.5 h-3.5" /> Hover to zoom
+          <div className="absolute bottom-3 right-3 bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1.5 text-xs text-surface-600 opacity-0 group-hover:opacity-100 sm:transition-opacity">
+            <ZoomIn className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Hover</span>
+            <span className="sm:hidden">Tap</span>
+            <span> to zoom</span>
+          </div>
+        )}
+        {zoomed && (
+          <div className="sm:hidden absolute top-3 right-3 bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1 text-xs text-surface-600">
+            Tap to exit zoom
           </div>
         )}
       </div>
@@ -362,7 +376,7 @@ export default function ProductDetailPage() {
                   </div>
                 )}
                 <div className="flex items-baseline gap-3">
-                  <span className="text-4xl font-display font-bold text-surface-900">
+                  <span className="text-3xl sm:text-4xl font-display font-bold text-surface-900">
                     ₦{product.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   {product.compareAtPrice && product.compareAtPrice > product.price && (
@@ -488,7 +502,7 @@ export default function ProductDetailPage() {
                 { key: 'reviews',        label: `Reviews ${product.reviewCount ? `(${product.reviewCount})` : ''}` },
               ].map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
+                  className={`px-4 py-3 sm:px-6 sm:py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
                     ${activeTab === tab.key
                       ? 'border-brand-500 text-brand-600'
                       : 'border-transparent text-surface-500 hover:text-surface-900'}`}>
@@ -524,7 +538,7 @@ export default function ProductDetailPage() {
                   ].filter(r => r.value).map((row, i) => (
                     <div key={row.label}
                       className={`flex text-sm ${i % 2 === 0 ? 'bg-surface-50' : 'bg-white'}`}>
-                      <span className="w-36 flex-shrink-0 px-4 py-3 font-medium text-surface-700 border-r border-surface-200">
+                      <span className="w-24 sm:w-36 flex-shrink-0 px-4 py-3 font-medium text-surface-700 border-r border-surface-200">
                         {row.label}
                       </span>
                       <span className="px-4 py-3 text-surface-600">{row.value}</span>

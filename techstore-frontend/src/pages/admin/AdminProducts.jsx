@@ -328,8 +328,8 @@ export default function AdminProducts() {
                   <td><span className="font-mono text-xs text-surface-500 bg-surface-50 px-2 py-1 rounded-lg">{p.sku}</span></td>
                   <td><span className="badge-gray text-xs">{p.categoryName}</span></td>
                   <td>
-                    <p className="font-semibold text-surface-900">₦{p.price.toFixed(2)}</p>
-                    {p.compareAtPrice && <p className="text-xs text-surface-400 line-through">₦{p.compareAtPrice.toFixed(2)}</p>}
+                    <p className="font-semibold text-surface-900">₦{p.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    {p.compareAtPrice && <p className="text-xs text-surface-400 line-through">₦{p.compareAtPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
                   </td>
                   <td>
                     <span className={`font-medium text-sm ${(p.quantityAvailable??0)<=0?'text-red-500':(p.quantityAvailable??0)<=10?'text-amber-600':'text-emerald-600'}`}>

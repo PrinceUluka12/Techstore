@@ -141,7 +141,7 @@ export default function HomePage() {
             <div className="grid lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-0 min-h-[500px]">
 
               {/* Left */}
-              <div className="flex flex-col justify-center py-16 pr-0 lg:pr-12 border-r border-white/10">
+              <div className="flex flex-col justify-center py-10 lg:py-16 pr-0 lg:pr-12 border-r border-white/10">
                 <div className="inline-flex items-center gap-2 self-start bg-white/8 border border-white/15 rounded-full px-3 py-1.5 mb-6">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="text-white/70 text-xs font-medium">New arrivals just dropped</span>
@@ -310,8 +310,7 @@ export default function HomePage() {
               <Link key={cat.id} to={`/products?categoryId=${cat.id}`}
                 className={`group relative rounded-2xl overflow-hidden
                   hover:ring-2 hover:ring-brand-500 hover:ring-offset-2 transition-all duration-300
-                  ${i === 0 ? 'lg:row-span-2' : ''}`}
-                style={{ minHeight: i === 0 ? '340px' : '160px' }}>
+                  ${i === 0 ? 'lg:row-span-2 min-h-[200px] lg:min-h-[340px]' : 'min-h-[140px] lg:min-h-[160px]'}`}>
 
                 {/* Real photo background */}
                 <img src={cat.img} alt={cat.name}

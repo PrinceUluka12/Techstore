@@ -42,16 +42,20 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
   const widths = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={clsx('relative bg-white rounded-2xl shadow-xl w-full animate-fade-up', widths[size])}>
-        <div className="flex items-center justify-between p-6 border-b border-surface-100">
+      <div className={clsx(
+        'relative bg-white w-full shadow-xl animate-fade-up flex flex-col',
+        'rounded-t-2xl sm:rounded-2xl max-h-[92dvh] sm:max-h-[90vh]',
+        widths[size]
+      )}>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-surface-100 flex-shrink-0">
           <h2 className="font-display font-semibold text-lg">{title}</h2>
           <button onClick={onClose} className="btn-icon">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   )
@@ -142,9 +146,9 @@ export function StatCard({ label, value, sub, icon: Icon, color = 'brand', trend
         )}
       </div>
       <div>
-        <p className="text-2xl font-display font-semibold text-surface-900">{value}</p>
-        <p className="text-sm text-surface-500 mt-0.5">{label}</p>
-        {sub && <p className="text-xs text-surface-400 mt-0.5">{sub}</p>}
+        <p className="text-xl sm:text-2xl font-display font-semibold text-surface-900">{value}</p>
+        <p className="text-xs sm:text-sm text-surface-500 mt-0.5">{label}</p>
+        {sub && <p className="text-[11px] sm:text-xs text-surface-400 mt-0.5 truncate">{sub}</p>}
       </div>
     </div>
   )

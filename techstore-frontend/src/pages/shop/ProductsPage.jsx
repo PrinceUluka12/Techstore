@@ -103,7 +103,7 @@ export default function ProductsPage() {
 
         {/* Filters panel */}
         {filtersOpen && (
-          <div className="card p-5 mb-6 grid grid-cols-2 sm:grid-cols-4 gap-4 animate-fade-up">
+          <div className="card p-5 mb-6 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4 animate-fade-up">
             <div>
               <label className="label">Category</label>
               <select className="input text-sm" value={filters.categoryId} onChange={e => setFilter('categoryId', e.target.value)}>
