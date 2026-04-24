@@ -357,17 +357,17 @@ export default function ProductDetailPage() {
                   <div className="flex items-center gap-2">
                     <span className="badge bg-red-500 text-white text-xs">-{savingsPct}% OFF</span>
                     <span className="text-sm text-red-600 font-medium">
-                      You save ₦{savings.toFixed(2)}
+                      You save ₦{savings.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 )}
                 <div className="flex items-baseline gap-3">
                   <span className="text-4xl font-display font-bold text-surface-900">
-                    ₦{product.price.toFixed(2)}
+                    ₦{product.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   {product.compareAtPrice && product.compareAtPrice > product.price && (
                     <span className="text-lg text-surface-400 line-through">
-                      ₦{product.compareAtPrice.toFixed(2)}
+                      ₦{product.compareAtPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   )}
                 </div>
@@ -520,7 +520,7 @@ export default function ProductDetailPage() {
                     { label: 'Category', value: product.categoryName },
                     { label: 'Rating',   value: product.rating ? `${product.rating.toFixed(1)} / 5` : 'No ratings yet' },
                     { label: 'Stock',    value: outOfStock ? 'Out of stock' : `${product.quantityAvailable} units available` },
-                    { label: 'Price',    value: `₦${product.price.toFixed(2)}` },
+                    { label: 'Price',    value: `₦${product.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
                   ].filter(r => r.value).map((row, i) => (
                     <div key={row.label}
                       className={`flex text-sm ${i % 2 === 0 ? 'bg-surface-50' : 'bg-white'}`}>

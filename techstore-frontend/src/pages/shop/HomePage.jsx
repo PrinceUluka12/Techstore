@@ -210,7 +210,7 @@ export default function HomePage() {
                         <p className="text-white/80 text-sm font-medium truncate group-hover:text-white transition-colors">
                           {item.name}
                         </p>
-                        <p className="text-brand-400 text-xs font-semibold">₦{item.price.toFixed(2)}</p>
+                        <p className="text-brand-400 text-xs font-semibold">₦{item.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/50 flex-shrink-0 transition-colors" />
                     </Link>

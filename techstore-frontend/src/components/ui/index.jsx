@@ -98,7 +98,7 @@ export function StatusBadge({ status }) {
 
 // ── Price ─────────────────────────────────────────────────────────────────────
 export function Price({ value, compare, className }) {
-  const fmt = v => `₦${Number(v).toFixed(2)}`
+  const fmt = v => `₦${Number(v).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   return (
     <span className={clsx('flex items-baseline gap-2', className)}>
       <span className="font-semibold text-surface-900">{fmt(value)}</span>
