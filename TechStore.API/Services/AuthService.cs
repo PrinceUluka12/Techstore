@@ -12,6 +12,7 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IJwtHelper _jwt;
     private readonly IConfiguration _config;
+    private readonly IEmailService _email;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -19,12 +20,14 @@ public class AuthService : IAuthService
         IRefreshTokenRepository refreshTokens,
         IJwtHelper jwt,
         IConfiguration config,
+        IEmailService email,
         ILogger<AuthService> logger)
     {
         _users = users;
         _refreshTokens = refreshTokens;
         _jwt = jwt;
         _config = config;
+        _email = email;
         _logger = logger;
     }
 
@@ -45,6 +48,7 @@ public class AuthService : IAuthService
 
         await _users.CreateAsync(user);
         _logger.LogInformation("New user registered: {Email}", user.Email);
+        _ = _email.SendWelcomeAsync(user.Email, user.FirstName);
         return await IssueTokensAsync(user);
     }
 
@@ -229,6 +233,43 @@ public class AuthService : IAuthService
             UserId    = userId,
             ExpiresAt = DateTime.UtcNow.AddDays(expiryDays)
         };
+    }
+
+    public async Task ForgotPasswordAsync(string email)
+    {
+        var user = await _users.GetByEmailAsync(email);
+        // Always return success to prevent email enumeration
+        if (user == null || !user.IsActive) return;
+
+        var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+            .Replace("+", "-").Replace("/", "_").Replace("=", "");
+
+        user.PasswordResetToken       = token;
+        user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
+        await _users.UpdateAsync(user);
+
+        var baseUrl = _config["Email:PasswordResetBaseUrl"] ?? "https://www.pgusolutions.com/reset-password";
+        var link = $"{baseUrl}?token={token}";
+        _ = _email.SendPasswordResetAsync(user.Email, user.FirstName, link);
+        _logger.LogInformation("Password reset token issued for {Email}", email);
+    }
+
+    public async Task ResetPasswordAsync(string token, string newPassword)
+    {
+        var user = await _users.GetByResetTokenAsync(token)
+            ?? throw new InvalidOperationException("Invalid or expired reset link.");
+
+        if (user.PasswordResetTokenExpiry < DateTime.UtcNow)
+            throw new InvalidOperationException("Reset link has expired. Please request a new one.");
+
+        user.PasswordHash             = BCrypt.Net.BCrypt.HashPassword(newPassword, workFactor: 12);
+        user.PasswordResetToken       = null;
+        user.PasswordResetTokenExpiry = null;
+        await _users.UpdateAsync(user);
+
+        // Invalidate all sessions
+        await _refreshTokens.RevokeAllUserTokensAsync(user.Id);
+        _logger.LogInformation("Password reset completed for user {UserId}", user.Id);
     }
 
     private static UserProfileDto MapToProfile(User u) =>

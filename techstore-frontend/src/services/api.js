@@ -81,6 +81,8 @@ export const authApi = {
   changePassword:  (data) => api.post('/auth/change-password', data),
   getMe:           ()     => api.get('/auth/me'),
   updateMe:        (data) => api.put('/auth/me', data),
+  forgotPassword:  (data) => api.post('/auth/forgot-password', data),
+  resetPassword:   (data) => api.post('/auth/reset-password', data),
 }
 
 // ── Products ──────────────────────────────────────────────────────────────────
@@ -147,6 +149,28 @@ export const adminApi = {
   getUsers:      (p)      => api.get('/admin/users', { params: p }),
   toggleUser:    (id)     => api.put(`/admin/users/${id}/toggle`),
   promoteToAdmin:(id)     => api.put(`/admin/users/${id}/promote`),
+}
+
+// ── Coupons ───────────────────────────────────────────────────────────────────
+export const couponApi = {
+  getAll:   (p)        => api.get('/coupons', { params: p }),
+  create:   (data)     => api.post('/coupons', data),
+  update:   (id, data) => api.put(`/coupons/${id}`, data),
+  delete:   (id)       => api.delete(`/coupons/${id}`),
+  validate: (code, subTotal) => api.post('/coupons/validate', { code, subTotal }),
+}
+
+// ── Wishlist ──────────────────────────────────────────────────────────────────
+export const wishlistApi = {
+  get:    ()    => api.get('/wishlist'),
+  add:    (id)  => api.post(`/wishlist/${id}`),
+  remove: (id)  => api.delete(`/wishlist/${id}`),
+  check:  (id)  => api.get(`/wishlist/${id}/check`),
+}
+
+// ── Paystack ──────────────────────────────────────────────────────────────────
+export const paystackApi = {
+  verify: (reference) => api.post(`/payments/paystack/verify/${reference}`),
 }
 
 export default api

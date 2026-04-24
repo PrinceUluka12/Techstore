@@ -42,11 +42,49 @@ public class UserRepository : IUserRepository
 
     public Task<int> CountAsync() => _db.Users.CountAsync();
 
+    public Task<User?> GetByResetTokenAsync(string token) =>
+        _db.Users.FirstOrDefaultAsync(u => u.PasswordResetToken == token);
+
     public Task<int> CountNewThisMonthAsync()
     {
         var start = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
         return _db.Users.CountAsync(u => u.CreatedAt >= start);
     }
+}
+
+public class WishlistRepository : IWishlistRepository
+{
+    private readonly AppDbContext _db;
+    public WishlistRepository(AppDbContext db) => _db = db;
+
+    public async Task<IEnumerable<Wishlist>> GetByUserIdAsync(int userId) =>
+        await _db.Wishlists
+            .Include(w => w.Product)
+            .Where(w => w.UserId == userId)
+            .OrderByDescending(w => w.AddedAt)
+            .ToListAsync();
+
+    public Task<Wishlist?> GetAsync(int userId, int productId) =>
+        _db.Wishlists.FirstOrDefaultAsync(w => w.UserId == userId && w.ProductId == productId);
+
+    public async Task<Wishlist> AddAsync(Wishlist wishlist)
+    {
+        _db.Wishlists.Add(wishlist);
+        await _db.SaveChangesAsync();
+        return wishlist;
+    }
+
+    public async Task<bool> RemoveAsync(int userId, int productId)
+    {
+        var item = await GetAsync(userId, productId);
+        if (item == null) return false;
+        _db.Wishlists.Remove(item);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public Task<bool> ExistsAsync(int userId, int productId) =>
+        _db.Wishlists.AnyAsync(w => w.UserId == userId && w.ProductId == productId);
 }
 
 public class ProductRepository : IProductRepository

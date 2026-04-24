@@ -6,6 +6,7 @@ using TechStore.API.DTOs.Order;
 using TechStore.API.Models;
 using TechStore.API.Repositories.Interfaces;
 using TechStore.API.Services.Interfaces;
+using TechStore.API.DTOs.Coupon;
 
 namespace TechStore.API.Services;
 
@@ -15,23 +16,29 @@ public class OrderService : IOrderService
     private readonly ICartRepository _carts;
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
+    private readonly ICouponRepository _coupons;
     private readonly AppDbContext _db;
     private readonly IHttpContextAccessor _http;
+    private readonly IEmailService _email;
 
     public OrderService(
         IOrderRepository orders,
         ICartRepository carts,
         IInventoryRepository inventory,
         IUserRepository users,
+        ICouponRepository coupons,
         AppDbContext db,
-        IHttpContextAccessor http)
+        IHttpContextAccessor http,
+        IEmailService email)
     {
         _orders    = orders;
         _carts     = carts;
         _inventory = inventory;
         _users     = users;
+        _coupons   = coupons;
         _db        = db;
         _http      = http;
+        _email     = email;
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -80,9 +87,31 @@ public class OrderService : IOrderService
         }).ToList();
 
         var subTotal = orderItems.Sum(i => i.LineTotal);
-        var tax      = Math.Round(subTotal * 0.075m, 2); // Nigeria VAT (7.5%)
-        var shipping = subTotal >= 100 ? 0 : 9.99m;      // Free shipping over ₦100
-        var total    = subTotal + tax + shipping;
+
+        // Validate and apply coupon if provided
+        decimal discount = 0;
+        Coupon? appliedCoupon = null;
+        if (!string.IsNullOrWhiteSpace(req.CouponCode))
+        {
+            appliedCoupon = await _coupons.GetByCodeAsync(req.CouponCode.ToUpper());
+            if (appliedCoupon != null && appliedCoupon.IsActive &&
+                (appliedCoupon.ValidFrom == null || appliedCoupon.ValidFrom <= DateTime.UtcNow) &&
+                (appliedCoupon.ValidTo == null || appliedCoupon.ValidTo >= DateTime.UtcNow) &&
+                (appliedCoupon.UsageLimit == null || appliedCoupon.UsedCount < appliedCoupon.UsageLimit) &&
+                (appliedCoupon.MinimumOrderAmount == null || subTotal >= appliedCoupon.MinimumOrderAmount))
+            {
+                discount = appliedCoupon.Type == DiscountType.Percentage
+                    ? Math.Round(subTotal * appliedCoupon.Value / 100, 2)
+                    : appliedCoupon.Value;
+
+                if (appliedCoupon.MaximumDiscountAmount.HasValue)
+                    discount = Math.Min(discount, appliedCoupon.MaximumDiscountAmount.Value);
+            }
+        }
+
+        var tax      = Math.Round((subTotal - discount) * 0.075m, 2);
+        var shipping = subTotal >= 100 ? 0 : 9.99m;
+        var total    = subTotal - discount + tax + shipping;
 
         var order = new Order
         {
@@ -93,6 +122,8 @@ public class OrderService : IOrderService
             PaymentMethod      = req.PaymentMethod,
             TransactionId      = req.TransactionId,
             SubTotal           = subTotal,
+            DiscountAmount     = discount,
+            CouponCode         = appliedCoupon?.Code,
             Tax                = tax,
             ShippingCost       = shipping,
             Total              = total,
@@ -126,7 +157,13 @@ public class OrderService : IOrderService
         }
 
         await _carts.ClearAsync(userId);
-        return MapToDto(await _orders.GetByIdAsync(created.Id) ?? created);
+        // Increment coupon usage
+        if (appliedCoupon != null)
+            await _coupons.IncrementUsageAsync(appliedCoupon.Id);
+
+        var result = MapToDto(await _orders.GetByIdAsync(created.Id) ?? created);
+        _ = _email.SendOrderConfirmationAsync(user.Email, user.FirstName, result.OrderNumber, result.Total);
+        return result;
     }
 
     public async Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest req)
@@ -171,7 +208,11 @@ public class OrderService : IOrderService
         // Write audit log entry
         await WriteLogAsync(id, GetCurrentUserId(), prevStatus, req.Status, req.Notes);
 
-        return MapToDto(order);
+        var dto = MapToDto(order);
+        if (order.User?.Email != null)
+            _ = _email.SendOrderStatusUpdateAsync(order.User.Email, order.User.FirstName ?? "", dto.OrderNumber, req.Status.ToString());
+
+        return dto;
     }
 
     public async Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId)
@@ -255,7 +296,8 @@ public class OrderService : IOrderService
         o.User?.Email ?? "",
         o.Status, o.PaymentStatus, o.PaymentMethod,
         BuildPaymentMethodDetails(o),
-        o.SubTotal, o.Tax, o.ShippingCost, o.Total,
+        o.SubTotal, o.DiscountAmount, o.CouponCode,
+        o.Tax, o.ShippingCost, o.Total,
         o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
         o.ShippingPostalCode, o.ShippingCountry,
         o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,

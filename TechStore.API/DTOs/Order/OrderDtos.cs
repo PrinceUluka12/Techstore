@@ -11,8 +11,10 @@ public record OrderDto(
     OrderStatus Status,
     PaymentStatus PaymentStatus,
     string? PaymentMethod,
-    string? PaymentMethodDetails,  // e.g. "Card ending 4242" or transfer ref
+    string? PaymentMethodDetails,
     decimal SubTotal,
+    decimal DiscountAmount,
+    string? CouponCode,
     decimal Tax,
     decimal ShippingCost,
     decimal Total,
@@ -61,7 +63,8 @@ public record CreateOrderRequest(
     string? ShippingPhone,
     string? PaymentMethod,
     string? TransactionId,
-    string? Notes
+    string? Notes,
+    string? CouponCode = null
 );
 
 public record UpdateOrderStatusRequest(OrderStatus Status, string? Notes = null);

@@ -4,16 +4,18 @@ import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
 import { cartApi } from '../../services/api'
-import { useAuthStore, useCartStore, useUIStore } from '../../store'
+import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '../../store'
 import { Spinner, Price } from '../ui'
 
 export function ProductCard({ product }) {
   const { isAuthenticated } = useAuthStore()
   const { setCart, isInCart } = useCartStore()
   const { toggleCart } = useUIStore()
+  const { toggle: toggleWishlist, isInWishlist } = useWishlistStore()
   const [loading, setLoading] = useState(false)
-  const [wished, setWished] = useState(false)
+  const [wishLoading, setWishLoading] = useState(false)
   const inCart = isInCart(product.id)
+  const wished = isInWishlist(product.id)
 
   const addToCart = async (e) => {
     e.preventDefault()
@@ -27,6 +29,15 @@ export function ProductCard({ product }) {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not add to cart')
     } finally { setLoading(false) }
+  }
+
+  const handleWishlist = async (e) => {
+    e.preventDefault()
+    if (!isAuthenticated) { toast.error('Please sign in to save items'); return }
+    setWishLoading(true)
+    const added = await toggleWishlist(product.id)
+    if (added !== false) toast.success(wished ? 'Removed from wishlist' : 'Saved to wishlist')
+    setWishLoading(false)
   }
 
   const outOfStock = (product.quantityAvailable ?? 1) <= 0
@@ -53,7 +64,7 @@ export function ProductCard({ product }) {
           {outOfStock && <span className="badge-gray text-[10px]">Out of stock</span>}
         </div>
         {/* Wishlist — always visible on mobile, hover-reveal on desktop */}
-        <button onClick={e => { e.preventDefault(); setWished(v => !v) }}
+        <button onClick={handleWishlist} disabled={wishLoading}
           className={clsx(
             'absolute top-3 right-3 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center transition-all duration-200',
             'opacity-100 sm:opacity-0 sm:group-hover:opacity-100',

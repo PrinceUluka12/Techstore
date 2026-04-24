@@ -45,3 +45,6 @@ public record UserProfileDto(
     string Role,
     DateTime CreatedAt
 );
+
+public record ForgotPasswordRequest(string Email);
+public record ResetPasswordRequest(string Token, string NewPassword);

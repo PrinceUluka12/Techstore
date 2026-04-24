@@ -4,7 +4,10 @@
       "Bash(grep -E \"\\\\.\\(cs\\)$\")",
       "Bash(xargs basename *)",
       "Bash(xargs grep *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet ef *)",
+      "Bash(npm install *)"
     ]
   }
 }

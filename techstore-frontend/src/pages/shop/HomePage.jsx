@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { ArrowRight, Star, ChevronRight } from 'lucide-react'
 import { productApi, cartApi } from '../../services/api'
 import { ProductGrid } from '../../components/shop/ProductCard'
@@ -123,6 +124,10 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <Helmet>
+        <title>Hytel Phones — Smartphones, Laptops & Gadgets in Nigeria</title>
+        <meta name="description" content="Shop the latest smartphones, laptops, tablets and smartwatches at Hytel Phones. Free delivery on orders over ₦100." />
+      </Helmet>
       <Navbar />
       <CartDrawer />
       <main className="flex-1">

@@ -13,11 +13,14 @@ public class User
     public bool IsActive { get; set; } = true;
     public int FailedLoginAttempts { get; set; } = 0;
     public DateTime? LockoutUntil { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpiry { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation
     public ICollection<Order> Orders { get; set; } = new List<Order>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<Wishlist> Wishlists { get; set; } = new List<Wishlist>();
     public Cart? Cart { get; set; }
 }

@@ -1,10 +1,74 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Package, ArrowLeft, ChevronRight } from 'lucide-react'
+import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw } from 'lucide-react'
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { StatusBadge, LoadingPage, EmptyState, Pagination } from '../../components/ui'
 import { format } from 'date-fns'
+
+const STATUS_ICONS = {
+  Pending:    Clock,
+  Confirmed:  CheckCircle,
+  Processing: RefreshCw,
+  Shipped:    Truck,
+  Delivered:  CheckCircle,
+  Cancelled:  XCircle,
+  Refunded:   RefreshCw,
+}
+
+const STATUS_COLORS = {
+  Pending:    'text-amber-500 bg-amber-50',
+  Confirmed:  'text-blue-500 bg-blue-50',
+  Processing: 'text-purple-500 bg-purple-50',
+  Shipped:    'text-cyan-500 bg-cyan-50',
+  Delivered:  'text-emerald-500 bg-emerald-50',
+  Cancelled:  'text-red-500 bg-red-50',
+  Refunded:   'text-surface-400 bg-surface-50',
+}
+
+function OrderTimeline({ orderId }) {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    orderApi.getHistory(orderId)
+      .then(r => setLogs(r.data))
+      .finally(() => setLoading(false))
+  }, [orderId])
+
+  if (loading) return null
+  if (!logs.length) return null
+
+  return (
+    <div className="card p-5">
+      <h2 className="font-semibold mb-4">Order Timeline</h2>
+      <div className="space-y-0">
+        {logs.map((log, i) => {
+          const Icon = STATUS_ICONS[log.toStatus] ?? Clock
+          const colorClass = STATUS_COLORS[log.toStatus] ?? 'text-surface-400 bg-surface-50'
+          return (
+            <div key={log.id} className="flex gap-3 pb-4 last:pb-0 relative">
+              {i < logs.length - 1 && (
+                <div className="absolute left-4 top-8 bottom-0 w-px bg-surface-100" />
+              )}
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${colorClass}`}>
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="flex-1 pt-0.5">
+                <p className="text-sm font-medium text-surface-900">{log.toStatus}</p>
+                {log.note && <p className="text-xs text-surface-500 mt-0.5">{log.note}</p>}
+                <p className="text-xs text-surface-400 mt-1">
+                  {format(new Date(log.changedAt), 'MMM d, yyyy · h:mm a')}
+                  {log.changedByName !== 'System' && ` · ${log.changedByName}`}
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 export function MyOrdersPage() {
   const [orders, setOrders] = useState([])
@@ -81,7 +145,7 @@ export function OrderDetailPage() {
 
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
-            <h1 className="font-display text-2xl font-semibold font-mono">{order.orderNumber}</h1>
+            <h1 className="font-mono text-2xl font-semibold">{order.orderNumber}</h1>
             <p className="text-surface-400 text-sm mt-1">{format(new Date(order.createdAt), 'MMMM d, yyyy · h:mm a')}</p>
           </div>
           <StatusBadge status={order.status} />
@@ -109,6 +173,7 @@ export function OrderDetailPage() {
                 ))}
               </div>
             </div>
+            <OrderTimeline orderId={order.id} />
           </div>
 
           <div className="space-y-4">
@@ -116,7 +181,13 @@ export function OrderDetailPage() {
               <h2 className="font-semibold mb-3">Order Summary</h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-                <div className="flex justify-between text-surface-500"><span>Tax</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                {order.discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span>
+                    <span>–₦{order.discountAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-surface-500"><span>Tax (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                 <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-surface-100 text-base">
                   <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

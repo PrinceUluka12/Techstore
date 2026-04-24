@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { couponApi, wishlistApi } from '../services/api'
 
 
 // ── Auth Store ────────────────────────────────────────────────────────────────
@@ -107,4 +108,44 @@ export const useUIStore = create(set => ({
   toggleCart:    () => set(s => ({ cartOpen: !s.cartOpen })),
   closeCart:     () => set({ cartOpen: false }),
   closeSidebar:  () => set({ sidebarOpen: false }),
+}))
+
+// ── Wishlist Store ────────────────────────────────────────────────────────────
+export const useWishlistStore = create((set, get) => ({
+  items: [],
+  loading: false,
+
+  fetch: async () => {
+    set({ loading: true })
+    try {
+      const { data } = await wishlistApi.get()
+      set({ items: data })
+    } catch { /* ignore — user may not be logged in */ }
+    finally { set({ loading: false }) }
+  },
+
+  add: async (productId) => {
+    try {
+      const { data } = await wishlistApi.add(productId)
+      set(s => ({ items: s.items.some(i => i.productId === productId) ? s.items : [...s.items, data] }))
+      return true
+    } catch { return false }
+  },
+
+  remove: async (productId) => {
+    try {
+      await wishlistApi.remove(productId)
+      set(s => ({ items: s.items.filter(i => i.productId !== productId) }))
+      return true
+    } catch { return false }
+  },
+
+  toggle: async (productId) => {
+    const inList = get().isInWishlist(productId)
+    return inList ? get().remove(productId) : get().add(productId)
+  },
+
+  isInWishlist: (productId) => get().items.some(i => i.productId === productId),
+
+  clear: () => set({ items: [] }),
 }))

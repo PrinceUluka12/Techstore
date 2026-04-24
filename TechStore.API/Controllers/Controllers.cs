@@ -107,6 +107,28 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>Send password reset email</summary>
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req)
+    {
+        await _auth.ForgotPasswordAsync(req.Email);
+        return Ok(new { message = "If an account with that email exists, a reset link has been sent." });
+    }
+
+    /// <summary>Reset password using token from email</summary>
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
+    {
+        try
+        {
+            await _auth.ResetPasswordAsync(req.Token, req.NewPassword);
+            return Ok(new { message = "Password reset successfully. Please log in." });
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     // ── Cookie helpers ────────────────────────────────────────────────────────
 
     private void SetRefreshTokenCookie(string token)
@@ -310,11 +332,16 @@ public class OrdersController : ControllerBase
         return order == null ? NotFound() : Ok(order);
     }
 
-    /// <summary>Get full status change history for an order (Admin only)</summary>
+    /// <summary>Get full status change history for an order (owner or Admin)</summary>
     [HttpGet("{id}/history")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetHistory(int id) =>
-        Ok(await _orders.GetStatusHistoryAsync(id));
+    public async Task<IActionResult> GetHistory(int id)
+    {
+        var order = await _orders.GetByIdAsync(id);
+        if (order == null) return NotFound();
+        if (!User.IsInRole("Admin") && order.UserId != GetUserId())
+            return Forbid();
+        return Ok(await _orders.GetStatusHistoryAsync(id));
+    }
 
     private int GetUserId() =>
         int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);

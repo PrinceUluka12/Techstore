@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TechStore.API.Data;
 
@@ -11,9 +12,11 @@ using TechStore.API.Data;
 namespace TechStore.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260424051729_AddPasswordResetAndWishlist")]
+    partial class AddPasswordResetAndWishlist
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -108,7 +111,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 4, 24, 5, 21, 35, 205, DateTimeKind.Utc).AddTicks(6651),
+                            CreatedAt = new DateTime(2026, 4, 24, 5, 17, 27, 677, DateTimeKind.Utc).AddTicks(8805),
                             Description = "Latest smartphones and accessories",
                             IsActive = true,
                             Name = "Smartphones"
@@ -116,7 +119,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 4, 24, 5, 21, 35, 205, DateTimeKind.Utc).AddTicks(6655),
+                            CreatedAt = new DateTime(2026, 4, 24, 5, 17, 27, 677, DateTimeKind.Utc).AddTicks(8811),
                             Description = "Tablets and e-readers",
                             IsActive = true,
                             Name = "Tablets"
@@ -124,7 +127,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 4, 24, 5, 21, 35, 205, DateTimeKind.Utc).AddTicks(6657),
+                            CreatedAt = new DateTime(2026, 4, 24, 5, 17, 27, 677, DateTimeKind.Utc).AddTicks(8815),
                             Description = "Wearable technology",
                             IsActive = true,
                             Name = "Smart Watches"
@@ -132,7 +135,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 4, 24, 5, 21, 35, 205, DateTimeKind.Utc).AddTicks(6659),
+                            CreatedAt = new DateTime(2026, 4, 24, 5, 17, 27, 677, DateTimeKind.Utc).AddTicks(8819),
                             Description = "Laptops and ultrabooks",
                             IsActive = true,
                             Name = "Laptops"
@@ -140,7 +143,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 4, 24, 5, 21, 35, 205, DateTimeKind.Utc).AddTicks(6661),
+                            CreatedAt = new DateTime(2026, 4, 24, 5, 17, 27, 677, DateTimeKind.Utc).AddTicks(8824),
                             Description = "Cases, chargers, and more",
                             IsActive = true,
                             Name = "Accessories"
@@ -249,17 +252,11 @@ namespace TechStore.API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("CouponCode")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeliveredAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<decimal>("DiscountAmount")
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");

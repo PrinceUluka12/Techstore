@@ -7,12 +7,22 @@ public interface IUserRepository
 {
     Task<User?> GetByIdAsync(int id);
     Task<User?> GetByEmailAsync(string email);
+    Task<User?> GetByResetTokenAsync(string token);
     Task<IEnumerable<User>> GetAllAsync(int page = 1, int pageSize = 20);
     Task<User> CreateAsync(User user);
     Task<User> UpdateAsync(User user);
     Task<bool> EmailExistsAsync(string email);
     Task<int> CountAsync();
     Task<int> CountNewThisMonthAsync();
+}
+
+public interface IWishlistRepository
+{
+    Task<IEnumerable<Wishlist>> GetByUserIdAsync(int userId);
+    Task<Wishlist?> GetAsync(int userId, int productId);
+    Task<Wishlist> AddAsync(Wishlist wishlist);
+    Task<bool> RemoveAsync(int userId, int productId);
+    Task<bool> ExistsAsync(int userId, int productId);
 }
 
 public interface IProductRepository

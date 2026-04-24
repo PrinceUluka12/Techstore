@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { SlidersHorizontal, X, Search } from 'lucide-react'
 import { productApi } from '../../services/api'
 import { ProductGrid } from '../../components/shop/ProductCard'
@@ -51,6 +52,7 @@ export default function ProductsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet><title>Shop All Products — Hytel Phones</title></Helmet>
       <Navbar />
       <CartDrawer />
       <main className="flex-1 page-container py-8">

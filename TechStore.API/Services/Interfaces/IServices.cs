@@ -4,6 +4,7 @@ using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Wishlist;
 
 namespace TechStore.API.Services.Interfaces;
 
@@ -18,6 +19,24 @@ public interface IAuthService
     Task PromoteToAdminAsync(int targetUserId);
     Task<UserProfileDto?> GetProfileAsync(int userId);
     Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileRequest request);
+    Task ForgotPasswordAsync(string email);
+    Task ResetPasswordAsync(string token, string newPassword);
+}
+
+public interface IEmailService
+{
+    Task SendWelcomeAsync(string toEmail, string firstName);
+    Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total);
+    Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus);
+    Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink);
+}
+
+public interface IWishlistService
+{
+    Task<IEnumerable<WishlistItemDto>> GetAsync(int userId);
+    Task<WishlistItemDto> AddAsync(int userId, int productId);
+    Task<bool> RemoveAsync(int userId, int productId);
+    Task<bool> IsInWishlistAsync(int userId, int productId);
 }
 
 public record UpdateProfileRequest(string? FirstName, string? LastName, string? Phone, string? Address);

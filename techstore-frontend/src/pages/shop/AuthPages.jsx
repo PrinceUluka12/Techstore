@@ -3,13 +3,24 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   Package, CreditCard, Building2, Lock,
-  ChevronDown, ChevronUp, CheckCircle, Truck, Shield
+  ChevronDown, ChevronUp, CheckCircle, Truck, Shield, Tag, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { authApi, cartApi, orderApi } from '../../services/api'
+import PaystackPop from '@paystack/inline-js'
+import { authApi, cartApi, orderApi, paystackApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
 import { Input, Spinner } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
+
+const NIGERIAN_STATES = [
+  'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
+  'Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT - Abuja','Gombe',
+  'Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos',
+  'Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto',
+  'Taraba','Yobe','Zamfara',
+]
+
+const PAYSTACK_PUBLIC_KEY = 'pk_live_6db9f9605582bc9866757429306bf6089eb4d7a4'
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 export function LoginPage() {
@@ -52,6 +63,9 @@ export function LoginPage() {
               <Input label="Password" type="password" placeholder="••••••••"
                 error={errors.password?.message}
                 {...register('password', { required: 'Password is required' })} />
+              <div className="flex justify-end">
+                <Link to="/forgot-password" className="text-xs text-brand-600 hover:underline">Forgot password?</Link>
+              </div>
               <button type="submit" disabled={loading} className="btn-primary w-full btn-lg">
                 {loading ? <Spinner size="sm" /> : 'Sign In'}
               </button>
@@ -344,44 +358,123 @@ function BankTransferDetails({ orderTotal }) {
   )
 }
 
+// ── Coupon Input ──────────────────────────────────────────────────────────────
+function CouponInput({ onApply, onRemove, appliedCode, discount, loading }) {
+  const [code, setCode] = useState('')
+
+  const handleApply = () => {
+    if (code.trim()) onApply(code.trim().toUpperCase())
+  }
+
+  if (appliedCode) {
+    return (
+      <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <Tag className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+          <span className="text-sm font-semibold text-emerald-700 font-mono">{appliedCode}</span>
+          <span className="text-xs text-emerald-600">–₦{discount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+        </div>
+        <button type="button" onClick={onRemove} className="text-emerald-500 hover:text-emerald-700">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        className="input flex-1 font-mono uppercase text-sm"
+        placeholder="Coupon code"
+        value={code}
+        onChange={e => setCode(e.target.value.toUpperCase())}
+        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleApply())}
+      />
+      <button type="button" onClick={handleApply} disabled={loading || !code.trim()}
+        className="btn-secondary px-4 text-sm whitespace-nowrap">
+        {loading ? <Spinner size="sm" /> : 'Apply'}
+      </button>
+    </div>
+  )
+}
+
 // ── Checkout ──────────────────────────────────────────────────────────────────
 export function CheckoutPage() {
   const { register, handleSubmit, formState: { errors } } = useForm()
-  const [loading, setLoading]           = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('Card')
-  const { items, total, clearLocal }    = useCartStore()
-  const navigate                        = useNavigate()
+  const [loading, setLoading]               = useState(false)
+  const [paymentMethod, setPaymentMethod]   = useState('Card')
+  const { items, total, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
 
-  const tax         = +(total * 0.075).toFixed(2)
-  const shipping    = total >= 100 ? 0 : 9.99
-  const orderTotal  = +(total + tax + shipping).toFixed(2)
+  const discount   = discountAmount || 0
+  const tax        = +((total - discount) * 0.075).toFixed(2)
+  const shipping   = total >= 100 ? 0 : 9.99
+  const orderTotal = +(total - discount + tax + shipping).toFixed(2)
+
+  const handleCoupon = async (code) => {
+    const result = await applyCoupon(code)
+    if (result.success) toast.success(`Coupon applied! –₦${result.discountAmount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`)
+    else toast.error(result.error || 'Invalid coupon')
+  }
+
+  const buildOrderPayload = (data) => ({
+    shippingFirstName:  data.firstName,
+    shippingLastName:   data.lastName,
+    shippingAddress:    data.address,
+    shippingCity:       data.city,
+    shippingProvince:   data.province,
+    shippingPostalCode: data.postalCode,
+    shippingCountry:    'Nigeria',
+    shippingPhone:      data.phone,
+    paymentMethod,
+    notes:              data.notes,
+    couponCode:         couponCode || null,
+  })
+
+  const openPaystack = (orderId, amount, email) => {
+    const popup = new PaystackPop()
+    popup.newTransaction({
+      key:      PAYSTACK_PUBLIC_KEY,
+      email:    email || user?.email,
+      amount:   Math.round(amount * 100),
+      metadata: { order_id: orderId },
+      onSuccess: async (transaction) => {
+        try {
+          await paystackApi.verify(transaction.reference)
+          clearLocal()
+          toast.success('Payment confirmed! Order is being processed.')
+        } catch {
+          toast.success('Order placed. Payment verification in progress.')
+        }
+        navigate(`/account/orders/${orderId}`)
+      },
+      onCancel: () => {
+        toast('Payment cancelled. Your order is saved — you can pay later from your orders page.', { icon: 'ℹ️' })
+        clearLocal()
+        navigate(`/account/orders/${orderId}`)
+      },
+    })
+  }
 
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      const { data: order } = await orderApi.checkout({
-        shippingFirstName:  data.firstName,
-        shippingLastName:   data.lastName,
-        shippingAddress:    data.address,
-        shippingCity:       data.city,
-        shippingProvince:   data.province,
-        shippingPostalCode: data.postalCode,
-        shippingCountry:    'Nigeria',
-        shippingPhone:      data.phone,
-        paymentMethod,
-        transactionId:      paymentMethod === 'Card' ? data.cardNumber?.slice(-4) : data.transferRef,
-        notes:              data.notes,
-      })
-      clearLocal()
-      toast.success(
-        paymentMethod === 'BankTransfer'
-          ? 'Order placed! Please complete your bank transfer.'
-          : 'Order placed successfully!'
-      )
-      navigate(`/account/orders/${order.id}`)
+      const { data: order } = await orderApi.checkout(buildOrderPayload(data))
+
+      if (paymentMethod === 'BankTransfer') {
+        clearLocal()
+        toast.success('Order placed! Please complete your bank transfer.')
+        navigate(`/account/orders/${order.id}`)
+      } else {
+        setLoading(false)
+        openPaystack(order.id, order.total, data.email || user?.email)
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Checkout failed')
-    } finally { setLoading(false) }
+      setLoading(false)
+    }
   }
 
   if (!items.length) {
@@ -430,15 +523,19 @@ export function CheckoutPage() {
                 <Input label="Last Name" error={errors.lastName?.message}
                   {...register('lastName', { required: 'Required' })} />
                 <Input label="Phone Number" className="col-span-2" type="tel"
-                  placeholder="+234 800 000 0000"
-                  {...register('phone')} />
+                  placeholder="+234 800 000 0000" {...register('phone')} />
                 <Input label="Street Address" className="col-span-2" error={errors.address?.message}
                   placeholder="House number, street name"
                   {...register('address', { required: 'Required' })} />
                 <Input label="City" error={errors.city?.message}
                   {...register('city', { required: 'Required' })} />
-                <Input label="State" error={errors.province?.message}
-                  {...register('province', { required: 'Required' })} />
+                <div>
+                  <label className="label">State {errors.province && <span className="text-red-500 text-xs ml-1">{errors.province.message}</span>}</label>
+                  <select className="input w-full" {...register('province', { required: 'Required' })}>
+                    <option value="">Select state…</option>
+                    {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
                 <Input label="Postal Code" placeholder="100001" error={errors.postalCode?.message}
                   {...register('postalCode', { required: 'Required' })} />
               </div>
@@ -456,7 +553,12 @@ export function CheckoutPage() {
               <PaymentSelector selected={paymentMethod} onChange={setPaymentMethod} />
 
               {paymentMethod === 'Card' && (
-                <CardDetails register={register} errors={errors} />
+                <div className="mt-4 pt-4 border-t border-surface-100">
+                  <div className="flex items-center gap-2 text-sm text-surface-600 bg-brand-50 rounded-xl px-3 py-2.5">
+                    <Lock className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />
+                    You'll be redirected to Paystack's secure checkout to complete payment.
+                  </div>
+                </div>
               )}
               {paymentMethod === 'BankTransfer' && (
                 <BankTransferDetails orderTotal={orderTotal} />
@@ -477,7 +579,9 @@ export function CheckoutPage() {
                 ? <><Spinner size="sm" /> Processing…</>
                 : <>
                     <Lock className="w-4 h-4" />
-                    {paymentMethod === 'BankTransfer' ? 'Place Order — Pay via Transfer' : `Place Order · ₦${orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`}
+                    {paymentMethod === 'BankTransfer'
+                      ? 'Place Order — Pay via Transfer'
+                      : `Pay ₦${orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })} via Paystack`}
                   </>}
             </button>
 
@@ -510,12 +614,27 @@ export function CheckoutPage() {
                 ))}
               </div>
 
+              {/* Coupon */}
+              <CouponInput
+                onApply={handleCoupon}
+                onRemove={removeCoupon}
+                appliedCode={couponCode}
+                discount={discount}
+                loading={couponLoading}
+              />
+
               {/* Totals */}
               <div className="border-t border-surface-100 pt-3 space-y-2 text-sm">
                 <div className="flex justify-between text-surface-500">
                   <span>Subtotal</span>
                   <span>₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Discount ({couponCode})</span>
+                    <span>–₦{discount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-surface-500">
                   <span>VAT (7.5%)</span>
                   <span>₦{tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -534,11 +653,10 @@ export function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Active payment method badge */}
               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium
                 ${paymentMethod === 'Card' ? 'bg-brand-50 text-brand-700' : 'bg-amber-50 text-amber-700'}`}>
                 {paymentMethod === 'Card'
-                  ? <><CreditCard className="w-3.5 h-3.5" /> Paying by card</>
+                  ? <><CreditCard className="w-3.5 h-3.5" /> Paying via Paystack</>
                   : <><Building2 className="w-3.5 h-3.5" /> Paying by bank transfer</>}
               </div>
             </div>

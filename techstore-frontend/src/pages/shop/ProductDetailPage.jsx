@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import {
   ShoppingCart, ArrowLeft, Star, Shield, Truck, Package,
   CheckCircle, Heart, Share2, ChevronRight, Minus, Plus,
   AlertTriangle, ThumbsUp, MessageSquare, ZoomIn
 } from 'lucide-react'
 import { productApi, cartApi, reviewApi } from '../../services/api'
-import { useAuthStore, useCartStore, useUIStore } from '../../store'
+import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '../../store'
 import { Navbar, CartDrawer, Footer } from '../../components/layout/ShopLayout'
 import { LoadingPage, Spinner } from '../../components/ui'
 import { ProductGrid } from '../../components/shop/ProductCard'
@@ -198,7 +199,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading]       = useState(true)
   const [qty, setQty]               = useState(1)
   const [adding, setAdding]         = useState(false)
-  const [wished, setWished]         = useState(false)
+  const [wishLoading, setWishLoading] = useState(false)
   const [activeTab, setActiveTab]   = useState('description')
   const [reviews, setReviews]       = useState([])
   const [summary, setSummary]       = useState(null)
@@ -208,13 +209,20 @@ export default function ProductDetailPage() {
   const { isAuthenticated } = useAuthStore()
   const { setCart, isInCart } = useCartStore()
   const { toggleCart } = useUIStore()
+  const { toggle: toggleWishlist, isInWishlist } = useWishlistStore()
 
   useEffect(() => {
     setLoading(true)
     productApi.getById(id)
       .then(r => {
         setProduct(r.data)
-        // load related products from same category
+        // Track recently viewed in localStorage
+        try {
+          const key = 'recently_viewed'
+          const prev = JSON.parse(localStorage.getItem(key) || '[]')
+          const updated = [r.data.id, ...prev.filter(x => x !== r.data.id)].slice(0, 10)
+          localStorage.setItem(key, JSON.stringify(updated))
+        } catch {}
         if (r.data?.categoryId) {
           productApi.byCategory(r.data.categoryId, { page: 1, pageSize: 5 })
             .then(rel => setRelated(rel.data.filter(p => p.id !== parseInt(id)).slice(0, 4)))
@@ -293,6 +301,10 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      <Helmet>
+        <title>{product.name} — Hytel Phones</title>
+        <meta name="description" content={product.description?.slice(0, 155) || `Buy ${product.name} at Hytel Phones. Best prices in Nigeria.`} />
+      </Helmet>
       <Navbar />
       <CartDrawer />
 
@@ -472,10 +484,19 @@ export default function ProductDetailPage() {
 
               {/* Wishlist + Share */}
               <div className="flex items-center gap-3 pt-1">
-                <button onClick={() => setWished(v => !v)}
-                  className={`flex items-center gap-2 text-sm transition-colors ${wished ? 'text-red-500' : 'text-surface-500 hover:text-red-400'}`}>
-                  <Heart className={`w-4 h-4 ${wished ? 'fill-red-500' : ''}`} />
-                  {wished ? 'Wishlisted' : 'Add to Wishlist'}
+                <button
+                  onClick={async () => {
+                    if (!isAuthenticated) { toast.error('Please sign in to save items'); return }
+                    setWishLoading(true)
+                    const inWish = isInWishlist(product.id)
+                    await toggleWishlist(product.id)
+                    toast.success(inWish ? 'Removed from wishlist' : 'Saved to wishlist')
+                    setWishLoading(false)
+                  }}
+                  disabled={wishLoading}
+                  className={`flex items-center gap-2 text-sm transition-colors ${isInWishlist(product.id) ? 'text-red-500' : 'text-surface-500 hover:text-red-400'}`}>
+                  <Heart className={`w-4 h-4 ${isInWishlist(product.id) ? 'fill-red-500' : ''}`} />
+                  {isInWishlist(product.id) ? 'Wishlisted' : 'Add to Wishlist'}
                 </button>
                 <span className="text-surface-200">|</span>
                 <button onClick={share} className="flex items-center gap-2 text-sm text-surface-500 hover:text-brand-600 transition-colors">

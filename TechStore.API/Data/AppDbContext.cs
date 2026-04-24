@@ -18,7 +18,8 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Review> Reviews => Set<Review>();
-    public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();  // ← NEW
+    public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();
+    public DbSet<Wishlist> Wishlists => Set<Wishlist>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -55,9 +56,9 @@ public class AppDbContext : DbContext
         {
             e.HasIndex(o => o.OrderNumber).IsUnique();
             e.Property(o => o.SubTotal).HasColumnType("decimal(18,2)");
+            e.Property(o => o.DiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(o => o.Tax).HasColumnType("decimal(18,2)");
             e.Property(o => o.ShippingCost).HasColumnType("decimal(18,2)");
-            //e.Property(o => o.DiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(o => o.Total).HasColumnType("decimal(18,2)");
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.PaymentStatus).HasConversion<string>();
@@ -93,6 +94,16 @@ public class AppDbContext : DbContext
             e.Property(c => c.MinimumOrderAmount).HasColumnType("decimal(18,2)");
             e.Property(c => c.MaximumDiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(c => c.Type).HasConversion<string>();
+        });
+
+        // Wishlist
+        builder.Entity<Wishlist>(e =>
+        {
+            e.HasIndex(w => new { w.UserId, w.ProductId }).IsUnique();
+            e.HasOne(w => w.User).WithMany(u => u.Wishlists)
+                .HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(w => w.Product).WithMany()
+                .HasForeignKey(w => w.ProductId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Review
