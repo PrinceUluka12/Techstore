@@ -1,9 +1,11 @@
 ﻿using System.Text;
+using System.Threading.RateLimiting;
 using Azure.Identity;
 using Azure.Storage.Blobs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -83,6 +85,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Rate limiting — 10 requests/minute on auth endpoints
+builder.Services.AddRateLimiter(opts =>
+{
+    opts.AddFixedWindowLimiter("auth", o =>
+    {
+        o.PermitLimit            = 10;
+        o.Window                 = TimeSpan.FromMinutes(1);
+        o.QueueProcessingOrder   = QueueProcessingOrder.OldestFirst;
+        o.QueueLimit             = 0;
+    });
+    opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
+// Background token cleanup (runs every 24 h)
+builder.Services.AddHostedService<TokenCleanupService>();
+
 // CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!;
 builder.Services.AddCors(opts =>
@@ -141,6 +159,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseRateLimiter();
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>

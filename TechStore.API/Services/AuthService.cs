@@ -12,13 +12,20 @@ public class AuthService : IAuthService
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IJwtHelper _jwt;
     private readonly IConfiguration _config;
+    private readonly ILogger<AuthService> _logger;
 
-    public AuthService(IUserRepository users, IRefreshTokenRepository refreshTokens, IJwtHelper jwt, IConfiguration config)
+    public AuthService(
+        IUserRepository users,
+        IRefreshTokenRepository refreshTokens,
+        IJwtHelper jwt,
+        IConfiguration config,
+        ILogger<AuthService> logger)
     {
         _users = users;
         _refreshTokens = refreshTokens;
         _jwt = jwt;
         _config = config;
+        _logger = logger;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest req)
@@ -28,75 +35,149 @@ public class AuthService : IAuthService
 
         var user = new User
         {
-            FirstName = req.FirstName,
-            LastName = req.LastName,
-            Email = req.Email,
-            Phone = req.Phone,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
-            Role = "Customer"
+            FirstName    = req.FirstName,
+            LastName     = req.LastName,
+            Email        = req.Email,
+            Phone        = req.Phone,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
+            Role         = "Customer"
         };
 
         await _users.CreateAsync(user);
-        return await BuildAuthResponse(user);
+        _logger.LogInformation("New user registered: {Email}", user.Email);
+        return await IssueTokensAsync(user);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest req)
     {
-        var user = await _users.GetByEmailAsync(req.Email)
-            ?? throw new UnauthorizedAccessException("Invalid email or password.");
+        var user = await _users.GetByEmailAsync(req.Email);
+
+        // Generic error prevents user enumeration
+        if (user == null)
+        {
+            _logger.LogWarning("Login attempt for unknown email: {Email}", req.Email);
+            throw new UnauthorizedAccessException("Invalid email or password.");
+        }
+
+        // Check lockout before touching the password
+        if (user.LockoutUntil.HasValue && user.LockoutUntil > DateTime.UtcNow)
+        {
+            _logger.LogWarning("Locked-out login attempt: {Email}", user.Email);
+            throw new UnauthorizedAccessException(
+                $"Account locked due to too many failed attempts. Try again after {user.LockoutUntil:HH:mm} UTC.");
+        }
 
         if (!BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+        {
+            var maxAttempts    = int.Parse(_config["Auth:MaxFailedAttempts"] ?? "5");
+            var lockoutMinutes = int.Parse(_config["Auth:LockoutMinutes"] ?? "15");
+
+            user.FailedLoginAttempts++;
+            _logger.LogWarning("Failed login {Count}/{Max}: {Email}",
+                user.FailedLoginAttempts, maxAttempts, user.Email);
+
+            if (user.FailedLoginAttempts >= maxAttempts)
+            {
+                user.LockoutUntil        = DateTime.UtcNow.AddMinutes(lockoutMinutes);
+                user.FailedLoginAttempts = 0;
+                _logger.LogWarning("Account locked: {Email} until {Until}", user.Email, user.LockoutUntil);
+            }
+
+            await _users.UpdateAsync(user);
             throw new UnauthorizedAccessException("Invalid email or password.");
+        }
 
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Account is deactivated.");
 
-        return await BuildAuthResponse(user);
+        user.FailedLoginAttempts = 0;
+        user.LockoutUntil        = null;
+        await _users.UpdateAsync(user);
+
+        _logger.LogInformation("Successful login: {Email}", user.Email);
+        return await IssueTokensAsync(user);
     }
 
     public async Task<AuthResponse> RefreshTokenAsync(string token)
     {
-        var storedToken = await _refreshTokens.GetByTokenAsync(token);
+        var stored = await _refreshTokens.GetByTokenAsync(token);
 
-        if (storedToken == null)
-            throw new UnauthorizedAccessException("Invalid refresh token.");
-
-        if (!storedToken.IsActive)
+        if (stored == null)
         {
-            if (storedToken.IsRevoked && storedToken.ReplacedByToken != null)
-            {
-                await _refreshTokens.RevokeAllUserTokensAsync(storedToken.UserId);
-            }
+            _logger.LogWarning("Refresh attempt with unknown token");
             throw new UnauthorizedAccessException("Invalid refresh token.");
         }
 
-        var user = storedToken.User;
-        var newRefreshToken = GenerateRefreshToken(user.Id);
+        // Reuse detection: revoked token presented again = stolen token family
+        if (stored.IsRevoked)
+        {
+            _logger.LogWarning("Refresh token reuse detected for user {UserId} — revoking all sessions", stored.UserId);
+            await _refreshTokens.RevokeAllUserTokensAsync(stored.UserId);
+            throw new UnauthorizedAccessException("Invalid refresh token.");
+        }
+
+        if (stored.IsExpired)
+            throw new UnauthorizedAccessException("Refresh token has expired. Please log in again.");
+
+        var user = stored.User;
+        if (!user.IsActive)
+            throw new UnauthorizedAccessException("Account is deactivated.");
+
+        var newRefreshToken = BuildRefreshToken(user.Id);
         await _refreshTokens.CreateAsync(newRefreshToken);
-        await _refreshTokens.RevokeAsync(storedToken, newRefreshToken.Token);
+        await _refreshTokens.RevokeAsync(stored, newRefreshToken.Token);
 
         return BuildAuthResponse(user, newRefreshToken);
     }
 
-    public async Task LogoutAsync(int userId, string? token = null)
+    public async Task LogoutAsync(int userId, string? refreshToken = null)
     {
-        if (token != null)
+        if (refreshToken != null)
         {
-            var storedToken = await _refreshTokens.GetByTokenAsync(token);
-            if (storedToken != null && storedToken.UserId == userId && storedToken.IsActive)
-            {
-                await _refreshTokens.RevokeAsync(storedToken);
-            }
+            var stored = await _refreshTokens.GetByTokenAsync(refreshToken);
+            if (stored != null && stored.UserId == userId && stored.IsActive)
+                await _refreshTokens.RevokeAsync(stored);
         }
         else
         {
             await _refreshTokens.RevokeAllUserTokensAsync(userId);
         }
+        _logger.LogInformation("User {UserId} logged out", userId);
     }
 
     public async Task LogoutEverywhereAsync(int userId)
     {
         await _refreshTokens.RevokeAllUserTokensAsync(userId);
+        _logger.LogInformation("User {UserId} logged out from all devices", userId);
+    }
+
+    public async Task ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    {
+        var user = await _users.GetByIdAsync(userId)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+            throw new UnauthorizedAccessException("Current password is incorrect.");
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword, workFactor: 12);
+        await _users.UpdateAsync(user);
+
+        // Revoke all sessions so any stolen sessions are killed immediately
+        await _refreshTokens.RevokeAllUserTokensAsync(userId);
+        _logger.LogInformation("Password changed for user {UserId} — all sessions revoked", userId);
+    }
+
+    public async Task PromoteToAdminAsync(int targetUserId)
+    {
+        var user = await _users.GetByIdAsync(targetUserId)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        if (user.Role == "Admin")
+            throw new InvalidOperationException("User is already an Admin.");
+
+        user.Role = "Admin";
+        await _users.UpdateAsync(user);
+        _logger.LogInformation("User {UserId} promoted to Admin", targetUserId);
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(int userId)
@@ -111,17 +192,19 @@ public class AuthService : IAuthService
             ?? throw new KeyNotFoundException("User not found.");
 
         if (req.FirstName != null) user.FirstName = req.FirstName;
-        if (req.LastName != null) user.LastName = req.LastName;
-        if (req.Phone != null) user.Phone = req.Phone;
-        if (req.Address != null) user.Address = req.Address;
+        if (req.LastName  != null) user.LastName  = req.LastName;
+        if (req.Phone     != null) user.Phone     = req.Phone;
+        if (req.Address   != null) user.Address   = req.Address;
 
         await _users.UpdateAsync(user);
         return MapToProfile(user);
     }
 
-    private async Task<AuthResponse> BuildAuthResponse(User user)
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private async Task<AuthResponse> IssueTokensAsync(User user)
     {
-        var refreshToken = GenerateRefreshToken(user.Id);
+        var refreshToken = BuildRefreshToken(user.Id);
         await _refreshTokens.CreateAsync(refreshToken);
         return BuildAuthResponse(user, refreshToken);
     }
@@ -137,13 +220,13 @@ public class AuthService : IAuthService
         );
     }
 
-    private RefreshToken GenerateRefreshToken(int userId)
+    private RefreshToken BuildRefreshToken(int userId)
     {
         var expiryDays = double.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "7");
         return new RefreshToken
         {
-            Token = _jwt.GenerateRefreshToken(),
-            UserId = userId,
+            Token     = _jwt.GenerateRefreshToken(),
+            UserId    = userId,
             ExpiresAt = DateTime.UtcNow.AddDays(expiryDays)
         };
     }

@@ -25,9 +25,16 @@ export const useAuthStore = create(
         })
       },
 
+      // Called after the API logout request is sent (server clears the HttpOnly cookie)
       logout: () => {
         localStorage.removeItem('access_token')
         set({ user: null, token: null, isAuthenticated: false })
+      },
+
+      // Used by the silent refresh interceptor to sync the new access token into store state
+      updateToken: (newToken) => {
+        localStorage.setItem('access_token', newToken)
+        set({ token: newToken })
       },
 
       updateUser: (updates) =>

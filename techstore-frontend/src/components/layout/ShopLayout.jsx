@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useAuthStore, useCartStore, useUIStore } from '../../store'
-import { cartApi } from '../../services/api'
+import { authApi, cartApi } from '../../services/api'
 import { Spinner } from '../ui'
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
@@ -17,7 +17,8 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await authApi.logout() } catch { /* cookie cleared on client regardless */ }
     logout()
     toast.success('Logged out')
     navigate('/')

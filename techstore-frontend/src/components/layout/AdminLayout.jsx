@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
+import { authApi } from '../../services/api'
 import toast from 'react-hot-toast'
 
 const navSections = [
@@ -53,7 +54,8 @@ export function AdminLayout({ children }) {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await authApi.logout() } catch { /* cookie cleared on client regardless */ }
     logout()
     toast.success('Logged out')
     navigate('/login')

@@ -10,10 +10,9 @@ public record RegisterRequest(
 
 public record LoginRequest(string Email, string Password);
 
-public record RefreshTokenRequest(string RefreshToken);
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
-public record LogoutRequest(string? RefreshToken = null);
-
+// Internal: service → controller (includes refresh token for cookie-setting)
 public record AuthResponse(
     int UserId,
     string Email,
@@ -22,6 +21,17 @@ public record AuthResponse(
     string Role,
     string AccessToken,
     string RefreshToken,
+    DateTime ExpiresAt
+);
+
+// External: controller → client (refresh token stays in HttpOnly cookie)
+public record AuthClientResponse(
+    int UserId,
+    string Email,
+    string FirstName,
+    string LastName,
+    string Role,
+    string AccessToken,
     DateTime ExpiresAt
 );
 

@@ -11,6 +11,11 @@ public interface IAuthService
 {
     Task<AuthResponse> RegisterAsync(RegisterRequest request);
     Task<AuthResponse> LoginAsync(LoginRequest request);
+    Task<AuthResponse> RefreshTokenAsync(string token);
+    Task LogoutAsync(int userId, string? refreshToken = null);
+    Task LogoutEverywhereAsync(int userId);
+    Task ChangePasswordAsync(int userId, string currentPassword, string newPassword);
+    Task PromoteToAdminAsync(int targetUserId);
     Task<UserProfileDto?> GetProfileAsync(int userId);
     Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileRequest request);
 }

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Inventory;
@@ -14,31 +15,78 @@ namespace TechStore.API.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private const string RefreshTokenCookie = "refreshToken";
     private readonly IAuthService _auth;
-    public AuthController(IAuthService auth) => _auth = auth;
+    private readonly IConfiguration _config;
+
+    public AuthController(IAuthService auth, IConfiguration config)
+    {
+        _auth   = auth;
+        _config = config;
+    }
 
     /// <summary>Register a new customer account</summary>
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
     {
-        try
-        {
-            var result = await _auth.RegisterAsync(req);
-            return Ok(result);
-        }
-        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+        var result = await _auth.RegisterAsync(req);
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(ToClientResponse(result));
     }
 
-    /// <summary>Login and receive JWT tokens</summary>
+    /// <summary>Login and receive access token; refresh token set as HttpOnly cookie</summary>
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
-        try
-        {
-            var result = await _auth.LoginAsync(req);
-            return Ok(result);
-        }
-        catch (UnauthorizedAccessException ex) { return Unauthorized(new { message = ex.Message }); }
+        var result = await _auth.LoginAsync(req);
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(ToClientResponse(result));
+    }
+
+    /// <summary>Issue a new access token using the HttpOnly refresh token cookie</summary>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh()
+    {
+        var token = Request.Cookies[RefreshTokenCookie];
+        if (string.IsNullOrEmpty(token))
+            return Unauthorized(new { message = "No refresh token." });
+
+        var result = await _auth.RefreshTokenAsync(token);
+        SetRefreshTokenCookie(result.RefreshToken);
+        return Ok(ToClientResponse(result));
+    }
+
+    /// <summary>Logout — revokes the current refresh token and clears the cookie</summary>
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout()
+    {
+        var token = Request.Cookies[RefreshTokenCookie];
+        await _auth.LogoutAsync(GetUserId(), token);
+        ClearRefreshTokenCookie();
+        return NoContent();
+    }
+
+    /// <summary>Logout from all devices — revokes all refresh tokens for this user</summary>
+    [HttpPost("logout-everywhere")]
+    [Authorize]
+    public async Task<IActionResult> LogoutEverywhere()
+    {
+        await _auth.LogoutEverywhereAsync(GetUserId());
+        ClearRefreshTokenCookie();
+        return NoContent();
+    }
+
+    /// <summary>Change password — invalidates all other sessions</summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest req)
+    {
+        await _auth.ChangePasswordAsync(GetUserId(), req.CurrentPassword, req.NewPassword);
+        ClearRefreshTokenCookie();
+        return NoContent();
     }
 
     /// <summary>Get current user profile</summary>
@@ -46,8 +94,7 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> GetProfile()
     {
-        var userId = GetUserId();
-        var profile = await _auth.GetProfileAsync(userId);
+        var profile = await _auth.GetProfileAsync(GetUserId());
         return profile == null ? NotFound() : Ok(profile);
     }
 
@@ -56,10 +103,36 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest req)
     {
-        var userId = GetUserId();
-        var result = await _auth.UpdateProfileAsync(userId, req);
+        var result = await _auth.UpdateProfileAsync(GetUserId(), req);
         return Ok(result);
     }
+
+    // ── Cookie helpers ────────────────────────────────────────────────────────
+
+    private void SetRefreshTokenCookie(string token)
+    {
+        var expiryDays = double.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "7");
+        Response.Cookies.Append(RefreshTokenCookie, token, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = true,
+            SameSite = SameSiteMode.None,
+            Expires  = DateTime.UtcNow.AddDays(expiryDays),
+            Path     = "/api/auth"
+        });
+    }
+
+    private void ClearRefreshTokenCookie() =>
+        Response.Cookies.Delete(RefreshTokenCookie, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure   = true,
+            SameSite = SameSiteMode.None,
+            Path     = "/api/auth"
+        });
+
+    private static AuthClientResponse ToClientResponse(AuthResponse r) =>
+        new(r.UserId, r.Email, r.FirstName, r.LastName, r.Role, r.AccessToken, r.ExpiresAt);
 
     private int GetUserId() =>
         int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -329,5 +402,13 @@ public class AdminController : ControllerBase
     {
         var result = await _admin.ToggleUserStatusAsync(userId);
         return result ? Ok(new { message = "User status updated." }) : NotFound();
+    }
+
+    /// <summary>Promote a user to Admin role</summary>
+    [HttpPut("users/{userId}/promote")]
+    public async Task<IActionResult> PromoteToAdmin(int userId, [FromServices] IAuthService auth)
+    {
+        await auth.PromoteToAdminAsync(userId);
+        return Ok(new { message = "User promoted to Admin." });
     }
 }

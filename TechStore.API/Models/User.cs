@@ -11,6 +11,8 @@ public class User
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public bool IsActive { get; set; } = true;
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockoutUntil { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
