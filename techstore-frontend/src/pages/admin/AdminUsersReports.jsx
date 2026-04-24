@@ -123,12 +123,12 @@ export function AdminReports() {
   return (
     <AdminLayout>
       <div className="space-y-8 max-w-[1400px]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold">Sales Reports</h1>
             <p className="text-surface-400 text-sm mt-0.5">Revenue and performance analytics</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-surface-400" />
               <input type="date" className="input text-sm w-auto" value={from} onChange={e => setFrom(e.target.value)} />

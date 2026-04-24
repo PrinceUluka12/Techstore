@@ -44,10 +44,10 @@ export function MyOrdersPage() {
                     {format(new Date(order.createdAt), 'MMM d, yyyy')} · {order.itemCount} items
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                   <StatusBadge status={order.status} />
-                  <span className="font-semibold text-surface-900">₦{order.total.toFixed(2)}</span>
-                  <ChevronRight className="w-4 h-4 text-surface-300 group-hover:text-surface-600 transition-colors" />
+                  <span className="font-semibold text-surface-900 whitespace-nowrap">₦{order.total.toFixed(2)}</span>
+                  <ChevronRight className="w-4 h-4 text-surface-300 group-hover:text-surface-600 transition-colors flex-shrink-0" />
                 </div>
               </Link>
             ))}
@@ -79,7 +79,7 @@ export function OrderDetailPage() {
           <ArrowLeft className="w-4 h-4" /> Back to orders
         </Link>
 
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
             <h1 className="font-display text-2xl font-semibold font-mono">{order.orderNumber}</h1>
             <p className="text-surface-400 text-sm mt-1">{format(new Date(order.createdAt), 'MMMM d, yyyy · h:mm a')}</p>

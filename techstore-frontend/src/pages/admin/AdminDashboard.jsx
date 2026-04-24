@@ -149,7 +149,7 @@ export default function AdminDashboard() {
       <div className="space-y-6 max-w-[1400px]">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold text-surface-900">Dashboard</h1>
             <p className="text-surface-400 text-sm mt-0.5 flex items-center gap-1.5">

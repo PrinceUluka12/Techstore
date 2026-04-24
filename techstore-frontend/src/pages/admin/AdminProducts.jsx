@@ -140,7 +140,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
     <>
       <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Product' : 'New Product'} size="lg">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Product Name" className="col-span-2" error={errors.name?.message}
               {...register('name', { required: 'Required' })} />
 
@@ -281,12 +281,12 @@ export default function AdminProducts() {
   return (
     <AdminLayout>
       <div className="space-y-6 max-w-[1400px]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold">Products</h1>
             <p className="text-surface-400 text-sm mt-0.5">{total} total products</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link to="/admin/images" className="btn-secondary gap-2 text-sm">
               <ImageIcon className="w-4 h-4" /> Image Library
             </Link>

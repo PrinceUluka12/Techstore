@@ -424,7 +424,7 @@ export function CheckoutPage() {
                 </div>
                 <h2 className="font-semibold text-surface-900">Shipping Address</h2>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="First Name" error={errors.firstName?.message}
                   {...register('firstName', { required: 'Required' })} />
                 <Input label="Last Name" error={errors.lastName?.message}

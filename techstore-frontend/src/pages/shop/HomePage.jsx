@@ -249,10 +249,10 @@ export default function HomePage() {
         {/* ── PERKS STRIP ── */}
         <section className="border-b border-surface-100 bg-white">
           <div className="page-container py-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 divide-x divide-surface-100">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-6">
               {perks.map((p, i) => (
                 <div key={p.title}
-                  className={`flex items-center gap-4 ${i === 0 ? '' : 'pl-6'}`}>
+                  className={`flex items-center gap-3 sm:gap-4 ${i > 0 ? 'lg:border-l lg:border-surface-100 lg:pl-6' : ''}`}>
                   {/* Custom SVG icon */}
                   <div className="flex-shrink-0">
                     {p.svg}
