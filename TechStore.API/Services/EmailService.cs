@@ -1,22 +1,22 @@
-using SendGrid;
-using SendGrid.Helpers.Mail;
+using Azure;
+using Azure.Communication.Email;
 using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Services;
 
 public class EmailService : IEmailService
 {
-    private readonly string _apiKey;
+    private readonly string _connectionString;
     private readonly string _from;
     private readonly string _fromName;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(IConfiguration config, ILogger<EmailService> logger)
     {
-        _apiKey   = config["Email:SendGridApiKey"] ?? "";
-        _from     = config["Email:From"] ?? "admin@pgusolutions.com";
-        _fromName = config["Email:FromName"] ?? "Hytel Phones";
-        _logger   = logger;
+        _connectionString = config["Email:ConnectionString"] ?? "";
+        _from             = config["Email:From"] ?? "admin@pgusolutions.com";
+        _fromName         = config["Email:FromName"] ?? "Hytel Phones";
+        _logger           = logger;
     }
 
     public Task SendWelcomeAsync(string toEmail, string firstName) =>
@@ -58,22 +58,19 @@ public class EmailService : IEmailService
 
     private async Task Send(string toEmail, string subject, string htmlBody)
     {
-        if (string.IsNullOrEmpty(_apiKey))
+        if (string.IsNullOrEmpty(_connectionString))
         {
-            _logger.LogWarning("Email not sent — SendGrid API key not configured. To: {Email}, Subject: {Subject}", toEmail, subject);
+            _logger.LogWarning("Email not sent — ACS connection string not configured. To: {Email}, Subject: {Subject}", toEmail, subject);
             return;
         }
 
         try
         {
-            var client  = new SendGridClient(_apiKey);
-            var from    = new EmailAddress(_from, _fromName);
-            var to      = new EmailAddress(toEmail);
-            var msg     = MailHelper.CreateSingleEmail(from, to, subject, null, WrapHtml(subject, htmlBody));
-            var response = await client.SendEmailAsync(msg);
-
-            if (!response.IsSuccessStatusCode)
-                _logger.LogWarning("SendGrid returned {Status} for {Email}", response.StatusCode, toEmail);
+            var client     = new EmailClient(_connectionString);
+            var recipients = new EmailRecipients(new List<EmailAddress> { new(toEmail) });
+            var msg        = new EmailMessage(_from, recipients, new EmailContent(subject) { Html = WrapHtml(subject, htmlBody) });
+            var operation  = await client.SendAsync(WaitUntil.Started, msg);
+            _logger.LogInformation("Email queued to {Email} — operation id: {Id}", toEmail, operation.Id);
         }
         catch (Exception ex)
         {
