@@ -1,3 +1,4 @@
+using System.Text.Json;
 using TechStore.API.DTOs.Product;
 using TechStore.API.Models;
 using TechStore.API.Repositories.Interfaces;
@@ -44,16 +45,19 @@ public class ProductService : IProductService
     {
         var product = new Product
         {
-            Name = req.Name,
-            Description = req.Description,
-            SKU = req.SKU,
-            Price = req.Price,
-            CompareAtPrice = req.CompareAtPrice,
-            Brand = req.Brand,
-            ImageUrl = req.ImageUrl,
-            CategoryId = req.CategoryId,
-            IsActive = req.IsActive,
-            IsFeatured = req.IsFeatured
+            Name             = req.Name,
+            Description      = req.Description,
+            SKU              = req.SKU,
+            Price            = req.Price,
+            CompareAtPrice   = req.CompareAtPrice,
+            Brand            = req.Brand,
+            ImageUrl         = req.ImageUrl,
+            AdditionalImages = req.AdditionalImages != null
+                ? JsonSerializer.Serialize(req.AdditionalImages)
+                : null,
+            CategoryId       = req.CategoryId,
+            IsActive         = req.IsActive,
+            IsFeatured       = req.IsFeatured
         };
 
         var created = await _products.CreateAsync(product);
@@ -75,15 +79,16 @@ public class ProductService : IProductService
         var product = await _products.GetByIdAsync(id);
         if (product == null) return null;
 
-        if (req.Name != null) product.Name = req.Name;
-        if (req.Description != null) product.Description = req.Description;
-        if (req.Price.HasValue) product.Price = req.Price.Value;
-        if (req.CompareAtPrice.HasValue) product.CompareAtPrice = req.CompareAtPrice;
-        if (req.Brand != null) product.Brand = req.Brand;
-        if (req.ImageUrl != null) product.ImageUrl = req.ImageUrl;
-        if (req.CategoryId.HasValue) product.CategoryId = req.CategoryId.Value;
-        if (req.IsActive.HasValue) product.IsActive = req.IsActive.Value;
-        if (req.IsFeatured.HasValue) product.IsFeatured = req.IsFeatured.Value;
+        if (req.Name != null)             product.Name             = req.Name;
+        if (req.Description != null)      product.Description      = req.Description;
+        if (req.Price.HasValue)           product.Price            = req.Price.Value;
+        if (req.CompareAtPrice.HasValue)  product.CompareAtPrice   = req.CompareAtPrice;
+        if (req.Brand != null)            product.Brand            = req.Brand;
+        if (req.ImageUrl != null)         product.ImageUrl         = req.ImageUrl;
+        if (req.AdditionalImages != null) product.AdditionalImages = JsonSerializer.Serialize(req.AdditionalImages);
+        if (req.CategoryId.HasValue)      product.CategoryId       = req.CategoryId.Value;
+        if (req.IsActive.HasValue)        product.IsActive         = req.IsActive.Value;
+        if (req.IsFeatured.HasValue)      product.IsFeatured       = req.IsFeatured.Value;
 
         await _products.UpdateAsync(product);
         return MapToDto(product);
@@ -97,10 +102,21 @@ public class ProductService : IProductService
         return cats.Select(c => new CategoryDto(c.Id, c.Name, c.Description, c.ImageUrl, c.IsActive, c.Products.Count));
     }
 
+    private static List<string>? ParseImages(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<List<string>>(json); }
+        catch { return null; }
+    }
+
     private static ProductDto MapToDto(Product p) => new(
         p.Id, p.Name, p.Description, p.SKU, p.Price, p.CompareAtPrice,
-        p.Brand, p.ImageUrl, p.IsActive, p.IsFeatured, p.Rating, p.ReviewCount,
-        p.CategoryId, p.Category?.Name ?? "", p.Inventory?.QuantityAvailable, p.CreatedAt
+        p.Brand, p.ImageUrl, ParseImages(p.AdditionalImages),
+        p.IsActive, p.IsFeatured, p.Rating, p.ReviewCount,
+        p.CategoryId, p.Category?.Name ?? "", p.Inventory?.QuantityAvailable, p.CreatedAt,
+        p.Variants.Where(v => v.IsActive).Select(v => new ProductVariantDto(
+            v.Id, v.ProductId, v.Name, v.SKU, v.PriceAdjustment,
+            v.Attributes, v.StockQuantity, v.IsActive))
     );
 
     private static ProductListDto MapToListDto(Product p) => new(

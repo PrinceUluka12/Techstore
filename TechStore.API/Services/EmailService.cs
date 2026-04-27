@@ -56,6 +56,21 @@ public class EmailService : IEmailService
             <p style="color:#6b7280;font-size:13px">This link expires in 1 hour. If you did not request a reset, you can safely ignore this email.</p>
             """);
 
+    public Task SendAbandonedCartAsync(string toEmail, string firstName, IEnumerable<string> itemNames)
+    {
+        var items = itemNames.ToList();
+        var itemList = string.Join("", items.Select(n =>
+            $"<li style=\"padding:4px 0;color:#374151\">{n}</li>"));
+        return Send(toEmail, "You left something behind!", $"""
+            <h2>Your cart misses you, {firstName}!</h2>
+            <p>You have items waiting in your cart:</p>
+            <ul style="padding-left:20px;margin:12px 0">{itemList}</ul>
+            <p>Complete your purchase before your items sell out.</p>
+            <p><a href="https://www.pgusolutions.com/cart" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;margin:8px 0">Return to Cart</a></p>
+            <p style="color:#6b7280;font-size:13px">If you're no longer interested, feel free to ignore this email.</p>
+            """);
+    }
+
     private async Task Send(string toEmail, string subject, string htmlBody)
     {
         if (string.IsNullOrEmpty(_connectionString))

@@ -129,7 +129,9 @@ function ReviewForm({ productId, onSubmitted }) {
 }
 
 // ── Image gallery ─────────────────────────────────────────────────────────────
-function ImageGallery({ imageUrl, name }) {
+function ImageGallery({ imageUrl, additionalImages, name }) {
+  const allImages   = [imageUrl, ...(additionalImages ?? [])].filter(Boolean)
+  const [active, setActive] = useState(0)
   const [zoomed, setZoomed] = useState(false)
   const [pos, setPos]       = useState({ x: 50, y: 50 })
   const imgRef = useRef()
@@ -146,7 +148,7 @@ function ImageGallery({ imageUrl, name }) {
     if (!zoomed) setPos({ x: 50, y: 50 })
   }
 
-  if (!imageUrl) return (
+  if (!allImages.length) return (
     <div className="aspect-square bg-surface-50 rounded-2xl flex items-center justify-center">
       <Package className="w-24 h-24 text-surface-200" />
     </div>
@@ -164,7 +166,7 @@ function ImageGallery({ imageUrl, name }) {
         onClick={handleTap}
       >
         <img
-          src={imageUrl} alt={name}
+          src={allImages[active]} alt={name}
           className="w-full h-full object-contain transition-transform duration-100"
           style={zoomed ? {
             transform: 'scale(2)',
@@ -185,6 +187,19 @@ function ImageGallery({ imageUrl, name }) {
           </div>
         )}
       </div>
+      {/* Thumbnails */}
+      {allImages.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          {allImages.map((img, i) => (
+            <button key={i} onClick={() => { setActive(i); setZoomed(false) }}
+              className={`flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
+                active === i ? 'border-brand-500' : 'border-surface-100 hover:border-surface-300'
+              }`}>
+              <img src={img} alt={`${name} view ${i + 1}`} className="w-full h-full object-contain p-1 bg-surface-50" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -332,7 +347,7 @@ export default function ProductDetailPage() {
 
             {/* LEFT — Image gallery */}
             <div className="lg:sticky lg:top-24 lg:self-start">
-              <ImageGallery imageUrl={product.imageUrl} name={product.name} />
+              <ImageGallery imageUrl={product.imageUrl} additionalImages={product.additionalImages} name={product.name} />
             </div>
 
             {/* RIGHT — Product info + buy box */}

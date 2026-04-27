@@ -75,9 +75,18 @@ public class PaystackController : ControllerBase
         if (order.UserId != userId)
             return Forbid();
 
-        order.PaymentStatus = PaymentStatus.Paid;
-        order.Status        = OrderStatus.Confirmed;
-        order.TransactionId = reference;
+        // Idempotency: same reference already processed → return cached success
+        if (order.PaystackReference == reference)
+            return Ok(new { message = "Payment already verified.", orderId = order.Id });
+
+        // Guard: order paid via a different reference (shouldn't happen in normal flow)
+        if (order.PaystackReference != null)
+            return Conflict(new { message = "Order has already been paid." });
+
+        order.PaymentStatus     = PaymentStatus.Paid;
+        order.Status            = OrderStatus.Confirmed;
+        order.TransactionId     = reference;
+        order.PaystackReference = reference;
         await _db.SaveChangesAsync();
 
         if (order.User != null)
@@ -121,11 +130,13 @@ public class PaystackController : ControllerBase
 
         var orderId = oId.GetInt32();
         var order   = await _db.Orders.Include(o => o.User).FirstOrDefaultAsync(o => o.Id == orderId);
-        if (order == null || order.PaymentStatus == PaymentStatus.Paid) return;
+        // Idempotency: PaystackReference set means already processed
+        if (order == null || order.PaystackReference != null) return;
 
-        order.PaymentStatus = PaymentStatus.Paid;
-        order.Status        = OrderStatus.Confirmed;
-        order.TransactionId = reference;
+        order.PaymentStatus     = PaymentStatus.Paid;
+        order.Status            = OrderStatus.Confirmed;
+        order.TransactionId     = reference;
+        order.PaystackReference = reference;
         await _db.SaveChangesAsync();
 
         if (order.User != null)

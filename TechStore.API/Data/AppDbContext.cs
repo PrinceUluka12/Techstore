@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
     public DbSet<AppRole> AppRoles => Set<AppRole>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -131,6 +133,21 @@ public class AppDbContext : DbContext
                 .HasForeignKey(ci => ci.CartId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(ci => ci.Product).WithMany(p => p.CartItems)
                 .HasForeignKey(ci => ci.ProductId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // AuditLog
+        builder.Entity<AuditLog>(e =>
+        {
+            e.HasIndex(a => a.OccurredAt);
+            e.HasIndex(a => new { a.EntityType, a.EntityId });
+        });
+
+        // ProductVariant
+        builder.Entity<ProductVariant>(e =>
+        {
+            e.Property(v => v.PriceAdjustment).HasColumnType("decimal(18,2)");
+            e.HasOne(v => v.Product).WithMany(p => p.Variants)
+                .HasForeignKey(v => v.ProductId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // AppRole — store permissions as JSON

@@ -1,12 +1,15 @@
 name: CI
 
 on:
+  push:
+    branches: [master, main, develop]
   pull_request:
-    branches: [master]
+    branches: [master, main]
 
 jobs:
+  # ── API ───────────────────────────────────────────────────────────────────────
   build-api:
-    name: Build API
+    name: API – Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,11 +24,29 @@ jobs:
       - name: Build
         run: dotnet build TechStore.API/TechStore.API.csproj --no-restore --configuration Release
 
-      - name: Publish
+      - name: Test
+        run: |
+          if [ -f "TechStore.Tests/TechStore.Tests.csproj" ]; then
+            dotnet test TechStore.Tests/TechStore.Tests.csproj --no-build --configuration Release --logger "trx;LogFileName=results.trx" --verbosity normal
+          else
+            echo "No test project found — skipping"
+          fi
+
+      - name: Publish artifact
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         run: dotnet publish TechStore.API/TechStore.API.csproj --no-build --configuration Release --output ./api-publish
 
+      - name: Upload API artifact
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-publish
+          path: ./api-publish
+          retention-days: 7
+
+  # ── Frontend ──────────────────────────────────────────────────────────────────
   build-frontend:
-    name: Build Frontend
+    name: Frontend – Lint & Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,8 +61,20 @@ jobs:
         run: npm ci
         working-directory: techstore-frontend
 
+      - name: Lint
+        run: npm run lint --if-present
+        working-directory: techstore-frontend
+
       - name: Build
         run: npm run build
         working-directory: techstore-frontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Upload frontend artifact
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: techstore-frontend/dist
+          retention-days: 7

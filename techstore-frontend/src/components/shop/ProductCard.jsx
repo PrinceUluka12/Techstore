@@ -41,6 +41,7 @@ export function ProductCard({ product }) {
   }
 
   const outOfStock = (product.quantityAvailable ?? 1) <= 0
+  const lowStock   = !outOfStock && (product.quantityAvailable ?? 10) <= 5
 
   return (
     <Link to={`/products/${product.id}`}
@@ -62,6 +63,7 @@ export function ProductCard({ product }) {
             </span>
           )}
           {outOfStock && <span className="badge-gray text-[10px]">Out of stock</span>}
+          {lowStock && <span className="badge bg-amber-500 text-white text-[10px]">Only {product.quantityAvailable} left</span>}
         </div>
         {/* Wishlist — always visible on mobile, hover-reveal on desktop */}
         <button onClick={handleWishlist} disabled={wishLoading}

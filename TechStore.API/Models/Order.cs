@@ -48,6 +48,7 @@ public class Order
     public string ShippingCountry { get; set; } = "Nigeria";
     public string? ShippingPhone { get; set; }
 
+    public string? PaystackReference { get; set; }
     public string? Notes { get; set; }
     public DateTime? ShippedAt { get; set; }
     public DateTime? DeliveredAt { get; set; }
@@ -64,9 +65,11 @@ public class OrderItem
     public Order Order { get; set; } = null!;
     public int ProductId { get; set; }
     public Product Product { get; set; } = null!;
+    public int? VariantId { get; set; }
 
-    public string ProductName { get; set; } = string.Empty; // Snapshot
+    public string ProductName { get; set; } = string.Empty;
     public string? ProductSKU { get; set; }
+    public string? VariantName { get; set; }
     public decimal UnitPrice { get; set; }
     public int Quantity { get; set; }
     public decimal LineTotal { get; set; }

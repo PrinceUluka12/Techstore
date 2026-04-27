@@ -104,8 +104,15 @@ builder.Services.AddRateLimiter(opts =>
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 
-// Background token cleanup (runs every 24 h)
+builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Background jobs
 builder.Services.AddHostedService<TokenCleanupService>();
+builder.Services.AddHostedService<AbandonedCartJob>();
+
+// Health checks
+builder.Services.AddHealthChecks()
+    .AddCheck<TechStore.API.Helpers.DatabaseHealthCheck>("database");
 
 // CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!;
@@ -164,8 +171,10 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseRateLimiter();
+app.MapHealthChecks("/health");
 
 app.UseSwagger();
 app.UseSwaggerUI(c =>

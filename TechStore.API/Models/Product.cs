@@ -34,6 +34,7 @@ public class Product
     public Category Category { get; set; } = null!;
 
     public Inventory? Inventory { get; set; }
+    public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
 }

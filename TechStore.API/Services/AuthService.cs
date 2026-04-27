@@ -130,11 +130,15 @@ public class AuthService : IAuthService
         if (stored.IsExpired)
             throw new UnauthorizedAccessException("Refresh token has expired. Please log in again.");
 
+        // Absolute 30-day cap regardless of rotation activity
+        if (stored.IsFamilyExpired())
+            throw new UnauthorizedAccessException("Session has expired. Please log in again.");
+
         var user = stored.User;
         if (!user.IsActive)
             throw new UnauthorizedAccessException("Account is deactivated.");
 
-        var newRefreshToken = BuildRefreshToken(user.Id);
+        var newRefreshToken = BuildRefreshToken(user.Id, stored.FamilyIssuedAt);
         await _refreshTokens.CreateAsync(newRefreshToken);
         await _refreshTokens.RevokeAsync(stored, newRefreshToken.Token);
 
@@ -233,14 +237,15 @@ public class AuthService : IAuthService
         );
     }
 
-    private RefreshToken BuildRefreshToken(int userId)
+    private RefreshToken BuildRefreshToken(int userId, DateTime? familyIssuedAt = null)
     {
         var expiryDays = double.Parse(_config["Jwt:RefreshTokenExpiryDays"] ?? "7");
         return new RefreshToken
         {
-            Token     = _jwt.GenerateRefreshToken(),
-            UserId    = userId,
-            ExpiresAt = DateTime.UtcNow.AddDays(expiryDays)
+            Token          = _jwt.GenerateRefreshToken(),
+            UserId         = userId,
+            ExpiresAt      = DateTime.UtcNow.AddDays(expiryDays),
+            FamilyIssuedAt = familyIssuedAt ?? DateTime.UtcNow
         };
     }
 

@@ -98,11 +98,12 @@ const stats = [
 ]
 
 export default function HomePage() {
-  const [featured, setFeatured]   = useState([])
-  const [hotItems, setHotItems]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const { setCart }               = useCartStore()
-  const { isAuthenticated }       = useAuthStore()
+  const [featured, setFeatured]         = useState([])
+  const [hotItems, setHotItems]         = useState([])
+  const [recentlyViewed, setRecentlyViewed] = useState([])
+  const [loading, setLoading]           = useState(true)
+  const { setCart }                     = useCartStore()
+  const { isAuthenticated }             = useAuthStore()
 
   useEffect(() => {
     productApi.featured().then(r => setFeatured(r.data)).finally(() => setLoading(false))
@@ -112,6 +113,14 @@ export default function HomePage() {
     if (isAuthenticated) {
       cartApi.get().then(r => setCart(r.data)).catch(() => {})
     }
+    // Load recently viewed from localStorage
+    try {
+      const ids = JSON.parse(localStorage.getItem('recently_viewed') || '[]').slice(0, 4)
+      if (ids.length > 0) {
+        Promise.all(ids.map(id => productApi.getById(id).then(r => r.data).catch(() => null)))
+          .then(products => setRecentlyViewed(products.filter(Boolean)))
+      }
+    } catch {}
   }, [isAuthenticated])
 
   return (
@@ -345,6 +354,21 @@ export default function HomePage() {
             <ProductGrid products={featured} loading={loading} />
           </div>
         </section>
+
+        {/* ── RECENTLY VIEWED ── */}
+        {recentlyViewed.length > 0 && (
+          <section className="border-t border-surface-100">
+            <div className="page-container py-8 lg:py-10">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="font-display text-xl font-bold text-surface-900">Recently Viewed</h2>
+                <Link to="/products" className="text-sm text-brand-600 hover:text-brand-700 flex items-center gap-1 font-medium">
+                  Browse all <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+              <ProductGrid products={recentlyViewed} loading={false} />
+            </div>
+          </section>
+        )}
 
         {/* ── DEALS + SOCIAL PROOF ── */}
         <section className="page-container py-8 sm:py-10">

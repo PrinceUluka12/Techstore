@@ -2,6 +2,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using TechStore.API.Data;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Inventory;
@@ -167,7 +169,12 @@ public class AuthController : ControllerBase
 public class ProductsController : ControllerBase
 {
     private readonly IProductService _products;
-    public ProductsController(IProductService products) => _products = products;
+    private readonly AppDbContext _db;
+    public ProductsController(IProductService products, AppDbContext db)
+    {
+        _products = products;
+        _db       = db;
+    }
 
     /// <summary>Search and filter products</summary>
     [HttpGet]
@@ -222,6 +229,82 @@ public class ProductsController : ControllerBase
     {
         var deleted = await _products.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
+    }
+
+    // ── Variant endpoints ─────────────────────────────────────────────────────
+
+    /// <summary>List all variants for a product</summary>
+    [HttpGet("{productId}/variants")]
+    public async Task<IActionResult> GetVariants(int productId)
+    {
+        var variants = await _db.ProductVariants
+            .Where(v => v.ProductId == productId)
+            .OrderBy(v => v.Id)
+            .Select(v => new ProductVariantDto(
+                v.Id, v.ProductId, v.Name, v.SKU,
+                v.PriceAdjustment, v.Attributes, v.StockQuantity, v.IsActive))
+            .ToListAsync();
+        return Ok(variants);
+    }
+
+    /// <summary>Add a variant to a product</summary>
+    [HttpPost("{productId}/variants")]
+    [RequirePermission(Perms.ProductsManage)]
+    public async Task<IActionResult> CreateVariant(int productId, [FromBody] CreateVariantRequest req)
+    {
+        var product = await _db.Products.FindAsync(productId);
+        if (product == null) return NotFound();
+
+        var variant = new TechStore.API.Models.ProductVariant
+        {
+            ProductId       = productId,
+            Name            = req.Name,
+            SKU             = req.SKU,
+            PriceAdjustment = req.PriceAdjustment,
+            Attributes      = req.Attributes,
+            StockQuantity   = req.StockQuantity
+        };
+        _db.ProductVariants.Add(variant);
+        await _db.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetVariants), new { productId },
+            new ProductVariantDto(variant.Id, variant.ProductId, variant.Name, variant.SKU,
+                variant.PriceAdjustment, variant.Attributes, variant.StockQuantity, variant.IsActive));
+    }
+
+    /// <summary>Update a product variant</summary>
+    [HttpPut("{productId}/variants/{variantId}")]
+    [RequirePermission(Perms.ProductsManage)]
+    public async Task<IActionResult> UpdateVariant(int productId, int variantId, [FromBody] UpdateVariantRequest req)
+    {
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(
+            v => v.Id == variantId && v.ProductId == productId);
+        if (variant == null) return NotFound();
+
+        if (req.Name != null)                 variant.Name            = req.Name;
+        if (req.SKU != null)                  variant.SKU             = req.SKU;
+        if (req.PriceAdjustment.HasValue)     variant.PriceAdjustment = req.PriceAdjustment.Value;
+        if (req.Attributes != null)           variant.Attributes      = req.Attributes;
+        if (req.StockQuantity.HasValue)       variant.StockQuantity   = req.StockQuantity.Value;
+        if (req.IsActive.HasValue)            variant.IsActive        = req.IsActive.Value;
+
+        await _db.SaveChangesAsync();
+        return Ok(new ProductVariantDto(variant.Id, variant.ProductId, variant.Name, variant.SKU,
+            variant.PriceAdjustment, variant.Attributes, variant.StockQuantity, variant.IsActive));
+    }
+
+    /// <summary>Delete a product variant</summary>
+    [HttpDelete("{productId}/variants/{variantId}")]
+    [RequirePermission(Perms.ProductsManage)]
+    public async Task<IActionResult> DeleteVariant(int productId, int variantId)
+    {
+        var variant = await _db.ProductVariants.FirstOrDefaultAsync(
+            v => v.Id == variantId && v.ProductId == productId);
+        if (variant == null) return NotFound();
+
+        _db.ProductVariants.Remove(variant);
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 }
 
@@ -519,5 +602,32 @@ public class RolesController : ControllerBase
         try { await _roles.DeleteAsync(id); return NoContent(); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
+public class AuditController : ControllerBase
+{
+    private readonly AppDbContext _db;
+    public AuditController(AppDbContext db) => _db = db;
+
+    /// <summary>Paginated audit log (Admin only)</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetLogs(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? entityType = null,
+        [FromQuery] int? userId = null)
+    {
+        var q = _db.AuditLogs.AsQueryable();
+        if (entityType != null) q = q.Where(l => l.EntityType == entityType);
+        if (userId.HasValue)    q = q.Where(l => l.UserId == userId);
+        q = q.OrderByDescending(l => l.OccurredAt);
+
+        var total = await q.CountAsync();
+        var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return Ok(new { items, total, page, pageSize });
     }
 }

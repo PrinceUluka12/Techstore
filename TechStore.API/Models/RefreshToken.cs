@@ -10,9 +10,12 @@ public class RefreshToken
     public DateTime? RevokedAt { get; set; }
     public string? ReplacedByToken { get; set; }
 
+    public DateTime FamilyIssuedAt { get; set; } = DateTime.UtcNow;
+
     public User User { get; set; } = null!;
 
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
     public bool IsRevoked => RevokedAt != null;
     public bool IsActive => !IsRevoked && !IsExpired;
+    public bool IsFamilyExpired(int maxDays = 30) => DateTime.UtcNow > FamilyIssuedAt.AddDays(maxDays);
 }

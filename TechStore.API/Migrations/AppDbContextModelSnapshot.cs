@@ -17,7 +17,7 @@ namespace TechStore.API.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.0")
+                .HasAnnotation("ProductVersion", "8.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -75,6 +75,52 @@ namespace TechStore.API.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TechStore.API.Models.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EntityId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NewValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OldValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.ToTable("AuditLogs");
+                });
+
             modelBuilder.Entity("TechStore.API.Models.Cart", b =>
                 {
                     b.Property<int>("Id")
@@ -82,6 +128,9 @@ namespace TechStore.API.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AbandonedEmailSentAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -118,6 +167,9 @@ namespace TechStore.API.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("VariantId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -161,7 +213,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 4, 26, 19, 37, 12, 592, DateTimeKind.Utc).AddTicks(5693),
+                            CreatedAt = new DateTime(2026, 4, 27, 4, 38, 18, 628, DateTimeKind.Utc).AddTicks(2266),
                             Description = "Latest smartphones and accessories",
                             IsActive = true,
                             Name = "Smartphones"
@@ -169,7 +221,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 4, 26, 19, 37, 12, 592, DateTimeKind.Utc).AddTicks(5697),
+                            CreatedAt = new DateTime(2026, 4, 27, 4, 38, 18, 628, DateTimeKind.Utc).AddTicks(2270),
                             Description = "Tablets and e-readers",
                             IsActive = true,
                             Name = "Tablets"
@@ -177,7 +229,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 4, 26, 19, 37, 12, 592, DateTimeKind.Utc).AddTicks(5699),
+                            CreatedAt = new DateTime(2026, 4, 27, 4, 38, 18, 628, DateTimeKind.Utc).AddTicks(2272),
                             Description = "Wearable technology",
                             IsActive = true,
                             Name = "Smart Watches"
@@ -185,7 +237,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 4, 26, 19, 37, 12, 592, DateTimeKind.Utc).AddTicks(5701),
+                            CreatedAt = new DateTime(2026, 4, 27, 4, 38, 18, 628, DateTimeKind.Utc).AddTicks(2275),
                             Description = "Laptops and ultrabooks",
                             IsActive = true,
                             Name = "Laptops"
@@ -193,7 +245,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 4, 26, 19, 37, 12, 592, DateTimeKind.Utc).AddTicks(5703),
+                            CreatedAt = new DateTime(2026, 4, 27, 4, 38, 18, 628, DateTimeKind.Utc).AddTicks(2277),
                             Description = "Cases, chargers, and more",
                             IsActive = true,
                             Name = "Accessories"
@@ -220,6 +272,9 @@ namespace TechStore.API.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<int?>("MaxUsesPerUser")
+                        .HasColumnType("int");
 
                     b.Property<decimal?>("MaximumDiscountAmount")
                         .HasColumnType("decimal(18,2)");
@@ -328,6 +383,9 @@ namespace TechStore.API.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PaystackReference")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("ShippedAt")
                         .HasColumnType("datetime2");
 
@@ -426,6 +484,12 @@ namespace TechStore.API.Migrations
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("VariantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("VariantName")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -544,6 +608,46 @@ namespace TechStore.API.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("TechStore.API.Models.ProductVariant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Attributes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("PriceAdjustment")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SKU")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("StockQuantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductVariants");
+                });
+
             modelBuilder.Entity("TechStore.API.Models.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -556,6 +660,9 @@ namespace TechStore.API.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FamilyIssuedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("ReplacedByToken")
@@ -806,6 +913,17 @@ namespace TechStore.API.Migrations
                     b.Navigation("Category");
                 });
 
+            modelBuilder.Entity("TechStore.API.Models.ProductVariant", b =>
+                {
+                    b.HasOne("TechStore.API.Models.Product", "Product")
+                        .WithMany("Variants")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("TechStore.API.Models.RefreshToken", b =>
                 {
                     b.HasOne("TechStore.API.Models.User", "User")
@@ -877,6 +995,8 @@ namespace TechStore.API.Migrations
                     b.Navigation("Inventory");
 
                     b.Navigation("OrderItems");
+
+                    b.Navigation("Variants");
                 });
 
             modelBuilder.Entity("TechStore.API.Models.User", b =>

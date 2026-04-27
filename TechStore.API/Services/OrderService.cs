@@ -20,6 +20,7 @@ public class OrderService : IOrderService
     private readonly AppDbContext _db;
     private readonly IHttpContextAccessor _http;
     private readonly IEmailService _email;
+    private readonly IAuditService _audit;
 
     public OrderService(
         IOrderRepository orders,
@@ -29,7 +30,8 @@ public class OrderService : IOrderService
         ICouponRepository coupons,
         AppDbContext db,
         IHttpContextAccessor http,
-        IEmailService email)
+        IEmailService email,
+        IAuditService audit)
     {
         _orders    = orders;
         _carts     = carts;
@@ -39,6 +41,7 @@ public class OrderService : IOrderService
         _db        = db;
         _http      = http;
         _email     = email;
+        _audit     = audit;
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -100,6 +103,15 @@ public class OrderService : IOrderService
                 (appliedCoupon.UsageLimit == null || appliedCoupon.UsedCount < appliedCoupon.UsageLimit) &&
                 (appliedCoupon.MinimumOrderAmount == null || subTotal >= appliedCoupon.MinimumOrderAmount))
             {
+                if (appliedCoupon.MaxUsesPerUser.HasValue)
+                {
+                    var userUses = await _db.Orders.CountAsync(o =>
+                        o.UserId == userId && o.CouponCode == appliedCoupon.Code);
+                    if (userUses >= appliedCoupon.MaxUsesPerUser.Value)
+                        throw new InvalidOperationException(
+                            $"You've reached the usage limit for coupon '{appliedCoupon.Code}'.");
+                }
+
                 discount = appliedCoupon.Type == DiscountType.Percentage
                     ? Math.Round(subTotal * appliedCoupon.Value / 100, 2)
                     : appliedCoupon.Value;
@@ -205,8 +217,13 @@ public class OrderService : IOrderService
 
         await _orders.UpdateAsync(order);
 
-        // Write audit log entry
+        // Write order status log entry
         await WriteLogAsync(id, GetCurrentUserId(), prevStatus, req.Status, req.Notes);
+
+        // Write audit log entry
+        await _audit.LogAsync("OrderStatus.Changed", "Order", id.ToString(),
+            new { Status = prevStatus.ToString() },
+            new { Status = req.Status.ToString() });
 
         var dto = MapToDto(order);
         if (order.User?.Email != null)

@@ -33,6 +33,13 @@ public interface IEmailService
     Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total);
     Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus);
     Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink);
+    Task SendAbandonedCartAsync(string toEmail, string firstName, IEnumerable<string> itemNames);
+}
+
+public interface IAuditService
+{
+    Task LogAsync(string action, string entityType, string? entityId = null,
+        object? oldValues = null, object? newValues = null);
 }
 
 public interface IWishlistService

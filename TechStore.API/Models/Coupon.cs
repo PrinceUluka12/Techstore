@@ -16,6 +16,7 @@ public class Coupon
     public decimal? MinimumOrderAmount { get; set; }
     public decimal? MaximumDiscountAmount { get; set; }
     public int? UsageLimit { get; set; }
+    public int? MaxUsesPerUser { get; set; }
     public int UsedCount { get; set; } = 0;
     public DateTime? ValidFrom { get; set; }
     public DateTime? ValidTo { get; set; }

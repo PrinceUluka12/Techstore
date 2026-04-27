@@ -7,6 +7,7 @@ public class Cart
     public User User { get; set; } = null!;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? AbandonedEmailSentAt { get; set; }
 
     public ICollection<CartItem> Items { get; set; } = new List<CartItem>();
 }
@@ -18,6 +19,7 @@ public class CartItem
     public Cart Cart { get; set; } = null!;
     public int ProductId { get; set; }
     public Product Product { get; set; } = null!;
+    public int? VariantId { get; set; }
     public int Quantity { get; set; }
     public DateTime AddedAt { get; set; } = DateTime.UtcNow;
 }
