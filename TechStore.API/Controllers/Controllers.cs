@@ -7,6 +7,8 @@ using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Role;
+using TechStore.API.Helpers;
 using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Controllers;
@@ -154,7 +156,7 @@ public class AuthController : ControllerBase
         });
 
     private static AuthClientResponse ToClientResponse(AuthResponse r) =>
-        new(r.UserId, r.Email, r.FirstName, r.LastName, r.Role, r.AccessToken, r.ExpiresAt);
+        new(r.UserId, r.Email, r.FirstName, r.LastName, r.Role, r.AccessToken, r.ExpiresAt, r.Permissions ?? []);
 
     private int GetUserId() =>
         int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -195,27 +197,27 @@ public class ProductsController : ControllerBase
         return product == null ? NotFound() : Ok(product);
     }
 
-    /// <summary>Create a new product (Admin only)</summary>
+    /// <summary>Create a new product</summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Perms.ProductsManage)]
     public async Task<IActionResult> Create([FromBody] CreateProductRequest req)
     {
         var product = await _products.CreateAsync(req);
         return CreatedAtAction(nameof(GetById), new { id = product.Id }, product);
     }
 
-    /// <summary>Update a product (Admin only)</summary>
+    /// <summary>Update a product</summary>
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Perms.ProductsManage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateProductRequest req)
     {
         var product = await _products.UpdateAsync(id, req);
         return product == null ? NotFound() : Ok(product);
     }
 
-    /// <summary>Delete (deactivate) a product (Admin only)</summary>
+    /// <summary>Delete (deactivate) a product</summary>
     [HttpDelete("{id}")]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Perms.ProductsManage)]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _products.DeleteAsync(id);
@@ -314,31 +316,33 @@ public class OrdersController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>Get all orders (Admin only)</summary>
+    /// <summary>Get all orders</summary>
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Perms.OrdersView)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? status = null) =>
         Ok(await _orders.GetAllOrdersAsync(page, pageSize, status));
 
-    /// <summary>Update order status (Admin only)</summary>
+    /// <summary>Update order status</summary>
     [HttpPut("{id}/status")]
-    [Authorize(Roles = "Admin")]
+    [RequirePermission(Perms.OrdersManage)]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest req)
     {
         var order = await _orders.UpdateStatusAsync(id, req);
         return order == null ? NotFound() : Ok(order);
     }
 
-    /// <summary>Get full status change history for an order (owner or Admin)</summary>
+    /// <summary>Get full status change history for an order (owner or staff)</summary>
     [HttpGet("{id}/history")]
     public async Task<IActionResult> GetHistory(int id)
     {
         var order = await _orders.GetByIdAsync(id);
         if (order == null) return NotFound();
-        if (!User.IsInRole("Admin") && order.UserId != GetUserId())
+        var perms = User.FindFirst("permissions")?.Value ?? "";
+        var isStaff = User.IsInRole("Admin") || perms.Contains(Perms.OrdersView) || perms.Contains(Perms.OrdersManage);
+        if (!isStaff && order.UserId != GetUserId())
             return Forbid();
         return Ok(await _orders.GetStatusHistoryAsync(id));
     }
@@ -349,7 +353,7 @@ public class OrdersController : ControllerBase
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[RequirePermission(Perms.InventoryManage)]
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryService _inventory;
@@ -396,7 +400,7 @@ public class InventoryController : ControllerBase
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Admin")]
+[Authorize]
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _admin;
@@ -404,11 +408,13 @@ public class AdminController : ControllerBase
 
     /// <summary>Get dashboard stats and KPIs</summary>
     [HttpGet("dashboard")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Dashboard() =>
         Ok(await _admin.GetDashboardStatsAsync());
 
     /// <summary>Get sales report for a date range</summary>
     [HttpGet("reports/sales")]
+    [RequirePermission(Perms.ReportsView)]
     public async Task<IActionResult> SalesReport(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to)
@@ -420,22 +426,98 @@ public class AdminController : ControllerBase
 
     /// <summary>Get paginated user list with stats</summary>
     [HttpGet("users")]
+    [RequirePermission(Perms.UsersView)]
     public async Task<IActionResult> Users([FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
         Ok(await _admin.GetUsersAsync(page, pageSize));
 
     /// <summary>Toggle user active/inactive status</summary>
     [HttpPut("users/{userId}/toggle")]
+    [RequirePermission(Perms.UsersManage)]
     public async Task<IActionResult> ToggleUser(int userId)
     {
         var result = await _admin.ToggleUserStatusAsync(userId);
         return result ? Ok(new { message = "User status updated." }) : NotFound();
     }
 
-    /// <summary>Promote a user to Admin role</summary>
-    [HttpPut("users/{userId}/promote")]
-    public async Task<IActionResult> PromoteToAdmin(int userId, [FromServices] IAuthService auth)
+    /// <summary>Create a back office (staff/admin) account directly</summary>
+    [HttpPost("users/staff")]
+    [RequirePermission(Perms.UsersManage)]
+    public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest req, [FromServices] IAuthService auth)
     {
-        await auth.PromoteToAdminAsync(userId);
-        return Ok(new { message = "User promoted to Admin." });
+        try { return Ok(await auth.CreateStaffAccountAsync(req)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Assign a role to a user</summary>
+    [HttpPut("users/{userId}/role")]
+    [RequirePermission(Perms.UsersManage)]
+    public async Task<IActionResult> AssignRole(int userId, [FromBody] AssignRoleRequest req, [FromServices] IAuthService auth)
+    {
+        try
+        {
+            await auth.AssignRoleAsync(userId, req.Role);
+            return Ok(new { message = $"Role updated to {req.Role}." });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+[Authorize]
+public class RolesController : ControllerBase
+{
+    private readonly IRoleService _roles;
+    public RolesController(IRoleService roles) => _roles = roles;
+
+    /// <summary>List all roles</summary>
+    [HttpGet]
+    [RequirePermission(Perms.RolesManage)]
+    public async Task<IActionResult> GetAll() =>
+        Ok(await _roles.GetAllAsync());
+
+    /// <summary>List all available permission keys and labels</summary>
+    [HttpGet("permissions")]
+    [RequirePermission(Perms.RolesManage)]
+    public async Task<IActionResult> GetPermissions() =>
+        Ok(await _roles.GetAvailablePermissionsAsync());
+
+    /// <summary>Get a single role by ID</summary>
+    [HttpGet("{id}")]
+    [RequirePermission(Perms.RolesManage)]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var role = await _roles.GetByIdAsync(id);
+        return role == null ? NotFound() : Ok(role);
+    }
+
+    /// <summary>Create a custom role</summary>
+    [HttpPost]
+    [RequirePermission(Perms.RolesManage)]
+    public async Task<IActionResult> Create([FromBody] CreateRoleRequest req)
+    {
+        try { return Ok(await _roles.CreateAsync(req)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Update a role's description and permissions</summary>
+    [HttpPut("{id}")]
+    [RequirePermission(Perms.RolesManage)]
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateRoleRequest req)
+    {
+        try { return Ok(await _roles.UpdateAsync(id, req)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Delete a custom role</summary>
+    [HttpDelete("{id}")]
+    [RequirePermission(Perms.RolesManage)]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try { await _roles.DeleteAsync(id); return NoContent(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 }

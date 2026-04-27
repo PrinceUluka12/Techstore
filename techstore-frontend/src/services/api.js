@@ -148,7 +148,8 @@ export const adminApi = {
   salesReport:   (params) => api.get('/admin/reports/sales', { params }),
   getUsers:      (p)      => api.get('/admin/users', { params: p }),
   toggleUser:    (id)     => api.put(`/admin/users/${id}/toggle`),
-  promoteToAdmin:(id)     => api.put(`/admin/users/${id}/promote`),
+  createStaff:   (data)   => api.post('/admin/users/staff', data),
+  assignRole:    (id, role) => api.put(`/admin/users/${id}/role`, { role }),
 }
 
 // ── Coupons ───────────────────────────────────────────────────────────────────
@@ -166,6 +167,16 @@ export const wishlistApi = {
   add:    (id)  => api.post(`/wishlist/${id}`),
   remove: (id)  => api.delete(`/wishlist/${id}`),
   check:  (id)  => api.get(`/wishlist/${id}/check`),
+}
+
+// ── Roles ─────────────────────────────────────────────────────────────────────
+export const roleApi = {
+  getAll:         ()        => api.get('/roles'),
+  getById:        (id)      => api.get(`/roles/${id}`),
+  getPermissions: ()        => api.get('/roles/permissions'),
+  create:         (data)    => api.post('/roles', data),
+  update:         (id, d)   => api.put(`/roles/${id}`, d),
+  delete:         (id)      => api.delete(`/roles/${id}`),
 }
 
 // ── Paystack ──────────────────────────────────────────────────────────────────

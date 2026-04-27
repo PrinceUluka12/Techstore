@@ -16,6 +16,17 @@ public interface IUserRepository
     Task<int> CountNewThisMonthAsync();
 }
 
+public interface IRoleRepository
+{
+    Task<IEnumerable<AppRole>> GetAllAsync();
+    Task<AppRole?> GetByIdAsync(int id);
+    Task<AppRole?> GetByNameAsync(string name);
+    Task<AppRole> CreateAsync(AppRole role);
+    Task<AppRole> UpdateAsync(AppRole role);
+    Task<bool> DeleteAsync(int id);
+    Task<bool> ExistsAsync(string name);
+}
+
 public interface IWishlistRepository
 {
     Task<IEnumerable<Wishlist>> GetByUserIdAsync(int userId);

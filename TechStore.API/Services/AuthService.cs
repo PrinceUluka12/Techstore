@@ -1,4 +1,5 @@
 using TechStore.API.DTOs.Auth;
+using TechStore.API.DTOs.Role;
 using TechStore.API.Helpers;
 using TechStore.API.Models;
 using TechStore.API.Repositories.Interfaces;
@@ -13,6 +14,8 @@ public class AuthService : IAuthService
     private readonly IJwtHelper _jwt;
     private readonly IConfiguration _config;
     private readonly IEmailService _email;
+    private readonly IRoleService _roleService;
+    private readonly IRoleRepository _roles;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -21,6 +24,8 @@ public class AuthService : IAuthService
         IJwtHelper jwt,
         IConfiguration config,
         IEmailService email,
+        IRoleService roleService,
+        IRoleRepository roles,
         ILogger<AuthService> logger)
     {
         _users = users;
@@ -28,6 +33,8 @@ public class AuthService : IAuthService
         _jwt = jwt;
         _config = config;
         _email = email;
+        _roleService = roleService;
+        _roles = roles;
         _logger = logger;
     }
 
@@ -216,11 +223,13 @@ public class AuthService : IAuthService
     private AuthResponse BuildAuthResponse(User user, RefreshToken refreshToken)
     {
         var expiryMinutes = double.Parse(_config["Jwt:AccessTokenExpiryMinutes"] ?? "15");
+        var permissions   = _roleService.GetPermissionsForRoleAsync(user.Role).GetAwaiter().GetResult();
         return new AuthResponse(
             user.Id, user.Email, user.FirstName, user.LastName, user.Role,
-            _jwt.GenerateAccessToken(user),
+            _jwt.GenerateAccessToken(user, permissions),
             refreshToken.Token,
-            DateTime.UtcNow.AddMinutes(expiryMinutes)
+            DateTime.UtcNow.AddMinutes(expiryMinutes),
+            permissions
         );
     }
 
@@ -270,6 +279,44 @@ public class AuthService : IAuthService
         // Invalidate all sessions
         await _refreshTokens.RevokeAllUserTokensAsync(user.Id);
         _logger.LogInformation("Password reset completed for user {UserId}", user.Id);
+    }
+
+    public async Task<UserProfileDto> CreateStaffAccountAsync(CreateStaffRequest req)
+    {
+        if (!await _roles.ExistsAsync(req.Role))
+            throw new InvalidOperationException($"Role '{req.Role}' does not exist.");
+
+        if (await _users.EmailExistsAsync(req.Email))
+            throw new InvalidOperationException("Email already registered.");
+
+        var user = new User
+        {
+            FirstName    = req.FirstName,
+            LastName     = req.LastName,
+            Email        = req.Email,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
+            Role         = req.Role,
+        };
+
+        await _users.CreateAsync(user);
+        _logger.LogInformation("Staff account created: {Email} with role {Role}", user.Email, user.Role);
+        return MapToProfile(user);
+    }
+
+    public async Task AssignRoleAsync(int targetUserId, string role)
+    {
+        if (!await _roles.ExistsAsync(role))
+            throw new InvalidOperationException($"Role '{role}' does not exist.");
+
+        var user = await _users.GetByIdAsync(targetUserId)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        user.Role = role;
+        await _users.UpdateAsync(user);
+
+        // Revoke all sessions so the new role takes effect immediately
+        await _refreshTokens.RevokeAllUserTokensAsync(targetUserId);
+        _logger.LogInformation("Role for user {UserId} changed to {Role}", targetUserId, role);
     }
 
     private static UserProfileDto MapToProfile(User u) =>

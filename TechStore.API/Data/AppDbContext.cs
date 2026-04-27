@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using TechStore.API.Helpers;
 using TechStore.API.Models;
 
 namespace TechStore.API.Data;
@@ -20,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
+    public DbSet<AppRole> AppRoles => Set<AppRole>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -128,6 +132,26 @@ public class AppDbContext : DbContext
             e.HasOne(ci => ci.Product).WithMany(p => p.CartItems)
                 .HasForeignKey(ci => ci.ProductId).OnDelete(DeleteBehavior.Cascade);
         });
+
+        // AppRole — store permissions as JSON
+        builder.Entity<AppRole>(e =>
+        {
+            e.HasIndex(r => r.Name).IsUnique();
+            e.Property(r => r.Permissions)
+             .HasConversion(
+                 v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                 v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>())
+             .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+                 (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                 v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
+                 v => v.ToList()));
+        });
+
+        // Seed system roles
+        builder.Entity<AppRole>().HasData(
+            new AppRole { Id = 1, Name = "Admin",    IsSystem = true, Description = "Full access to all features.",      Permissions = Perms.All.ToList(),  CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new AppRole { Id = 2, Name = "Customer", IsSystem = true, Description = "Standard customer account.",        Permissions = [],                  CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
+        );
 
         // Seed categories
         builder.Entity<Category>().HasData(

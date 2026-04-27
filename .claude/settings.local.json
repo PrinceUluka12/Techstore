@@ -11,7 +11,9 @@
       "Bash(dotnet restore *)",
       "Bash(az account *)",
       "Bash(az keyvault *)",
-      "Bash(python -c \"import json,sys; p=json.load\\(sys.stdin\\); [print\\(f'{k}: {v}'\\) for k,v in {**p.get\\('dependencies',{}\\), **p.get\\('devDependencies',{}\\)}.items\\(\\)]\")"
+      "Bash(python -c \"import json,sys; p=json.load\\(sys.stdin\\); [print\\(f'{k}: {v}'\\) for k,v in {**p.get\\('dependencies',{}\\), **p.get\\('devDependencies',{}\\)}.items\\(\\)]\")",
+      "Bash(npx vite *)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

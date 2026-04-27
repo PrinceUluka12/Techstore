@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag
+  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
@@ -13,24 +13,30 @@ const navSections = [
   {
     label: 'Overview',
     items: [
-      { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-      { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
+      { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true, adminOnly: true },
+      { to: '/admin/reports', label: 'Reports', icon: BarChart3, permission: 'reports.view' },
     ]
   },
   {
     label: 'Catalog',
     items: [
-      { to: '/admin/products',  label: 'Products',  icon: Package },
-      { to: '/admin/inventory', label: 'Inventory', icon: Warehouse },
-      { to: '/admin/images',    label: 'Images',    icon: Image },
+      { to: '/admin/products',  label: 'Products',  icon: Package,   permission: 'products.manage' },
+      { to: '/admin/inventory', label: 'Inventory', icon: Warehouse, permission: 'inventory.manage' },
+      { to: '/admin/images',    label: 'Images',    icon: Image,     permission: 'images.manage' },
     ]
   },
   {
     label: 'Sales',
     items: [
-      { to: '/admin/orders',  label: 'Orders',    icon: ShoppingBag },
-      { to: '/admin/users',   label: 'Customers', icon: Users },
-      { to: '/admin/coupons', label: 'Coupons',   icon: Tag },
+      { to: '/admin/orders',  label: 'Orders',    icon: ShoppingBag, permission: 'orders.view' },
+      { to: '/admin/users',   label: 'Customers', icon: Users,       permission: 'users.view' },
+      { to: '/admin/coupons', label: 'Coupons',   icon: Tag,         permission: 'coupons.manage' },
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/admin/roles', label: 'Roles', icon: ShieldCheck, adminOnly: true },
     ]
   },
 ]
@@ -51,7 +57,7 @@ function NavItem({ item, onClick }) {
 }
 
 export function AdminLayout({ children }) {
-  const { user, logout } = useAuthStore()
+  const { user, logout, isAdmin, hasPermission } = useAuthStore()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -84,18 +90,26 @@ export function AdminLayout({ children }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-5">
-        {navSections.map(section => (
-          <div key={section.label}>
-            <p className="text-[10px] font-semibold text-surface-400 uppercase tracking-widest px-3 mb-1">
-              {section.label}
-            </p>
-            <div className="space-y-0.5">
-              {section.items.map(item => (
-                <NavItem key={item.to} item={item} onClick={onClose} />
-              ))}
+        {navSections.map(section => {
+          const visibleItems = section.items.filter(item => {
+            if (item.adminOnly) return isAdmin()
+            if (item.permission) return hasPermission(item.permission)
+            return true
+          })
+          if (visibleItems.length === 0) return null
+          return (
+            <div key={section.label}>
+              <p className="text-[10px] font-semibold text-surface-400 uppercase tracking-widest px-3 mb-1">
+                {section.label}
+              </p>
+              <div className="space-y-0.5">
+                {visibleItems.map(item => (
+                  <NavItem key={item.to} item={item} onClick={onClose} />
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </nav>
 
       {/* View store link */}

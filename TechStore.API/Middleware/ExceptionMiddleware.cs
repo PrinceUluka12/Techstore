@@ -3,51 +3,48 @@ using System.Text.Json;
 
 namespace TechStore.API.Middleware;
 
-public class ExceptionMiddleware
+public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<ExceptionMiddleware> _logger;
-
-    public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
-    {
-        _next = next;
-        _logger = logger;
-    }
-
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            await _next(context);
+            await next(context);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception: {Message}", ex.Message);
-            await HandleExceptionAsync(context, ex);
+            await HandleAsync(context, ex);
         }
     }
 
-    private static Task HandleExceptionAsync(HttpContext context, Exception ex)
+    private Task HandleAsync(HttpContext context, Exception ex)
     {
-        var (status, message) = ex switch
+        var (status, message, isExpected) = ex switch
         {
-            KeyNotFoundException => (HttpStatusCode.NotFound, ex.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, ex.Message),
-            InvalidOperationException => (HttpStatusCode.BadRequest, ex.Message),
-            ArgumentException => (HttpStatusCode.BadRequest, ex.Message),
-            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred.")
+            UnauthorizedAccessException  => (HttpStatusCode.Unauthorized,          ex.Message,                       true),
+            KeyNotFoundException         => (HttpStatusCode.NotFound,               ex.Message,                       true),
+            InvalidOperationException    => (HttpStatusCode.BadRequest,             ex.Message,                       true),
+            ArgumentException            => (HttpStatusCode.BadRequest,             ex.Message,                       true),
+            OperationCanceledException   => (HttpStatusCode.BadRequest,             "The request was cancelled.",     true),
+            _                            => (HttpStatusCode.InternalServerError,    "An unexpected error occurred.",  false),
         };
 
+        if (isExpected)
+            // Business rule violations are expected — no stack trace needed
+            logger.LogWarning("{Method} {Path} → {Status}: {Message}",
+                context.Request.Method, context.Request.Path, (int)status, ex.Message);
+        else
+            // Truly unexpected — log the full exception with stack trace
+            logger.LogError(ex, "{Method} {Path} → 500: {Message}",
+                context.Request.Method, context.Request.Path, ex.Message);
+
+        // In development, expose the real error for 500s; in production return a safe message
+        var responseMessage = (!isExpected && env.IsDevelopment()) ? ex.Message : message;
+
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = (int)status;
+        context.Response.StatusCode  = (int)status;
 
-        var response = JsonSerializer.Serialize(new
-        {
-            statusCode = (int)status,
-            message,
-            timestamp = DateTime.UtcNow
-        });
-
-        return context.Response.WriteAsync(response);
+        return context.Response.WriteAsync(
+            JsonSerializer.Serialize(new { message = responseMessage }));
     }
 }

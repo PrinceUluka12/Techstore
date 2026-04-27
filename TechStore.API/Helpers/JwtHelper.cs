@@ -9,7 +9,7 @@ namespace TechStore.API.Helpers;
 
 public interface IJwtHelper
 {
-    string GenerateAccessToken(User user);
+    string GenerateAccessToken(User user, IEnumerable<string>? permissions = null);
     string GenerateRefreshToken();
     ClaimsPrincipal? ValidateToken(string token);
 }
@@ -20,19 +20,21 @@ public class JwtHelper : IJwtHelper
 
     public JwtHelper(IConfiguration config) => _config = config;
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, IEnumerable<string>? permissions = null)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Secret"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var permList = permissions?.ToList() ?? [];
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(ClaimTypes.Role, user.Role),
-            new Claim("userId", user.Id.ToString()),
-            new Claim("firstName", user.FirstName),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email),
+            new(ClaimTypes.Role, user.Role),
+            new("userId", user.Id.ToString()),
+            new("firstName", user.FirstName),
+            new("permissions", string.Join(',', permList)),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
         var token = new JwtSecurityToken(

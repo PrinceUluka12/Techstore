@@ -23,6 +23,7 @@ import AdminInventory from './pages/admin/AdminInventory'
 import { AdminUsers, AdminReports } from './pages/admin/AdminUsersReports'
 import AdminImages from './pages/admin/AdminImages'
 import AdminCoupons from './pages/admin/AdminCoupons'
+import AdminRoles from './pages/admin/AdminRoles'
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 function RequireAuth({ children }) {
@@ -30,11 +31,31 @@ function RequireAuth({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
+const PERMISSION_TO_ROUTE = [
+  { perm: 'orders.view',      route: '/admin/orders' },
+  { perm: 'orders.manage',    route: '/admin/orders' },
+  { perm: 'products.manage',  route: '/admin/products' },
+  { perm: 'inventory.manage', route: '/admin/inventory' },
+  { perm: 'users.view',       route: '/admin/users' },
+  { perm: 'users.manage',     route: '/admin/users' },
+  { perm: 'reports.view',     route: '/admin/reports' },
+  { perm: 'coupons.manage',   route: '/admin/coupons' },
+  { perm: 'images.manage',    route: '/admin/images' },
+]
+
 function RequireAdmin({ children }) {
-  const { isAuthenticated, isAdmin } = useAuthStore()
+  const { isAuthenticated, isAdmin, hasAnyAdminPermission } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (!isAdmin()) return <Navigate to="/" replace />
+  if (!isAdmin() && !hasAnyAdminPermission()) return <Navigate to="/" replace />
   return children
+}
+
+// Redirects custom-role staff away from the Admin-only dashboard to their first accessible page
+function AdminEntry() {
+  const { isAdmin, hasPermission } = useAuthStore()
+  if (isAdmin()) return <AdminDashboard />
+  const first = PERMISSION_TO_ROUTE.find(({ perm }) => hasPermission(perm))
+  return <Navigate to={first?.route ?? '/'} replace />
 }
 
 function GuestOnly({ children }) {
@@ -84,7 +105,7 @@ export default function App() {
             <Route path="/account/wishlist"      element={<RequireAuth><WishlistPage /></RequireAuth>} />
 
             {/* ── Admin ── */}
-            <Route path="/admin"            element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            <Route path="/admin"            element={<RequireAdmin><AdminEntry /></RequireAdmin>} />
             <Route path="/admin/products"   element={<RequireAdmin><AdminProducts /></RequireAdmin>} />
             <Route path="/admin/orders"     element={<RequireAdmin><AdminOrders /></RequireAdmin>} />
             <Route path="/admin/inventory"  element={<RequireAdmin><AdminInventory /></RequireAdmin>} />
@@ -92,6 +113,7 @@ export default function App() {
             <Route path="/admin/reports"    element={<RequireAdmin><AdminReports /></RequireAdmin>} />
             <Route path="/admin/images"     element={<RequireAdmin><AdminImages /></RequireAdmin>} />
             <Route path="/admin/coupons"    element={<RequireAdmin><AdminCoupons /></RequireAdmin>} />
+            <Route path="/admin/roles"      element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={

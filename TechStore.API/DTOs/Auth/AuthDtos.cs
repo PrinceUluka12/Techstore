@@ -21,7 +21,8 @@ public record AuthResponse(
     string Role,
     string AccessToken,
     string RefreshToken,
-    DateTime ExpiresAt
+    DateTime ExpiresAt,
+    IEnumerable<string>? Permissions = null
 );
 
 // External: controller → client (refresh token stays in HttpOnly cookie)
@@ -32,7 +33,8 @@ public record AuthClientResponse(
     string LastName,
     string Role,
     string AccessToken,
-    DateTime ExpiresAt
+    DateTime ExpiresAt,
+    IEnumerable<string> Permissions
 );
 
 public record UserProfileDto(
@@ -48,3 +50,13 @@ public record UserProfileDto(
 
 public record ForgotPasswordRequest(string Email);
 public record ResetPasswordRequest(string Token, string NewPassword);
+
+public record CreateStaffRequest(
+    string FirstName,
+    string LastName,
+    string Email,
+    string Password,
+    string Role
+);
+
+public record AssignRoleRequest(string Role);

@@ -4,7 +4,9 @@ using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Role;
 using TechStore.API.DTOs.Wishlist;
+using TechStore.API.Helpers;
 
 namespace TechStore.API.Services.Interfaces;
 
@@ -21,6 +23,8 @@ public interface IAuthService
     Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileRequest request);
     Task ForgotPasswordAsync(string email);
     Task ResetPasswordAsync(string token, string newPassword);
+    Task<UserProfileDto> CreateStaffAccountAsync(CreateStaffRequest request);
+    Task AssignRoleAsync(int targetUserId, string role);
 }
 
 public interface IEmailService
@@ -87,6 +91,17 @@ public interface IAdminService
     Task<SalesReportDto> GetSalesReportAsync(DateTime from, DateTime to);
     Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize);
     Task<bool> ToggleUserStatusAsync(int userId);
+}
+
+public interface IRoleService
+{
+    Task<IEnumerable<RoleDto>> GetAllAsync();
+    Task<RoleDto?> GetByIdAsync(int id);
+    Task<RoleDto> CreateAsync(CreateRoleRequest request);
+    Task<RoleDto> UpdateAsync(int id, UpdateRoleRequest request);
+    Task DeleteAsync(int id);
+    Task<IEnumerable<PermissionInfoDto>> GetAvailablePermissionsAsync();
+    Task<IEnumerable<string>> GetPermissionsForRoleAsync(string roleName);
 }
 
 public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int PageSize)

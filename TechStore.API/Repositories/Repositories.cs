@@ -439,3 +439,42 @@ public class ReviewRepository : IReviewRepository
             .AnyAsync(oi => oi.ProductId == productId && oi.Order.UserId == userId && oi.Order.Status == OrderStatus.Delivered);
     }
 }
+
+
+public class RoleRepository(AppDbContext db) : IRoleRepository
+{
+    public Task<IEnumerable<AppRole>> GetAllAsync() =>
+        Task.FromResult<IEnumerable<AppRole>>(db.AppRoles.OrderBy(r => r.Name).ToList());
+
+    public Task<AppRole?> GetByIdAsync(int id) =>
+        db.AppRoles.FirstOrDefaultAsync(r => r.Id == id);
+
+    public Task<AppRole?> GetByNameAsync(string name) =>
+        db.AppRoles.FirstOrDefaultAsync(r => r.Name == name);
+
+    public async Task<AppRole> CreateAsync(AppRole role)
+    {
+        db.AppRoles.Add(role);
+        await db.SaveChangesAsync();
+        return role;
+    }
+
+    public async Task<AppRole> UpdateAsync(AppRole role)
+    {
+        db.AppRoles.Update(role);
+        await db.SaveChangesAsync();
+        return role;
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        var role = await db.AppRoles.FindAsync(id);
+        if (role == null || role.IsSystem) return false;
+        db.AppRoles.Remove(role);
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public Task<bool> ExistsAsync(string name) =>
+        db.AppRoles.AnyAsync(r => r.Name == name);
+}

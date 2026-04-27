@@ -1,5 +1,8 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package } from 'lucide-react'
+import {
+  ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package,
+  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart
+} from 'lucide-react'
 import { useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
@@ -7,9 +10,21 @@ import { useAuthStore, useCartStore, useUIStore } from '../../store'
 import { authApi, cartApi } from '../../services/api'
 import { Spinner } from '../ui'
 
+// Pages a staff member can access, in sidebar order
+const STAFF_PAGES = [
+  { to: '/admin',           label: 'Dashboard',  icon: LayoutDashboard, adminOnly: true },
+  { to: '/admin/orders',    label: 'Orders',      icon: ShoppingBag,    perms: ['orders.view', 'orders.manage'] },
+  { to: '/admin/products',  label: 'Products',    icon: Package,        perms: ['products.manage'] },
+  { to: '/admin/inventory', label: 'Inventory',   icon: Warehouse,      perms: ['inventory.manage'] },
+  { to: '/admin/users',     label: 'Customers',   icon: Users,          perms: ['users.view', 'users.manage'] },
+  { to: '/admin/reports',   label: 'Reports',     icon: BarChart3,      perms: ['reports.view'] },
+  { to: '/admin/coupons',   label: 'Coupons',     icon: Tag,            perms: ['coupons.manage'] },
+  { to: '/admin/images',    label: 'Images',      icon: Image,          perms: ['images.manage'] },
+]
+
 // ── Navbar ────────────────────────────────────────────────────────────────────
 export function Navbar() {
-  const { isAuthenticated, user, logout, isAdmin } = useAuthStore()
+  const { isAuthenticated, user, logout, isAdmin, hasPermission, hasAnyAdminPermission } = useAuthStore()
   const { itemCount } = useCartStore()
   const { toggleCart } = useUIStore()
   const navigate = useNavigate()
@@ -85,16 +100,44 @@ export function Navbar() {
               </button>
               {userMenuOpen && (
                 <div className="absolute right-0 top-12 w-52 card py-2 shadow-lg z-50 animate-fade-in">
-                  <Link to="/account/orders" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50"
-                    onClick={() => setUserMenuOpen(false)}>
-                    <Package className="w-4 h-4" /> My Orders
-                  </Link>
+                  {/* Name badge */}
+                  <div className="px-4 py-2 border-b border-surface-100 mb-1">
+                    <p className="text-xs font-semibold text-surface-900 truncate">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-[11px] text-surface-400 truncate">{user?.role}</p>
+                  </div>
+
+                  {/* Customer links */}
+                  {user?.role === 'Customer' && (
+                    <>
+                      <Link to="/account/orders" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
+                        <Package className="w-4 h-4" /> My Orders
+                      </Link>
+                      <Link to="/account/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
+                        <User className="w-4 h-4" /> My Profile
+                      </Link>
+                      <Link to="/account/wishlist" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
+                        <Heart className="w-4 h-4" /> Wishlist
+                      </Link>
+                    </>
+                  )}
+
+                  {/* Admin links */}
                   {isAdmin() && (
-                    <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-brand-600 hover:bg-brand-50"
-                      onClick={() => setUserMenuOpen(false)}>
+                    <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-brand-600 hover:bg-brand-50" onClick={() => setUserMenuOpen(false)}>
                       <LayoutDashboard className="w-4 h-4" /> Admin Dashboard
                     </Link>
                   )}
+
+                  {/* Custom-role staff links */}
+                  {!isAdmin() && hasAnyAdminPermission() && STAFF_PAGES
+                    .filter(p => !p.adminOnly && p.perms?.some(perm => hasPermission(perm)))
+                    .map(p => (
+                      <Link key={p.to} to={p.to} className="flex items-center gap-2 px-4 py-2 text-sm text-brand-600 hover:bg-brand-50" onClick={() => setUserMenuOpen(false)}>
+                        <p.icon className="w-4 h-4" /> {p.label}
+                      </Link>
+                    ))
+                  }
+
                   <hr className="my-1 border-surface-100" />
                   <button onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">

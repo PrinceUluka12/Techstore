@@ -20,6 +20,7 @@ export const useAuthStore = create(
             firstName: authResponse.firstName,
             lastName: authResponse.lastName,
             role: authResponse.role,
+            permissions: authResponse.permissions ?? [],
           },
           token: authResponse.accessToken,
           isAuthenticated: true,
@@ -42,6 +43,8 @@ export const useAuthStore = create(
         set(state => ({ user: { ...state.user, ...updates } })),
 
       isAdmin: () => get().user?.role === 'Admin',
+      hasPermission: (perm) => get().user?.role === 'Admin' || (get().user?.permissions ?? []).includes(perm),
+      hasAnyAdminPermission: () => get().user?.role === 'Admin' || (get().user?.permissions ?? []).length > 0,
     }),
     {
       name: 'auth-store',
