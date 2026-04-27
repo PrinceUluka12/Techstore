@@ -33,7 +33,7 @@
 |---|---|
 | Live site | https://www.pgusolutions.com |
 | Admin panel | https://www.pgusolutions.com/admin |
-| API (Swagger) | https://\<app-service-url\>/index.html |
+| API (Swagger) | https://hytelphonesapi-fkamcxexbwdwccc6.canadacentral-01.azurewebsites.net/index.html |
 | Support email | support@hytelphones.ng |
 | Sender email | DoNotReply@pgusolutions.com |
 
