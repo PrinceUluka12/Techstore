@@ -210,16 +210,16 @@ export default function ProductDetailPage() {
   const navigate     = useNavigate()
   const reviewsRef   = useRef()
 
-  const [product, setProduct]       = useState(null)
-  const [loading, setLoading]       = useState(true)
-  const [qty, setQty]               = useState(1)
-  const [adding, setAdding]         = useState(false)
-  const [wishLoading, setWishLoading] = useState(false)
-  const [activeTab, setActiveTab]   = useState('description')
-  const [reviews, setReviews]       = useState([])
-  const [summary, setSummary]       = useState(null)
+  const [product, setProduct]           = useState(null)
+  const [loading, setLoading]           = useState(true)
+  const [qty, setQty]                   = useState(1)
+  const [adding, setAdding]             = useState(false)
+  const [wishLoading, setWishLoading]   = useState(false)
+  const [activeTab, setActiveTab]       = useState('description')
+  const [reviews, setReviews]           = useState([])
+  const [summary, setSummary]           = useState(null)
   const [reviewsLoading, setReviewsLoading] = useState(false)
-  const [related, setRelated]       = useState([])
+  const [related, setRelated]           = useState([])
 
   const { isAuthenticated } = useAuthStore()
   const { setCart, isInCart } = useCartStore()
@@ -272,11 +272,13 @@ export default function ProductDetailPage() {
     </div></>
   )
 
-  const inCart    = isInCart(product.id)
-  const outOfStock = (product.quantityAvailable ?? 1) <= 0
-  const lowStock   = !outOfStock && (product.quantityAvailable ?? 10) <= 5
-  const savings    = product.compareAtPrice && product.compareAtPrice > product.price
-    ? product.compareAtPrice - product.price : null
+  const inCart       = isInCart(product.id)
+  const activeStock  = product.quantityAvailable ?? 1
+  const outOfStock   = activeStock <= 0
+  const lowStock     = !outOfStock && activeStock <= 5
+  const displayPrice = product.price
+  const savings    = product.compareAtPrice && product.compareAtPrice > displayPrice
+    ? product.compareAtPrice - displayPrice : null
   const savingsPct = savings ? Math.round((savings / product.compareAtPrice) * 100) : null
 
   const addToCart = async () => {
@@ -404,9 +406,9 @@ export default function ProductDetailPage() {
                 )}
                 <div className="flex items-baseline gap-3">
                   <span className="text-3xl sm:text-4xl font-display font-bold text-surface-900">
-                    ₦{product.price.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₦{displayPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
-                  {product.compareAtPrice && product.compareAtPrice > product.price && (
+                  {product.compareAtPrice && product.compareAtPrice > displayPrice && (
                     <span className="text-lg text-surface-400 line-through">
                       ₦{product.compareAtPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
@@ -427,13 +429,13 @@ export default function ProductDetailPage() {
                 ) : lowStock ? (
                   <div className="flex items-center gap-2 text-amber-600">
                     <AlertTriangle className="w-4 h-4" />
-                    <span className="font-medium">Only {product.quantityAvailable} left in stock — order soon</span>
+                    <span className="font-medium">Only {activeStock} left in stock — order soon</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-emerald-600">
                     <CheckCircle className="w-4 h-4" />
                     <span className="font-medium">In Stock</span>
-                    <span className="text-surface-400 text-sm">({product.quantityAvailable} available)</span>
+                    <span className="text-surface-400 text-sm">({activeStock} available)</span>
                   </div>
                 )}
               </div>
@@ -471,7 +473,7 @@ export default function ProductDetailPage() {
                       <span className="px-5 py-2 text-sm font-semibold border-x border-surface-200 min-w-[3rem] text-center">
                         {qty}
                       </span>
-                      <button onClick={() => setQty(q => Math.min(product.quantityAvailable ?? 10, q + 1))}
+                      <button onClick={() => setQty(q => Math.min(activeStock, q + 1))}
                         className="px-3 py-2 text-surface-600 hover:bg-surface-50 transition-colors">
                         <Plus className="w-4 h-4" />
                       </button>

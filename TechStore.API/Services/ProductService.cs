@@ -113,10 +113,7 @@ public class ProductService : IProductService
         p.Id, p.Name, p.Description, p.SKU, p.Price, p.CompareAtPrice,
         p.Brand, p.ImageUrl, ParseImages(p.AdditionalImages),
         p.IsActive, p.IsFeatured, p.Rating, p.ReviewCount,
-        p.CategoryId, p.Category?.Name ?? "", p.Inventory?.QuantityAvailable, p.CreatedAt,
-        p.Variants.Where(v => v.IsActive).Select(v => new ProductVariantDto(
-            v.Id, v.ProductId, v.Name, v.SKU, v.PriceAdjustment,
-            v.Attributes, v.StockQuantity, v.IsActive))
+        p.CategoryId, p.Category?.Name ?? "", p.Inventory?.QuantityAvailable, p.CreatedAt
     );
 
     private static ProductListDto MapToListDto(Product p) => new(

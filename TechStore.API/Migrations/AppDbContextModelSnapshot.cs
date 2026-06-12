@@ -169,9 +169,6 @@ namespace TechStore.API.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
-                    b.Property<int?>("VariantId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CartId");
@@ -485,12 +482,6 @@ namespace TechStore.API.Migrations
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int?>("VariantId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("VariantName")
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");
@@ -606,46 +597,6 @@ namespace TechStore.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Products");
-                });
-
-            modelBuilder.Entity("TechStore.API.Models.ProductVariant", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Attributes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("PriceAdjustment")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("ProductId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SKU")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("StockQuantity")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductId");
-
-                    b.ToTable("ProductVariants");
                 });
 
             modelBuilder.Entity("TechStore.API.Models.RefreshToken", b =>
@@ -913,17 +864,6 @@ namespace TechStore.API.Migrations
                     b.Navigation("Category");
                 });
 
-            modelBuilder.Entity("TechStore.API.Models.ProductVariant", b =>
-                {
-                    b.HasOne("TechStore.API.Models.Product", "Product")
-                        .WithMany("Variants")
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("TechStore.API.Models.RefreshToken", b =>
                 {
                     b.HasOne("TechStore.API.Models.User", "User")
@@ -995,8 +935,6 @@ namespace TechStore.API.Migrations
                     b.Navigation("Inventory");
 
                     b.Navigation("OrderItems");
-
-                    b.Navigation("Variants");
                 });
 
             modelBuilder.Entity("TechStore.API.Models.User", b =>
