@@ -340,5 +340,5 @@ public class AuthService : IAuthService
     }
 
     private static UserProfileDto MapToProfile(User u) =>
-        new(u.Id, u.FirstName, u.LastName, u.Email, u.Phone, u.Address, u.Role, u.CreatedAt);
+        new(u.Id, u.FirstName, u.LastName, u.Email, u.Phone, u.Address, u.Role, u.CreatedAt, u.StoreId);
 }

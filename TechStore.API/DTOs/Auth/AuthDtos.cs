@@ -45,7 +45,8 @@ public record UserProfileDto(
     string? Phone,
     string? Address,
     string Role,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int? StoreId = null // staff home shop; the till sells from it
 );
 
 public record ForgotPasswordRequest(string Email);

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { User, Lock, Heart } from 'lucide-react'
+import { User, Lock, Heart, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { authApi } from '../../services/api'
+import { authApi, posApi } from '../../services/api'
 import { useAuthStore, useWishlistStore } from '../../store'
 import { Input, Spinner, LoadingPage } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { Link } from 'react-router-dom'
 import {
-  nameRules, passwordRules, phoneRules, maxText, withChecks, normalizePhone, showApiError,
+  nameRules, passwordRules, phoneRules, maxText, withChecks, normalizePhone, showApiError, PIN_RE,
 } from '../../utils/validation'
 
 function ProfileForm({ profile, onSaved }) {
@@ -110,8 +110,52 @@ function ChangePasswordForm() {
   )
 }
 
+// Managers enter this PIN on the till to approve a discount or price change
+function ApprovalPinForm() {
+  const { register, handleSubmit, reset, getValues, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
+  const [saving, setSaving] = useState(false)
+
+  const onSubmit = async (data) => {
+    setSaving(true)
+    try {
+      await posApi.setPin({ currentPassword: data.current, pin: data.pin })
+      toast.success('Approval PIN saved')
+      reset()
+    } catch (err) {
+      showApiError(err, setError, 'Failed to save PIN', { currentpassword: 'current' })
+    } finally { setSaving(false) }
+  }
+
+  const pinInput = { type: 'password', inputMode: 'numeric', maxLength: 6, autoComplete: 'off', className: 'font-mono' }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+      <p className="text-sm text-surface-500">
+        You can approve discounts and price changes on the till. Choose a 4–6 digit PIN to enter there.
+      </p>
+      <Input label="Current Password" type="password" autoComplete="current-password"
+        error={errors.current?.message}
+        {...register('current', { required: 'Current password is required' })} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="New PIN" {...pinInput} error={errors.pin?.message}
+          {...register('pin', { required: 'PIN is required', pattern: { value: PIN_RE, message: '4–6 digits' } })} />
+        <Input label="Confirm PIN" {...pinInput} error={errors.confirmPin?.message}
+          {...register('confirmPin', {
+            required: 'Please confirm your PIN',
+            validate: v => v === getValues('pin') || 'PINs do not match',
+          })} />
+      </div>
+      <div className="flex justify-end">
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? <Spinner size="sm" /> : 'Save PIN'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export default function AccountProfilePage() {
-  const { user } = useAuthStore()
+  const { user, hasPermission } = useAuthStore()
   const { items: wishlistItems, fetch: fetchWishlist } = useWishlistStore()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -171,6 +215,16 @@ export default function AccountProfilePage() {
               </div>
               <ChangePasswordForm />
             </div>
+
+            {hasPermission('pos.discount.approve') && (
+              <div className="card p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <KeyRound className="w-4 h-4 text-brand-500" />
+                  <h2 className="font-semibold">Till Approval PIN</h2>
+                </div>
+                <ApprovalPinForm />
+              </div>
+            )}
           </div>
         </div>
       </main>

@@ -127,6 +127,16 @@ export const inventoryApi = {
   updateThreshold: (id, d, storeId) => api.put(`/inventory/product/${id}/threshold`, d, { params: { storeId } }),
 }
 
+// ── Till (in-store sales) ─────────────────────────────────────────────────────
+// storeId is only needed by admins selling for a shop other than their home shop
+export const posApi = {
+  products:   (q, storeId) => api.get('/pos/products', { params: { q, storeId } }),
+  approvers:  ()           => api.get('/pos/approvers'),
+  createSale: (data)       => api.post('/pos/sales', data),
+  getSale:    (id)         => api.get(`/pos/sales/${id}`),
+  setPin:     (data)       => api.put('/pos/approval-pin', data),
+}
+
 // ── Shops ─────────────────────────────────────────────────────────────────────
 export const storeApi = {
   getAll: ()         => api.get('/stores'),

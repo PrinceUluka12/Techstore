@@ -14,6 +14,20 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] // ImageSe
 export const MAX_IMAGE_BYTES  = 5 * 1024 * 1024                        // ImageService.MaxBytes
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024                       // ImagesController [RequestSizeLimit]
 
+// 15 digits whose last digit is the Luhn check digit (same check as PosService.IsValidImei)
+export function isValidImei(v) {
+  if (!/^\d{15}$/.test(v)) return false
+  let sum = 0
+  for (let i = 0; i < 15; i++) {
+    let d = Number(v[i])
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9 }
+    sum += d
+  }
+  return sum % 10 === 0
+}
+
+export const PIN_RE = /^\d{4,6}$/
+
 // Number inputs come through as strings ('' when blank); edit forms may hold real numbers
 const isEmpty = v => v === '' || v == null || (typeof v === 'number' && Number.isNaN(v))
 const text    = v => (v ?? '').toString().trim()

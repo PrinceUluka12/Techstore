@@ -152,3 +152,8 @@
   .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
 }
+/* In-store receipts print on A4 (pages/admin/AdminPosReceipt.jsx) */
+@media print {
+  @page { size: A4; margin: 15mm; }
+  body { background: #fff; }
+}
