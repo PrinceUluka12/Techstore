@@ -3,7 +3,7 @@ import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
   BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store, ScanBarcode,
-  ArrowLeftRight, Calculator
+  ArrowLeftRight, Calculator, UserCog
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
@@ -40,6 +40,7 @@ const navSections = [
   {
     label: 'System',
     items: [
+      { to: '/admin/staff', label: 'Staff', icon: UserCog,     permission: 'users.view' },
       { to: '/admin/shops', label: 'Shops', icon: Store,       permission: 'stores.manage' },
       { to: '/admin/roles', label: 'Roles', icon: ShieldCheck, adminOnly: true },
     ]

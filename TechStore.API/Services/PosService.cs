@@ -352,7 +352,7 @@ public class PosService : IPosService
     {
         var homeStoreId = await _db.Users.Where(u => u.Id == userId).Select(u => u.StoreId).FirstOrDefaultAsync();
         var id = storeId ?? homeStoreId
-            ?? throw new InvalidOperationException("You don't have a home shop yet. An admin can set one on the Customers page.");
+            ?? throw new InvalidOperationException("You don't have a home shop yet. An admin can set one on the Staff page.");
         if (!isAdmin && id != homeStoreId)
             throw new PosForbiddenException("You can only sell from your home shop.");
 

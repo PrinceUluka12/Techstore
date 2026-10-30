@@ -57,7 +57,7 @@ public class TransferService : ITransferService
     {
         var home = await HomeStoreAsync(userId);
         var fromId = req.FromStoreId ?? home
-            ?? throw new InvalidOperationException("You don't have a home shop yet. An admin can set one on the Customers page.");
+            ?? throw new InvalidOperationException("You don't have a home shop yet. An admin can set one on the Staff page.");
         if (!isAdmin && fromId != home)
             throw new PosForbiddenException("You can only send stock from your home shop.");
         if (fromId == req.ToStoreId)

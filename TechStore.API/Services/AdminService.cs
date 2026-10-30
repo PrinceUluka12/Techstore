@@ -102,11 +102,16 @@ public class AdminService : IAdminService
         return new SalesReportDto(from, to, orders.Count, totalRevenue, avgOrderValue, daily, topProducts, byShop, byChannel);
     }
 
-    public async Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize)
+    public async Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize, bool? staff = null)
     {
-        var total = await _db.Users.CountAsync();
+        // Staff are everyone with a back-office role (Admin or a custom role)
+        var q = _db.Users.AsQueryable();
+        if (staff == true)  q = q.Where(u => u.Role != "Customer");
+        if (staff == false) q = q.Where(u => u.Role == "Customer");
 
-        var users = await _db.Users
+        var total = await q.CountAsync();
+
+        var users = await q
             .OrderByDescending(u => u.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
