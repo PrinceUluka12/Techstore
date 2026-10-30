@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package,
-  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart
+  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store
 } from 'lucide-react'
 import { useState } from 'react'
 import { clsx } from 'clsx'
@@ -10,9 +10,10 @@ import { useAuthStore, useCartStore, useUIStore } from '../../store'
 import { authApi, cartApi } from '../../services/api'
 import { Spinner } from '../ui'
 
-// Pages a staff member can access, in sidebar order
+// Pages a staff member can access, in sidebar order (keep in step with AdminLayout's navSections)
 const STAFF_PAGES = [
   { to: '/admin',           label: 'Dashboard',  icon: LayoutDashboard, adminOnly: true },
+  { to: '/admin/pos',       label: 'Point of Sale', icon: ScanBarcode,  perms: ['pos.sell'] },
   { to: '/admin/orders',    label: 'Orders',      icon: ShoppingBag,    perms: ['orders.view', 'orders.manage'] },
   { to: '/admin/products',  label: 'Products',    icon: Package,        perms: ['products.manage'] },
   { to: '/admin/inventory', label: 'Inventory',   icon: Warehouse,      perms: ['inventory.manage'] },
@@ -20,6 +21,7 @@ const STAFF_PAGES = [
   { to: '/admin/reports',   label: 'Reports',     icon: BarChart3,      perms: ['reports.view'] },
   { to: '/admin/coupons',   label: 'Coupons',     icon: Tag,            perms: ['coupons.manage'] },
   { to: '/admin/images',    label: 'Images',      icon: Image,          perms: ['images.manage'] },
+  { to: '/admin/shops',     label: 'Shops',       icon: Store,          perms: ['stores.manage'] },
 ]
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
@@ -106,34 +108,34 @@ export function Navbar() {
                     <p className="text-[11px] text-surface-400 truncate">{user?.role}</p>
                   </div>
 
-                  {/* Customer links */}
-                  {user?.role === 'Customer' && (
+                  {/* Account links: staff need My Profile too (managers set their till PIN there) */}
+                  <Link to="/account/orders" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
+                    <Package className="w-4 h-4" /> My Orders
+                  </Link>
+                  <Link to="/account/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
+                    <User className="w-4 h-4" /> My Profile
+                  </Link>
+                  <Link to="/account/wishlist" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
+                    <Heart className="w-4 h-4" /> Wishlist
+                  </Link>
+
+                  {/* Admin panel: every staff role, not just Admin. /admin sends custom
+                      roles on to their first page (AdminEntry in App.jsx) */}
+                  {(isAdmin() || hasAnyAdminPermission()) && (
                     <>
-                      <Link to="/account/orders" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
-                        <Package className="w-4 h-4" /> My Orders
-                      </Link>
-                      <Link to="/account/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
-                        <User className="w-4 h-4" /> My Profile
-                      </Link>
-                      <Link to="/account/wishlist" className="flex items-center gap-2 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50" onClick={() => setUserMenuOpen(false)}>
-                        <Heart className="w-4 h-4" /> Wishlist
+                      <hr className="my-1 border-surface-100" />
+                      <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50" onClick={() => setUserMenuOpen(false)}>
+                        <LayoutDashboard className="w-4 h-4" /> {isAdmin() ? 'Admin Dashboard' : 'Admin Panel'}
                       </Link>
                     </>
                   )}
 
-                  {/* Admin links */}
-                  {isAdmin() && (
-                    <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-brand-600 hover:bg-brand-50" onClick={() => setUserMenuOpen(false)}>
-                      <LayoutDashboard className="w-4 h-4" /> Admin Dashboard
-                    </Link>
-                  )}
-
-                  {/* Custom-role staff links */}
+                  {/* Shortcuts to each page a custom role can use */}
                   {!isAdmin() && hasAnyAdminPermission() && STAFF_PAGES
                     .filter(p => !p.adminOnly && p.perms?.some(perm => hasPermission(perm)))
                     .map(p => (
-                      <Link key={p.to} to={p.to} className="flex items-center gap-2 px-4 py-2 text-sm text-brand-600 hover:bg-brand-50" onClick={() => setUserMenuOpen(false)}>
-                        <p.icon className="w-4 h-4" /> {p.label}
+                      <Link key={p.to} to={p.to} className="flex items-center gap-2 pl-10 pr-4 py-1.5 text-sm text-surface-600 hover:bg-brand-50 hover:text-brand-600" onClick={() => setUserMenuOpen(false)}>
+                        <p.icon className="w-3.5 h-3.5" /> {p.label}
                       </Link>
                     ))
                   }
