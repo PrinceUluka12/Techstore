@@ -22,9 +22,61 @@ const NIGERIAN_STATES = [
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_6db9f9605582bc9866757429306bf6089eb4d7a4'
 
+// ── Auth form rules (keep in sync with TechStore.API/Validators/Validators.cs) ─
+const EMAIL_RE    = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const NAME_RE     = /^\p{L}[\p{L}\p{M}\s'.-]*$/u // \p{M}: tone marks in names like Adébáyọ̀
+const NG_PHONE_RE = /^(\+234|0)[789]\d{9}$/
+
+const normalizePhone = (v = '') => v.replace(/[\s()-]/g, '')
+
+const emailRules = {
+  validate: {
+    required: v => v.trim() !== '' || 'Email is required',
+    format:   v => EMAIL_RE.test(v.trim()) || 'Enter a valid email address',
+  },
+  maxLength: { value: 200, message: 'Email is too long' },
+}
+
+const nameRules = (label) => ({
+  validate: {
+    required: v => v.trim() !== '' || `${label} is required`,
+    letters:  v => NAME_RE.test(v.trim()) || 'Letters only',
+  },
+  maxLength: { value: 50, message: 'Max 50 characters' },
+})
+
+const passwordRules = {
+  required: 'Password is required',
+  validate: {
+    length: v => v.length >= 8 || 'At least 8 characters',
+    upper:  v => /[A-Z]/.test(v) || 'Include an uppercase letter',
+    digit:  v => /[0-9]/.test(v) || 'Include a number',
+  },
+}
+
+const phoneRules = {
+  validate: v => {
+    const phone = normalizePhone(v)
+    return phone === '' || NG_PHONE_RE.test(phone) || 'Enter a Nigerian number, e.g. 08012345678'
+  },
+}
+
+// Field errors from the API go under the matching input; the toast always says why
+function showApiError(err, setError, fallback) {
+  const { status, data } = err.response ?? {}
+  if (status === 429) {
+    toast.error('Too many attempts. Please wait a minute and try again.')
+    return
+  }
+  const fieldErrors = Object.entries(data?.errors ?? {})
+  fieldErrors.forEach(([key, messages]) =>
+    setError(key.charAt(0).toLowerCase() + key.slice(1), { type: 'server', message: messages[0] }))
+  toast.error(data?.message || fieldErrors[0]?.[1]?.[0] || fallback)
+}
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 export function LoginPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading] = useState(false)
   const { login } = useAuthStore()
   const { setCart } = useCartStore()
@@ -33,13 +85,13 @@ export function LoginPage() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      const { data: auth } = await authApi.login(data)
+      const { data: auth } = await authApi.login({ email: data.email.trim(), password: data.password })
       login(auth)
       try { const { data: cart } = await cartApi.get(); setCart(cart) } catch {}
       toast.success(`Welcome back, ${auth.firstName}!`)
       navigate(auth.role === 'Admin' ? '/admin' : '/')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed')
+      showApiError(err, setError, 'Login failed')
     } finally { setLoading(false) }
   }
 
@@ -56,11 +108,12 @@ export function LoginPage() {
             <p className="text-surface-500 text-sm mt-1">Sign in to your account</p>
           </div>
           <div className="card p-6">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <Input label="Email" type="email" placeholder="you@example.com"
+            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+              <Input label="Email" type="email" placeholder="you@example.com" autoComplete="email"
                 error={errors.email?.message}
-                {...register('email', { required: 'Email is required', pattern: { value: /^\S+@\S+$/i, message: 'Invalid email' } })} />
-              <Input label="Password" type="password" placeholder="••••••••"
+                {...register('email', emailRules)} />
+              {/* No strength rules here: older accounts may predate them */}
+              <Input label="Password" type="password" placeholder="••••••••" autoComplete="current-password"
                 error={errors.password?.message}
                 {...register('password', { required: 'Password is required' })} />
               <div className="flex justify-end">
@@ -83,7 +136,7 @@ export function LoginPage() {
 
 // ── Register ──────────────────────────────────────────────────────────────────
 export function RegisterPage() {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm()
+  const { register, handleSubmit, getValues, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading] = useState(false)
   const { login } = useAuthStore()
   const navigate = useNavigate()
@@ -92,17 +145,18 @@ export function RegisterPage() {
     setLoading(true)
     try {
       const { data: auth } = await authApi.register({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        email: data.email.trim(),
         password: data.password,
-        phone: data.phone,
+        // The API rejects an empty string, so a blank phone must be sent as null
+        phone: normalizePhone(data.phone) || null,
       })
       login(auth)
       toast.success(`Welcome, ${auth.firstName}!`)
       navigate('/')
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Registration failed')
+      showApiError(err, setError, 'Registration failed')
     } finally { setLoading(false) }
   }
 
@@ -116,30 +170,31 @@ export function RegisterPage() {
             <p className="text-surface-500 text-sm mt-1">Join Hytel Phones today</p>
           </div>
           <div className="card p-6">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
               <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
-                <Input label="First Name" placeholder="Jane" error={errors.firstName?.message}
-                  {...register('firstName', { required: 'Required' })} />
-                <Input label="Last Name" placeholder="Doe" error={errors.lastName?.message}
-                  {...register('lastName', { required: 'Required' })} />
+                <Input label="First Name" placeholder="Jane" autoComplete="given-name"
+                  error={errors.firstName?.message}
+                  {...register('firstName', nameRules('First name'))} />
+                <Input label="Last Name" placeholder="Doe" autoComplete="family-name"
+                  error={errors.lastName?.message}
+                  {...register('lastName', nameRules('Last name'))} />
               </div>
-              <Input label="Email" type="email" placeholder="you@example.com"
+              <Input label="Email" type="email" placeholder="you@example.com" autoComplete="email"
                 error={errors.email?.message}
-                {...register('email', { required: 'Email required', pattern: { value: /^\S+@\S+$/i, message: 'Invalid email' } })} />
-              <Input label="Phone (optional)" type="tel" placeholder="+234 800 000 0000"
-                {...register('phone')} />
-              <Input label="Password" type="password" placeholder="Min. 8 characters"
+                {...register('email', emailRules)} />
+              <Input label="Phone (optional)" type="tel" placeholder="08012345678" autoComplete="tel"
+                error={errors.phone?.message}
+                {...register('phone', phoneRules)} />
+              <Input label="Password" type="password" placeholder="8+ characters, 1 uppercase, 1 number"
+                autoComplete="new-password"
                 error={errors.password?.message}
-                {...register('password', {
-                  required: 'Password required',
-                  minLength: { value: 8, message: 'At least 8 characters' },
-                  pattern: { value: /(?=.*[A-Z])(?=.*[0-9])/, message: 'Must include uppercase and number' }
-                })} />
+                {...register('password', passwordRules)} />
               <Input label="Confirm Password" type="password" placeholder="Repeat password"
+                autoComplete="new-password"
                 error={errors.confirmPassword?.message}
                 {...register('confirmPassword', {
-                  required: 'Please confirm',
-                  validate: v => v === watch('password') || 'Passwords do not match'
+                  required: 'Please confirm your password',
+                  validate: v => v === getValues('password') || 'Passwords do not match'
                 })} />
               <button type="submit" disabled={loading} className="btn-primary w-full btn-lg">
                 {loading ? <Spinner size="sm" /> : 'Create Account'}
