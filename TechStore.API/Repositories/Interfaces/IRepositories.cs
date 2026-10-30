@@ -75,11 +75,31 @@ public interface ICartRepository
 
 public interface IInventoryRepository
 {
-    Task<Inventory?> GetByProductIdAsync(int productId);
-    Task<IEnumerable<Inventory>> GetLowStockAsync();
-    Task<Inventory> CreateAsync(Inventory inventory);
-    Task<Inventory> UpdateAsync(Inventory inventory);
+    Task<Inventory?> GetAsync(int storeId, int productId);
+    Task<IEnumerable<Inventory>> GetByStoreAsync(int storeId, bool lowStockOnly = false);
+    Task<IEnumerable<Inventory>> GetLowStockAsync(); // across all active shops
     Task<int> CountLowStockAsync();
+    Task CreateManyAsync(IEnumerable<Inventory> rows);
+    Task CreateRowsForStoreAsync(int storeId, int copyThresholdsFromStoreId);
+
+    // Each of these is a single UPDATE, so sales and restocks happening at the
+    // same moment can't overwrite each other's numbers
+    Task<bool> TryReserveAsync(int storeId, int productId, int quantity);
+    Task ReleaseAsync(int storeId, int productId, int quantity);
+    Task FulfilAsync(int storeId, int productId, int quantity); // reserved units leave the shop
+    Task<bool> TryAdjustOnHandAsync(int storeId, int productId, int delta);
+    Task<bool> RestockAsync(int storeId, int productId, int quantity);
+    Task<bool> SetThresholdAsync(int storeId, int productId, int threshold);
+}
+
+public interface IStoreRepository
+{
+    Task<List<Store>> GetAllAsync();
+    Task<Store?> GetByIdAsync(int id);
+    Task<Store> GetOnlineAsync(); // the shop that sends online orders; there is always one
+    Task<bool> CodeExistsAsync(string code, int? excludeId = null);
+    Task<Store> CreateAsync(Store store);
+    Task SaveAsync();
 }
 
 public interface IRefreshTokenRepository

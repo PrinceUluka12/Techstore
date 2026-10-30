@@ -15,6 +15,8 @@ public class User
     public DateTime? LockoutUntil { get; set; }
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
+    public int? StoreId { get; set; } // Staff home shop; null for customers
+    public Store? Store { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

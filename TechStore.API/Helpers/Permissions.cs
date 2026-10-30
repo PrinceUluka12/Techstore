@@ -13,6 +13,7 @@ public static class Perms
     public const string ReportsView     = "reports.view";
     public const string CouponsManage   = "coupons.manage";
     public const string ImagesManage    = "images.manage";
+    public const string StoresManage    = "stores.manage";
 
     public static readonly string[] All =
     [
@@ -24,6 +25,7 @@ public static class Perms
         ReportsView,
         CouponsManage,
         ImagesManage,
+        StoresManage,
     ];
 
     public static readonly Dictionary<string, string> Labels = new()
@@ -39,5 +41,6 @@ public static class Perms
         [ReportsView]     = "View Reports",
         [CouponsManage]   = "Manage Coupons",
         [ImagesManage]    = "Manage Images",
+        [StoresManage]    = "Manage Shops",
     };
 }

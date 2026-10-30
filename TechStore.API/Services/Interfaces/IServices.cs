@@ -5,6 +5,7 @@ using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Role;
+using TechStore.API.DTOs.Store;
 using TechStore.API.DTOs.Wishlist;
 using TechStore.API.Helpers;
 
@@ -25,6 +26,7 @@ public interface IAuthService
     Task ResetPasswordAsync(string token, string newPassword);
     Task<UserProfileDto> CreateStaffAccountAsync(CreateStaffRequest request);
     Task AssignRoleAsync(int targetUserId, string role);
+    Task AssignStoreAsync(int targetUserId, int? storeId);
 }
 
 public interface IEmailService
@@ -78,11 +80,20 @@ public interface ICartService
 
 public interface IInventoryService
 {
-    Task<InventoryDto?> GetByProductIdAsync(int productId);
-    Task<IEnumerable<InventoryDto>> GetLowStockAsync();
-    Task<InventoryDto> AdjustStockAsync(int productId, AdjustStockRequest request);
-    Task<InventoryDto> RestockAsync(int productId, RestockRequest request);
-    Task<InventoryDto> UpdateThresholdAsync(int productId, UpdateThresholdRequest request);
+    // storeId null = the shop that sends online orders
+    Task<IEnumerable<InventoryDto>> GetByStoreAsync(int? storeId, bool lowStockOnly);
+    Task<InventoryDto?> GetAsync(int? storeId, int productId);
+    Task<IEnumerable<InventoryDto>> GetLowStockAsync(int? storeId); // null = all shops
+    Task<InventoryDto> AdjustStockAsync(int? storeId, int productId, AdjustStockRequest request);
+    Task<InventoryDto> RestockAsync(int? storeId, int productId, RestockRequest request);
+    Task<InventoryDto> UpdateThresholdAsync(int? storeId, int productId, UpdateThresholdRequest request);
+}
+
+public interface IStoreService
+{
+    Task<IEnumerable<StoreDto>> GetAllAsync();
+    Task<StoreDto> CreateAsync(CreateStoreRequest request);
+    Task<StoreDto> UpdateAsync(int id, UpdateStoreRequest request);
 }
 
 public interface IAdminService

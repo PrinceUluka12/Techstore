@@ -93,16 +93,16 @@ public class ProductRepository : IProductRepository
     public ProductRepository(AppDbContext db) => _db = db;
 
     public Task<Product?> GetByIdAsync(int id) =>
-        _db.Products.Include(p => p.Category).Include(p => p.Inventory)
+        _db.Products.Include(p => p.Category).IncludeOnlineStock()
             .FirstOrDefaultAsync(p => p.Id == id);
 
     public Task<Product?> GetBySkuAsync(string sku) =>
-        _db.Products.Include(p => p.Category).Include(p => p.Inventory)
+        _db.Products.Include(p => p.Category).IncludeOnlineStock()
             .FirstOrDefaultAsync(p => p.SKU == sku);
 
     public async Task<(IEnumerable<Product> Items, int Total)> SearchAsync(ProductSearchParams s)
     {
-        var q = _db.Products.Include(p => p.Category).Include(p => p.Inventory).AsQueryable();
+        var q = _db.Products.Include(p => p.Category).IncludeOnlineStock().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(s.Query))
             q = q.Where(p => p.Name.Contains(s.Query) || (p.Description != null && p.Description.Contains(s.Query))
@@ -112,7 +112,7 @@ public class ProductRepository : IProductRepository
         if (s.MinPrice.HasValue) q = q.Where(p => p.Price >= s.MinPrice);
         if (s.MaxPrice.HasValue) q = q.Where(p => p.Price <= s.MaxPrice);
         if (s.Brand != null) q = q.Where(p => p.Brand == s.Brand);
-        if (s.InStock == true) q = q.Where(p => p.Inventory != null && p.Inventory.QuantityOnHand - p.Inventory.QuantityReserved > 0);
+        if (s.InStock == true) q = q.Where(p => p.Inventories.Any(i => i.Store.SendsOnlineOrders && i.QuantityOnHand - i.QuantityReserved > 0));
 
         q = s.SortBy.ToLower() switch
         {
@@ -128,11 +128,11 @@ public class ProductRepository : IProductRepository
     }
 
     public async Task<IEnumerable<Product>> GetFeaturedAsync(int count) =>
-        await _db.Products.Include(p => p.Category).Include(p => p.Inventory)
+        await _db.Products.Include(p => p.Category).IncludeOnlineStock()
             .Where(p => p.IsFeatured && p.IsActive).Take(count).ToListAsync();
 
     public async Task<IEnumerable<Product>> GetByCategoryAsync(int categoryId, int page, int pageSize) =>
-        await _db.Products.Include(p => p.Category).Include(p => p.Inventory)
+        await _db.Products.Include(p => p.Category).IncludeOnlineStock()
             .Where(p => p.CategoryId == categoryId && p.IsActive)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
@@ -146,7 +146,9 @@ public class ProductRepository : IProductRepository
     public async Task<Product> UpdateAsync(Product product)
     {
         product.UpdatedAt = DateTime.UtcNow;
-        _db.Products.Update(product);
+        // Update() on a tracked product also marks its loaded stock rows as modified and
+        // writes their stale counts back; a tracked product only needs SaveChanges
+        if (_db.Entry(product).State == EntityState.Detached) _db.Products.Update(product);
         await _db.SaveChangesAsync();
         return product;
     }
@@ -234,7 +236,8 @@ public class CartRepository : ICartRepository
     public CartRepository(AppDbContext db) => _db = db;
 
     public Task<Cart?> GetByUserIdAsync(int userId) =>
-        _db.Carts.Include(c => c.Items).ThenInclude(i => i.Product).ThenInclude(p => p.Inventory)
+        _db.Carts.Include(c => c.Items).ThenInclude(i => i.Product)
+            .ThenInclude(p => p.Inventories.Where(inv => inv.Store.SendsOnlineOrders)).ThenInclude(inv => inv.Store)
             .FirstOrDefaultAsync(c => c.UserId == userId);
 
     public async Task<Cart> GetOrCreateAsync(int userId)
@@ -250,7 +253,8 @@ public class CartRepository : ICartRepository
     public async Task<Cart> UpdateAsync(Cart cart)
     {
         cart.UpdatedAt = DateTime.UtcNow;
-        _db.Carts.Update(cart);
+        // Same as ProductRepository.UpdateAsync: Update() would rewrite the loaded stock rows
+        if (_db.Entry(cart).State == EntityState.Detached) _db.Carts.Update(cart);
         await _db.SaveChangesAsync();
         return await GetByUserIdAsync(cart.UserId) ?? cart;
     }
@@ -269,31 +273,115 @@ public class InventoryRepository : IInventoryRepository
     private readonly AppDbContext _db;
     public InventoryRepository(AppDbContext db) => _db = db;
 
-    public Task<Inventory?> GetByProductIdAsync(int productId) =>
-        _db.Inventories.Include(i => i.Product).FirstOrDefaultAsync(i => i.ProductId == productId);
+    // Reads are untracked: stock changes go through ExecuteUpdate, which a tracked copy wouldn't see
+    private IQueryable<Inventory> Rows() =>
+        _db.Inventories.AsNoTracking().Include(i => i.Product).Include(i => i.Store);
 
-    public async Task<IEnumerable<Inventory>> GetLowStockAsync() =>
-        await _db.Inventories.Include(i => i.Product)
-            .Where(i => (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold)
+    private IQueryable<Inventory> Row(int storeId, int productId) =>
+        _db.Inventories.Where(i => i.StoreId == storeId && i.ProductId == productId);
+
+    public Task<Inventory?> GetAsync(int storeId, int productId) =>
+        Rows().FirstOrDefaultAsync(i => i.StoreId == storeId && i.ProductId == productId);
+
+    public async Task<IEnumerable<Inventory>> GetByStoreAsync(int storeId, bool lowStockOnly = false) =>
+        await Rows()
+            .Where(i => i.StoreId == storeId)
+            .Where(i => !lowStockOnly || (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold)
+            .OrderBy(i => i.Product.Name)
             .ToListAsync();
 
-    public async Task<Inventory> CreateAsync(Inventory inventory)
-    {
-        _db.Inventories.Add(inventory);
-        await _db.SaveChangesAsync();
-        return inventory;
-    }
-
-    public async Task<Inventory> UpdateAsync(Inventory inventory)
-    {
-        inventory.UpdatedAt = DateTime.UtcNow;
-        _db.Inventories.Update(inventory);
-        await _db.SaveChangesAsync();
-        return inventory;
-    }
+    public async Task<IEnumerable<Inventory>> GetLowStockAsync() =>
+        await Rows()
+            .Where(i => i.Store.IsActive && (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold)
+            .OrderBy(i => i.Store.Name).ThenBy(i => i.Product.Name)
+            .ToListAsync();
 
     public Task<int> CountLowStockAsync() =>
-        _db.Inventories.CountAsync(i => (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold);
+        _db.Inventories.CountAsync(i => i.Store.IsActive && (i.QuantityOnHand - i.QuantityReserved) <= i.LowStockThreshold);
+
+    public async Task CreateManyAsync(IEnumerable<Inventory> rows)
+    {
+        _db.Inventories.AddRange(rows);
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task CreateRowsForStoreAsync(int storeId, int copyThresholdsFromStoreId)
+    {
+        var thresholds = await _db.Inventories.AsNoTracking()
+            .Where(i => i.StoreId == copyThresholdsFromStoreId)
+            .ToDictionaryAsync(i => i.ProductId, i => i.LowStockThreshold);
+        var productIds = await _db.Products.Select(p => p.Id).ToListAsync();
+
+        await CreateManyAsync(productIds.Select(id => new Inventory
+        {
+            StoreId = storeId,
+            ProductId = id,
+            LowStockThreshold = thresholds.GetValueOrDefault(id, 10),
+        }));
+    }
+
+    public async Task<bool> TryReserveAsync(int storeId, int productId, int quantity) =>
+        await Row(storeId, productId)
+            .Where(i => i.QuantityOnHand - i.QuantityReserved >= quantity)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.QuantityReserved, i => i.QuantityReserved + quantity)
+                .SetProperty(i => i.UpdatedAt, DateTime.UtcNow)) == 1;
+
+    public Task ReleaseAsync(int storeId, int productId, int quantity) =>
+        Row(storeId, productId).ExecuteUpdateAsync(s => s
+            .SetProperty(i => i.QuantityReserved, i => i.QuantityReserved > quantity ? i.QuantityReserved - quantity : 0)
+            .SetProperty(i => i.UpdatedAt, DateTime.UtcNow));
+
+    public Task FulfilAsync(int storeId, int productId, int quantity) =>
+        Row(storeId, productId).ExecuteUpdateAsync(s => s
+            .SetProperty(i => i.QuantityOnHand, i => i.QuantityOnHand > quantity ? i.QuantityOnHand - quantity : 0)
+            .SetProperty(i => i.QuantityReserved, i => i.QuantityReserved > quantity ? i.QuantityReserved - quantity : 0)
+            .SetProperty(i => i.UpdatedAt, DateTime.UtcNow));
+
+    public async Task<bool> TryAdjustOnHandAsync(int storeId, int productId, int delta) =>
+        await Row(storeId, productId)
+            .Where(i => i.QuantityOnHand + delta >= 0)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.QuantityOnHand, i => i.QuantityOnHand + delta)
+                .SetProperty(i => i.UpdatedAt, DateTime.UtcNow)) == 1;
+
+    public async Task<bool> RestockAsync(int storeId, int productId, int quantity) =>
+        await Row(storeId, productId).ExecuteUpdateAsync(s => s
+            .SetProperty(i => i.QuantityOnHand, i => i.QuantityOnHand + quantity)
+            .SetProperty(i => i.LastRestockedAt, DateTime.UtcNow)
+            .SetProperty(i => i.UpdatedAt, DateTime.UtcNow)) == 1;
+
+    public async Task<bool> SetThresholdAsync(int storeId, int productId, int threshold) =>
+        await Row(storeId, productId).ExecuteUpdateAsync(s => s
+            .SetProperty(i => i.LowStockThreshold, threshold)
+            .SetProperty(i => i.UpdatedAt, DateTime.UtcNow)) == 1;
+}
+
+public class StoreRepository : IStoreRepository
+{
+    private readonly AppDbContext _db;
+    public StoreRepository(AppDbContext db) => _db = db;
+
+    public Task<List<Store>> GetAllAsync() =>
+        _db.Stores.OrderByDescending(s => s.SendsOnlineOrders).ThenBy(s => s.Name).ToListAsync();
+
+    public Task<Store?> GetByIdAsync(int id) => _db.Stores.FirstOrDefaultAsync(s => s.Id == id);
+
+    public async Task<Store> GetOnlineAsync() =>
+        await _db.Stores.FirstOrDefaultAsync(s => s.SendsOnlineOrders)
+        ?? throw new InvalidOperationException("No shop is set to send online orders.");
+
+    public Task<bool> CodeExistsAsync(string code, int? excludeId = null) =>
+        _db.Stores.AnyAsync(s => s.Code == code && s.Id != excludeId);
+
+    public async Task<Store> CreateAsync(Store store)
+    {
+        _db.Stores.Add(store);
+        await _db.SaveChangesAsync();
+        return store;
+    }
+
+    public Task SaveAsync() => _db.SaveChangesAsync();
 }
 
 public class RefreshTokenRepository : IRefreshTokenRepository

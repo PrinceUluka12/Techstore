@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { UserCheck, UserX, TrendingUp, Calendar, UserPlus, X, Shield } from 'lucide-react'
-import { adminApi, roleApi } from '../../services/api'
+import { adminApi, roleApi, storeApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Spinner, Pagination } from '../../components/ui'
 import { Input } from '../../components/ui'
@@ -20,6 +20,14 @@ function useRoles() {
   return roles
 }
 
+function useStores() {
+  const [stores, setStores] = useState([])
+  useEffect(() => {
+    storeApi.getAll().then(r => setStores(r.data.filter(s => s.isActive))).catch(() => setStores([]))
+  }, [])
+  return stores
+}
+
 // ── Create Staff Modal ────────────────────────────────────────────────────────
 function CreateStaffModal({ onClose, onCreated }) {
   const { register, handleSubmit, setError, formState: { errors } } = useForm({
@@ -27,6 +35,7 @@ function CreateStaffModal({ onClose, onCreated }) {
   })
   const [saving, setSaving] = useState(false)
   const roles = useRoles()
+  const stores = useStores()
 
   const onSubmit = async (data) => {
     setSaving(true)
@@ -36,6 +45,7 @@ function CreateStaffModal({ onClose, onCreated }) {
         firstName: data.firstName.trim(),
         lastName:  data.lastName.trim(),
         email:     data.email.trim(),
+        storeId:   data.storeId ? Number(data.storeId) : null,
       })
       toast.success(`${data.role} account created for ${data.firstName.trim()}`)
       onCreated()
@@ -92,6 +102,15 @@ function CreateStaffModal({ onClose, onCreated }) {
             </p>
           </div>
 
+          <div>
+            <label className="label">Home Shop</label>
+            <select className="input text-sm" {...register('storeId')}>
+              <option value="">No home shop</option>
+              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <p className="text-xs text-surface-400 mt-1.5">The shop this person works in.</p>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary flex-1">
@@ -140,6 +159,32 @@ function RoleCell({ user, allRoles, onChanged }) {
   )
 }
 
+// ── Home shop cell (staff only) ───────────────────────────────────────────────
+function StoreCell({ user, stores, onChanged }) {
+  const [loading, setLoading] = useState(false)
+  if (user.role === 'Customer') return <span className="text-xs text-surface-300">—</span>
+
+  const handleChange = async (e) => {
+    const storeId = e.target.value ? Number(e.target.value) : null
+    setLoading(true)
+    try {
+      await adminApi.assignStore(user.id, storeId)
+      toast.success('Home shop updated')
+      onChanged()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update home shop')
+    } finally { setLoading(false) }
+  }
+
+  return loading ? <Spinner size="sm" /> : (
+    <select value={user.storeId ?? ''} onChange={handleChange} aria-label="Home shop"
+      className="text-xs rounded-lg px-2 py-1 border border-surface-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer">
+      <option value="">No shop</option>
+      {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+    </select>
+  )
+}
+
 // ── Users Page ────────────────────────────────────────────────────────────────
 export function AdminUsers() {
   const [users, setUsers] = useState([])
@@ -148,6 +193,7 @@ export function AdminUsers() {
   const [page, setPage] = useState(1)
   const [showCreate, setShowCreate] = useState(false)
   const allRoles = useRoles()
+  const stores = useStores()
   const pageSize = 20
   const totalPages = Math.ceil(total / pageSize)
 
@@ -194,6 +240,7 @@ export function AdminUsers() {
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Role</th>
+                <th>Shop</th>
                 <th>Orders</th>
                 <th>Total Spent</th>
                 <th>Status</th>
@@ -203,9 +250,9 @@ export function AdminUsers() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-12"><Spinner /></td></tr>
+                <tr><td colSpan={10} className="text-center py-12"><Spinner /></td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-surface-400">No users found</td></tr>
+                <tr><td colSpan={10} className="text-center py-12 text-surface-400">No users found</td></tr>
               ) : users.map(u => (
                 <tr key={u.id}>
                   <td>
@@ -220,6 +267,7 @@ export function AdminUsers() {
                   <td><span className="text-sm text-surface-600">{u.email}</span></td>
                   <td><span className="text-sm text-surface-500">{u.phone || '—'}</span></td>
                   <td><RoleCell user={u} allRoles={allRoles} onChanged={load} /></td>
+                  <td><StoreCell user={u} stores={stores} onChanged={load} /></td>
                   <td><span className="text-sm font-medium">{u.totalOrders}</span></td>
                   <td><span className="text-sm font-semibold text-surface-900">₦{u.totalSpent.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
                   <td>

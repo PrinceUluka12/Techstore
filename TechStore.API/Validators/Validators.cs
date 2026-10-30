@@ -3,6 +3,7 @@ using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
+using TechStore.API.DTOs.Store;
 
 namespace TechStore.API.Validators;
 
@@ -23,6 +24,34 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
             .Matches(@"^(\+234|0)[789]\d{9}$")
             .WithMessage("Enter a valid Nigerian phone number (e.g. 08012345678).")
             .When(x => x.Phone != null);
+    }
+}
+
+public class CreateStoreRequestValidator : AbstractValidator<CreateStoreRequest>
+{
+    public CreateStoreRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Code).NotEmpty().Matches(@"^[A-Za-z0-9]{2,10}$")
+            .WithMessage("Code must be 2–10 letters or numbers, e.g. IKJ.");
+        RuleFor(x => x.Address).MaximumLength(200);
+        RuleFor(x => x.City).MaximumLength(100);
+        RuleFor(x => x.Phone).Matches(@"^[0-9+()\-\s]{7,20}$")
+            .WithMessage("Enter a valid phone number.").When(x => !string.IsNullOrEmpty(x.Phone));
+    }
+}
+
+public class UpdateStoreRequestValidator : AbstractValidator<UpdateStoreRequest>
+{
+    public UpdateStoreRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(100).When(x => x.Name != null);
+        RuleFor(x => x.Code).Matches(@"^[A-Za-z0-9]{2,10}$")
+            .WithMessage("Code must be 2–10 letters or numbers, e.g. IKJ.").When(x => x.Code != null);
+        RuleFor(x => x.Address).MaximumLength(200);
+        RuleFor(x => x.City).MaximumLength(100);
+        RuleFor(x => x.Phone).Matches(@"^[0-9+()\-\s]{7,20}$")
+            .WithMessage("Enter a valid phone number.").When(x => !string.IsNullOrEmpty(x.Phone));
     }
 }
 

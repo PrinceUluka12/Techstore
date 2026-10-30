@@ -9,11 +9,13 @@ public class ProductService : IProductService
 {
     private readonly IProductRepository _products;
     private readonly IInventoryRepository _inventory;
+    private readonly IStoreRepository _stores;
 
-    public ProductService(IProductRepository products, IInventoryRepository inventory)
+    public ProductService(IProductRepository products, IInventoryRepository inventory, IStoreRepository stores)
     {
         _products = products;
         _inventory = inventory;
+        _stores = stores;
     }
 
     public async Task<ProductDto?> GetByIdAsync(int id)
@@ -58,14 +60,15 @@ public class ProductService : IProductService
 
         var created = await _products.CreateAsync(product);
 
-        // Create inventory record
-        var inv = new Inventory
+        // A stock row in every shop; the initial stock goes to the shop that sends online orders
+        var stores = await _stores.GetAllAsync();
+        await _inventory.CreateManyAsync(stores.Select(s => new Inventory
         {
             ProductId = created.Id,
-            QuantityOnHand = req.InitialStock,
+            StoreId = s.Id,
+            QuantityOnHand = s.SendsOnlineOrders ? req.InitialStock : 0,
             LowStockThreshold = req.LowStockThreshold
-        };
-        await _inventory.CreateAsync(inv);
+        }));
 
         return MapToDto(await _products.GetByIdAsync(created.Id) ?? created);
     }
@@ -100,11 +103,11 @@ public class ProductService : IProductService
     private static ProductDto MapToDto(Product p) => new(
         p.Id, p.Name, p.Description, p.SKU, p.Price, p.CompareAtPrice,
         p.Brand, p.ImageUrl, p.IsActive, p.IsFeatured, p.Rating, p.ReviewCount,
-        p.CategoryId, p.Category?.Name ?? "", p.Inventory?.QuantityAvailable, p.CreatedAt
+        p.CategoryId, p.Category?.Name ?? "", p.OnlineInventory?.QuantityAvailable, p.CreatedAt
     );
 
     private static ProductListDto MapToListDto(Product p) => new(
         p.Id, p.Name, p.SKU, p.Price, p.CompareAtPrice, p.Brand, p.ImageUrl,
-        p.IsActive, p.CategoryId, p.Category?.Name ?? "", p.Inventory?.QuantityAvailable, p.Rating
+        p.IsActive, p.CategoryId, p.Category?.Name ?? "", p.OnlineInventory?.QuantityAvailable, p.Rating
     );
 }

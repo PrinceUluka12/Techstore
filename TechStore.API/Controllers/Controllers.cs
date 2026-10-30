@@ -359,41 +359,58 @@ public class InventoryController : ControllerBase
     private readonly IInventoryService _inventory;
     public InventoryController(IInventoryService inventory) => _inventory = inventory;
 
-    /// <summary>Get inventory for a product</summary>
-    [HttpGet("product/{productId}")]
-    public async Task<IActionResult> GetByProduct(int productId)
+    // Every endpoint takes ?storeId=; without it they use the shop that sends online orders
+
+    /// <summary>List stock for every product in a shop</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetByStore([FromQuery] int? storeId, [FromQuery] bool lowStockOnly = false)
     {
-        var inv = await _inventory.GetByProductIdAsync(productId);
-        return inv == null ? NotFound() : Ok(inv);
+        try { return Ok(await _inventory.GetByStoreAsync(storeId, lowStockOnly)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
-    /// <summary>Get all low-stock items</summary>
+    /// <summary>Get a product's stock in a shop</summary>
+    [HttpGet("product/{productId}")]
+    public async Task<IActionResult> GetByProduct(int productId, [FromQuery] int? storeId)
+    {
+        try
+        {
+            var inv = await _inventory.GetAsync(storeId, productId);
+            return inv == null ? NotFound() : Ok(inv);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    /// <summary>Get low-stock items in one shop, or in all shops when storeId is left out</summary>
     [HttpGet("low-stock")]
-    public async Task<IActionResult> LowStock() =>
-        Ok(await _inventory.GetLowStockAsync());
+    public async Task<IActionResult> LowStock([FromQuery] int? storeId)
+    {
+        try { return Ok(await _inventory.GetLowStockAsync(storeId)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
 
     /// <summary>Adjust stock level (positive or negative)</summary>
     [HttpPost("product/{productId}/adjust")]
-    public async Task<IActionResult> Adjust(int productId, [FromBody] AdjustStockRequest req)
+    public async Task<IActionResult> Adjust(int productId, [FromQuery] int? storeId, [FromBody] AdjustStockRequest req)
     {
-        try { return Ok(await _inventory.AdjustStockAsync(productId, req)); }
+        try { return Ok(await _inventory.AdjustStockAsync(storeId, productId, req)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
     /// <summary>Restock a product</summary>
     [HttpPost("product/{productId}/restock")]
-    public async Task<IActionResult> Restock(int productId, [FromBody] RestockRequest req)
+    public async Task<IActionResult> Restock(int productId, [FromQuery] int? storeId, [FromBody] RestockRequest req)
     {
-        try { return Ok(await _inventory.RestockAsync(productId, req)); }
+        try { return Ok(await _inventory.RestockAsync(storeId, productId, req)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
     /// <summary>Update low-stock threshold</summary>
     [HttpPut("product/{productId}/threshold")]
-    public async Task<IActionResult> UpdateThreshold(int productId, [FromBody] UpdateThresholdRequest req)
+    public async Task<IActionResult> UpdateThreshold(int productId, [FromQuery] int? storeId, [FromBody] UpdateThresholdRequest req)
     {
-        try { return Ok(await _inventory.UpdateThresholdAsync(productId, req)); }
+        try { return Ok(await _inventory.UpdateThresholdAsync(storeId, productId, req)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 }
@@ -460,6 +477,19 @@ public class AdminController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Set a staff member's home shop (null clears it)</summary>
+    [HttpPut("users/{userId}/store")]
+    [RequirePermission(Perms.UsersManage)]
+    public async Task<IActionResult> AssignStore(int userId, [FromBody] AssignStoreRequest req, [FromServices] IAuthService auth)
+    {
+        try
+        {
+            await auth.AssignStoreAsync(userId, req.StoreId);
+            return Ok(new { message = "Home shop updated." });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 }
 

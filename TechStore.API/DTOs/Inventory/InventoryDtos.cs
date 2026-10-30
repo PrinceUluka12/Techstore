@@ -5,6 +5,8 @@ public record InventoryDto(
     int ProductId,
     string ProductName,
     string ProductSKU,
+    int StoreId,
+    string StoreName,
     int QuantityOnHand,
     int QuantityReserved,
     int QuantityAvailable,

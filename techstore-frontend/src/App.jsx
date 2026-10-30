@@ -24,6 +24,7 @@ import { AdminUsers, AdminReports } from './pages/admin/AdminUsersReports'
 import AdminImages from './pages/admin/AdminImages'
 import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminRoles from './pages/admin/AdminRoles'
+import AdminStores from './pages/admin/AdminStores'
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 function RequireAuth({ children }) {
@@ -41,6 +42,7 @@ const PERMISSION_TO_ROUTE = [
   { perm: 'reports.view',     route: '/admin/reports' },
   { perm: 'coupons.manage',   route: '/admin/coupons' },
   { perm: 'images.manage',    route: '/admin/images' },
+  { perm: 'stores.manage',    route: '/admin/shops' },
 ]
 
 function RequireAdmin({ children }) {
@@ -114,6 +116,7 @@ export default function App() {
             <Route path="/admin/images"     element={<RequireAdmin><AdminImages /></RequireAdmin>} />
             <Route path="/admin/coupons"    element={<RequireAdmin><AdminCoupons /></RequireAdmin>} />
             <Route path="/admin/roles"      element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
+            <Route path="/admin/shops"      element={<RequireAdmin><AdminStores /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={

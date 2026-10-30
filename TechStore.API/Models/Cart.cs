@@ -27,6 +27,8 @@ public class Inventory
     public int Id { get; set; }
     public int ProductId { get; set; }
     public Product Product { get; set; } = null!;
+    public int StoreId { get; set; } // One row per product per shop
+    public Store Store { get; set; } = null!;
 
     public int QuantityOnHand { get; set; }
     public int QuantityReserved { get; set; } // In pending orders
