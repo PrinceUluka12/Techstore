@@ -84,3 +84,25 @@ public record PosSaleItemDto(
 );
 
 public record PosPaymentDto(string Method, decimal Amount, decimal? Tendered, string? Reference, string? ReceivedBy);
+
+// ── End-of-day cash-up ────────────────────────────────────────────────────────
+
+public record CashUpDto(
+    DateOnly Date,                 // a day in Nigeria time (WAT, UTC+1)
+    PosShopDto Shop,
+    int SalesCount,
+    decimal Total,
+    decimal DiscountTotal,
+    decimal CashTendered,          // handed over by customers
+    decimal ChangeGiven,
+    List<CashUpMethodDto> ByMethod, // Cash is what stayed in the till (tendered − change)
+    List<CashUpCashierDto> ByCashier,
+    List<CashUpSaleDto> Sales,
+    int CancelledCount             // cancelled sales are left out of the totals
+);
+
+public record CashUpMethodDto(string Method, decimal Amount, int Count);
+
+public record CashUpCashierDto(int? CashierId, string CashierName, int SalesCount, decimal Total, List<CashUpMethodDto> ByMethod);
+
+public record CashUpSaleDto(int Id, string OrderNumber, DateTime CreatedAt, string CashierName, decimal Total, string PaymentMethod, OrderStatus Status);

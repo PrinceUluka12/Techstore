@@ -7,6 +7,8 @@ using TechStore.API.DTOs.Pos;
 using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Role;
 using TechStore.API.DTOs.Store;
+using TechStore.API.DTOs.Transfer;
+using TechStore.API.Models;
 using TechStore.API.DTOs.Wishlist;
 using TechStore.API.Helpers;
 
@@ -64,7 +66,8 @@ public interface IOrderService
 {
     Task<OrderDto?> GetByIdAsync(int id);
     Task<IEnumerable<OrderSummaryDto>> GetMyOrdersAsync(int userId, int page, int pageSize);
-    Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status);
+    Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status,
+        SalesChannel? channel = null, int? storeId = null, string? search = null);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
     Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId);
@@ -98,6 +101,17 @@ public interface IPosService
     Task<PosSaleDto> CreateSaleAsync(int cashierId, bool isAdmin, PosSaleRequest request);
     Task<PosSaleDto?> GetSaleAsync(int userId, bool isAdmin, int id);
     Task SetApprovalPinAsync(int userId, string currentPassword, string pin);
+    Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, int? storeId, DateOnly date);
+}
+
+public interface ITransferService
+{
+    // isAdmin: admins can work with any shop, everyone else only their home shop
+    Task<IEnumerable<TransferDto>> ListAsync(int userId, bool isAdmin, int? storeId, TransferStatus? status);
+    Task<TransferDto?> GetAsync(int userId, bool isAdmin, int id);
+    Task<TransferDto> CreateAsync(int userId, bool isAdmin, CreateTransferRequest request);
+    Task<TransferDto> ReceiveAsync(int userId, bool isAdmin, int id);
+    Task<TransferDto> CancelAsync(int userId, bool isAdmin, int id);
 }
 
 public interface IStoreService

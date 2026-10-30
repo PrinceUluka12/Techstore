@@ -16,6 +16,7 @@ public static class Perms
     public const string StoresManage    = "stores.manage";
     public const string PosSell         = "pos.sell";
     public const string PosApproveDiscounts = "pos.discount.approve";
+    public const string TransfersManage = "transfers.manage";
 
     public static readonly string[] All =
     [
@@ -30,6 +31,7 @@ public static class Perms
         StoresManage,
         PosSell,
         PosApproveDiscounts,
+        TransfersManage,
     ];
 
     public static readonly Dictionary<string, string> Labels = new()
@@ -48,5 +50,6 @@ public static class Perms
         [StoresManage]    = "Manage Shops",
         [PosSell]         = "Sell In Store",
         [PosApproveDiscounts] = "Approve Discounts",
+        [TransfersManage] = "Transfer Stock",
     };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Eye, Clock, User, ArrowRight, CheckCircle, XCircle, Package } from 'lucide-react'
-import { orderApi } from '../../services/api'
+import { Eye, Clock, User, ArrowRight, CheckCircle, XCircle, Package, Search } from 'lucide-react'
+import { orderApi, storeApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Modal, StatusBadge, Spinner, Pagination } from '../../components/ui'
 import toast from 'react-hot-toast'
@@ -307,14 +307,34 @@ export default function AdminOrders() {
   const pageSize   = 20
   const totalPages = Math.ceil(total / pageSize)
 
+  const [channel, setChannel] = useState('')
+  const [shopId, setShopId]   = useState('')
+  const [stores, setStores]   = useState([])
+  const [search, setSearch]   = useState('')
+  const [term, setTerm]       = useState('') // search, debounced
+
+  useEffect(() => { storeApi.getAll().then(r => setStores(r.data)).catch(() => {}) }, [])
+  useEffect(() => {
+    const t = setTimeout(() => { setTerm(search.trim()); setPage(1) }, 350)
+    return () => clearTimeout(t)
+  }, [search])
+
   const load = () => {
     setLoading(true)
-    orderApi.getAll({ page, pageSize, status: statusFilter || undefined })
+    orderApi.getAll({
+      page, pageSize,
+      status: statusFilter || undefined,
+      channel: channel || undefined,
+      storeId: shopId || undefined,
+      search: term || undefined,
+    })
       .then(r => { setOrders(r.data.items); setTotal(r.data.total) })
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [page, statusFilter])
+  useEffect(() => { load() }, [page, statusFilter, channel, shopId, term])
+
+  const filter = (setter) => (e) => { setter(e.target.value); setPage(1) }
 
   return (
     <AdminLayout>
@@ -322,13 +342,28 @@ export default function AdminOrders() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold">Orders</h1>
-            <p className="text-surface-400 text-sm mt-0.5">{total} total orders</p>
+            <p className="text-surface-400 text-sm mt-0.5">{total} {term || channel || shopId || statusFilter ? 'matching' : 'total'} orders</p>
           </div>
-          <select className="input w-auto text-sm"
-            value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
-            <option value="">All Statuses</option>
-            {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+              <input className="input pl-9 text-sm w-64" placeholder="Order #, customer, phone or IMEI"
+                aria-label="Search orders" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <select className="input w-auto text-sm" value={channel} onChange={filter(setChannel)} aria-label="Channel">
+              <option value="">Online & in-store</option>
+              <option value="Online">Online</option>
+              <option value="InStore">In-store</option>
+            </select>
+            <select className="input w-auto text-sm" value={shopId} onChange={filter(setShopId)} aria-label="Shop">
+              <option value="">All shops</option>
+              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <select className="input w-auto text-sm" value={statusFilter} onChange={filter(setStatusFilter)} aria-label="Status">
+              <option value="">All Statuses</option>
+              {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
         <div className="table-container">

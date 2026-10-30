@@ -385,13 +385,16 @@ export default function AdminPos() {
             <h1 className="font-display text-2xl font-semibold">Point of Sale</h1>
             <p className="text-surface-400 text-sm mt-0.5">Selling from <strong className="text-surface-700">{shop?.name}</strong></p>
           </div>
-          {admin && (
-            <select className="input w-auto text-sm" value={storeId} aria-label="Shop" disabled={lines.length > 0}
-              title={lines.length > 0 ? 'Finish or clear the sale to change shop' : undefined}
-              onChange={e => setStoreId(Number(e.target.value))}>
-              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <Link to="/admin/pos/cash-up" className="btn-secondary text-sm">End-of-day cash-up</Link>
+            {admin && (
+              <select className="input w-auto text-sm" value={storeId} aria-label="Shop" disabled={lines.length > 0}
+                title={lines.length > 0 ? 'Finish or clear the sale to change shop' : undefined}
+                onChange={e => setStoreId(Number(e.target.value))}>
+                {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-5 gap-6">

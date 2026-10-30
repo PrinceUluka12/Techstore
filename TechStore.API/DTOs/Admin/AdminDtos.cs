@@ -26,8 +26,12 @@ public record SalesReportDto(
     decimal TotalRevenue,
     decimal AverageOrderValue,
     List<RevenueByDayDto> DailyBreakdown,
-    List<TopProductDto> TopProducts
+    List<TopProductDto> TopProducts,
+    List<SalesBreakdownDto> ByShop,
+    List<SalesBreakdownDto> ByChannel // "Online" / "InStore"
 );
+
+public record SalesBreakdownDto(string Name, int Orders, decimal Revenue);
 
 public record UserAdminDto(
     int Id,

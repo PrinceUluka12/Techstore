@@ -274,6 +274,61 @@ public class PosService : IPosService
             o.Notes);
     }
 
+    // End-of-day cash-up for one shop: what each cashier took, by payment method.
+    // Cancelled or refunded sales are counted separately and left out of the totals.
+    public async Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, int? storeId, DateOnly date)
+    {
+        var store   = await ResolveStoreAsync(userId, isAdmin, storeId);
+        var fromUtc = date.ToDateTime(TimeOnly.MinValue) - NigeriaOffset;
+        var toUtc   = fromUtc.AddDays(1);
+
+        var orders = await _db.Orders.AsNoTracking()
+            .Include(o => o.SoldBy).Include(o => o.Payments)
+            .Where(o => o.Channel == SalesChannel.InStore && o.StoreId == store.Id
+                && o.CreatedAt >= fromUtc && o.CreatedAt < toUtc)
+            .OrderBy(o => o.CreatedAt)
+            .AsSplitQuery()
+            .ToListAsync();
+
+        var counted  = orders.Where(o => o.Status is not (OrderStatus.Cancelled or OrderStatus.Refunded)).ToList();
+        var payments = counted.SelectMany(o => o.Payments).ToList();
+        var cash     = payments.Where(p => p.Method == PaymentMethods.Cash).ToList();
+
+        static List<CashUpMethodDto> ByMethod(IEnumerable<OrderPayment> parts) => PaymentMethods.InStore
+            .Select(m => new CashUpMethodDto(m, parts.Where(p => p.Method == m).Sum(p => p.Amount), parts.Count(p => p.Method == m)))
+            .Where(m => m.Count > 0)
+            .ToList();
+
+        var byCashier = counted
+            .GroupBy(o => o.SoldByUserId)
+            .Select(g => new CashUpCashierDto(
+                g.Key,
+                g.First().SoldBy != null ? FullName(g.First().SoldBy!) : "Unknown",
+                g.Count(), g.Sum(o => o.Total), ByMethod(g.SelectMany(o => o.Payments))))
+            .OrderByDescending(c => c.Total)
+            .ToList();
+
+        return new CashUpDto(
+            date,
+            new PosShopDto(store.Id, store.Name, store.Code, store.Address, store.City, store.Phone),
+            counted.Count,
+            counted.Sum(o => o.Total),
+            counted.Sum(o => o.DiscountAmount),
+            cash.Sum(p => p.Tendered ?? p.Amount),
+            cash.Sum(p => (p.Tendered ?? p.Amount) - p.Amount),
+            ByMethod(payments),
+            byCashier,
+            orders.Select(o => new CashUpSaleDto(
+                o.Id, o.OrderNumber, o.CreatedAt, o.SoldBy != null ? FullName(o.SoldBy) : "",
+                o.Total, o.PaymentMethod ?? "", o.Status)).ToList(),
+            orders.Count - counted.Count);
+    }
+
+    // Nigeria has no daylight saving, so its day always starts at 23:00 UTC the day before
+    private static readonly TimeSpan NigeriaOffset = TimeSpan.FromHours(1);
+
+    public static DateOnly TodayInNigeria() => DateOnly.FromDateTime(DateTime.UtcNow + NigeriaOffset);
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     // 15 digits whose last digit is the Luhn check digit, like every real IMEI

@@ -57,7 +57,7 @@ public class AdminService : IAdminService
     public async Task<SalesReportDto> GetSalesReportAsync(DateTime from, DateTime to)
     {
         var orders = await _db.Orders
-            .Include(o => o.Items)
+            .Include(o => o.Items).Include(o => o.Store)
             .Where(o => o.CreatedAt >= from && o.CreatedAt <= to
                      && o.PaymentStatus == PaymentStatus.Paid)
             .ToListAsync();
@@ -92,7 +92,14 @@ public class AdminService : IAdminService
         var totalRevenue   = orders.Sum(o => o.Total);
         var avgOrderValue  = orders.Count > 0 ? totalRevenue / orders.Count : 0;
 
-        return new SalesReportDto(from, to, orders.Count, totalRevenue, avgOrderValue, daily, topProducts);
+        static List<SalesBreakdownDto> Breakdown(IEnumerable<IGrouping<string, Order>> groups) => groups
+            .Select(g => new SalesBreakdownDto(g.Key, g.Count(), g.Sum(o => o.Total)))
+            .OrderByDescending(b => b.Revenue)
+            .ToList();
+        var byShop    = Breakdown(orders.GroupBy(o => o.Store?.Name ?? "No shop"));
+        var byChannel = Breakdown(orders.GroupBy(o => o.Channel.ToString()));
+
+        return new SalesReportDto(from, to, orders.Count, totalRevenue, avgOrderValue, daily, topProducts, byShop, byChannel);
     }
 
     public async Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize)

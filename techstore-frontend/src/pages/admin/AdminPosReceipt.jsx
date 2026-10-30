@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Printer, Plus } from 'lucide-react'
-import { format } from 'date-fns'
 import { posApi } from '../../services/api'
 import { Spinner } from '../../components/ui'
 import { showApiError } from '../../utils/validation'
 import { naira } from './AdminPos'
 
 const METHOD_LABELS = { Cash: 'Cash', Card: 'Card (POS terminal)', BankTransfer: 'Bank transfer', USSD: 'USSD', Other: 'Other' }
+
+// Shop time (Nigeria), even when reprinted from somewhere else
+const soldAt = (d) => new Date(d.endsWith('Z') ? d : `${d}Z`).toLocaleString('en-GB', {
+  timeZone: 'Africa/Lagos', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 // A4 receipt for an in-store sale. No admin sidebar, so it prints on its own;
 // the toolbar is hidden when printing (index.css sets the A4 page).
@@ -60,7 +63,7 @@ export default function AdminPosReceipt() {
           <div className="text-right">
             <p className="font-display text-xl font-bold tracking-wide text-surface-900">RECEIPT</p>
             <p className="font-mono">{sale.orderNumber}</p>
-            <p className="text-surface-500">{format(new Date(sale.createdAt + (sale.createdAt.endsWith('Z') ? '' : 'Z')), 'd MMM yyyy, HH:mm')}</p>
+            <p className="text-surface-500">{soldAt(sale.createdAt)}</p>
             <p className="text-surface-500">Served by {sale.cashierName}</p>
           </div>
         </header>
