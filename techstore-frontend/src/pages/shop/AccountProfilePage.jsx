@@ -7,9 +7,13 @@ import { useAuthStore, useWishlistStore } from '../../store'
 import { Input, Spinner, LoadingPage } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { Link } from 'react-router-dom'
+import {
+  nameRules, passwordRules, phoneRules, maxText, withChecks, normalizePhone, showApiError,
+} from '../../utils/validation'
 
 function ProfileForm({ profile, onSaved }) {
-  const { register, handleSubmit, formState: { errors, isDirty } } = useForm({
+  const { register, handleSubmit, setError, formState: { errors, isDirty } } = useForm({
+    mode: 'onTouched',
     defaultValues: {
       firstName: profile.firstName,
       lastName:  profile.lastName,
@@ -23,28 +27,37 @@ function ProfileForm({ profile, onSaved }) {
   const onSubmit = async (data) => {
     setSaving(true)
     try {
-      const { data: updated } = await authApi.updateMe(data)
+      // Blank strings (not null) so clearing phone/address actually clears them
+      const { data: updated } = await authApi.updateMe({
+        firstName: data.firstName.trim(),
+        lastName:  data.lastName.trim(),
+        phone:     normalizePhone(data.phone),
+        address:   data.address.trim(),
+      })
       updateUser({ firstName: updated.firstName, lastName: updated.lastName })
       toast.success('Profile updated')
       onSaved(updated)
-    } catch {
-      toast.error('Failed to update profile')
+    } catch (err) {
+      showApiError(err, setError, 'Failed to update profile')
     } finally { setSaving(false) }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input label="First Name" error={errors.firstName?.message}
-          {...register('firstName', { required: 'Required' })} />
-        <Input label="Last Name" error={errors.lastName?.message}
-          {...register('lastName', { required: 'Required' })} />
+        <Input label="First Name" autoComplete="given-name" error={errors.firstName?.message}
+          {...register('firstName', nameRules('First name'))} />
+        <Input label="Last Name" autoComplete="family-name" error={errors.lastName?.message}
+          {...register('lastName', nameRules('Last name'))} />
       </div>
-      <Input label="Phone" type="tel" placeholder="+234 800 000 0000" {...register('phone')} />
+      <Input label="Phone" type="tel" placeholder="08012345678" autoComplete="tel"
+        error={errors.phone?.message}
+        {...register('phone', phoneRules)} />
       <div>
         <label className="label">Delivery Address <span className="text-surface-400 font-normal">(optional)</span></label>
         <textarea className="input min-h-[80px] resize-none" placeholder="Your default delivery address…"
-          {...register('address')} />
+          {...register('address', maxText(200))} />
+        {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>}
       </div>
       <div className="flex justify-end">
         <button type="submit" disabled={saving || !isDirty} className="btn-primary">
@@ -56,7 +69,7 @@ function ProfileForm({ profile, onSaved }) {
 }
 
 function ChangePasswordForm() {
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm()
+  const { register, handleSubmit, reset, getValues, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [saving, setSaving] = useState(false)
 
   const onSubmit = async (data) => {
@@ -66,25 +79,27 @@ function ChangePasswordForm() {
       toast.success('Password changed. Please log in again on other devices.')
       reset()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to change password')
+      showApiError(err, setError, 'Failed to change password',
+        { currentpassword: 'current', newpassword: 'newPass' })
     } finally { setSaving(false) }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Input label="Current Password" type="password" error={errors.current?.message}
-        {...register('current', { required: 'Required' })} />
-      <Input label="New Password" type="password" placeholder="Min. 8 characters"
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+      <Input label="Current Password" type="password" autoComplete="current-password"
+        error={errors.current?.message}
+        {...register('current', { required: 'Current password is required' })} />
+      <Input label="New Password" type="password" placeholder="8+ characters, 1 uppercase, 1 number"
+        autoComplete="new-password"
         error={errors.newPass?.message}
-        {...register('newPass', {
-          required: 'Required',
-          minLength: { value: 8, message: 'At least 8 characters' },
-          pattern: { value: /(?=.*[A-Z])(?=.*[0-9])/, message: 'Must include uppercase and a number' },
-        })} />
-      <Input label="Confirm New Password" type="password" error={errors.confirm?.message}
+        {...register('newPass', withChecks(passwordRules, {
+          different: v => v !== getValues('current') || 'Must be different from your current password',
+        }))} />
+      <Input label="Confirm New Password" type="password" autoComplete="new-password"
+        error={errors.confirm?.message}
         {...register('confirm', {
-          required: 'Required',
-          validate: v => v === watch('newPass') || 'Passwords do not match',
+          required: 'Please confirm your new password',
+          validate: v => v === getValues('newPass') || 'Passwords do not match',
         })} />
       <div className="flex justify-end">
         <button type="submit" disabled={saving} className="btn-primary">

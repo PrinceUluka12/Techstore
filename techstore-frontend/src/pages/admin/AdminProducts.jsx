@@ -6,6 +6,18 @@ import { Modal, Input, Select, Spinner, Pagination } from '../../components/ui'
 import { useForm, useWatch } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
+import {
+  requiredText, maxText, numberRules, urlRules, withChecks, showApiError,
+} from '../../utils/validation'
+
+// Mirrors CreateProductRequestValidator
+const priceRules = numberRules({ label: 'Price', required: true, positive: true })
+const compareAtRules = withChecks(numberRules({ label: 'Compare-at price' }), {
+  abovePrice: (v, form) => v === '' || v == null || Number(v) > Number(form.price)
+    || 'Must be higher than the price',
+})
+const stockRules     = numberRules({ label: 'Initial stock', integer: true, min: 0 })
+const thresholdRules = numberRules({ label: 'Threshold', required: true, integer: true, min: 1 })
 
 // ── SKU generator ─────────────────────────────────────────────────────────────
 const CATEGORY_CODES = { 1:'PHN', 2:'TAB', 3:'WCH', 4:'LAP', 5:'ACC' }
@@ -84,7 +96,7 @@ function ImagePickerModal({ open, onClose, onSelect }) {
 
 // ── Product Form Modal ────────────────────────────────────────────────────────
 function ProductFormModal({ open, onClose, product, categories, onSaved }) {
-  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm()
+  const { register, handleSubmit, reset, setValue, setError, control, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]       = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const isEdit = !!product
@@ -108,10 +120,10 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
     try {
       if (isEdit) {
         await productApi.update(product.id, {
-          name: data.name, description: data.description,
+          name: data.name.trim(), description: data.description?.trim(),
           price: parseFloat(data.price),
           compareAtPrice: data.compareAtPrice ? parseFloat(data.compareAtPrice) : null,
-          brand: data.brand, imageUrl: data.imageUrl,
+          brand: data.brand?.trim(), imageUrl: data.imageUrl?.trim(),
           categoryId: parseInt(data.categoryId),
           isActive:   data.isActive   === 'true' || data.isActive   === true,
           isFeatured: data.isFeatured === 'true' || data.isFeatured === true,
@@ -119,10 +131,10 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
         toast.success('Product updated')
       } else {
         await productApi.create({
-          name: data.name, description: data.description, sku: data.sku,
+          name: data.name.trim(), description: data.description?.trim(), sku: data.sku.trim(),
           price: parseFloat(data.price),
           compareAtPrice: data.compareAtPrice ? parseFloat(data.compareAtPrice) : null,
-          brand: data.brand, imageUrl: data.imageUrl,
+          brand: data.brand?.trim(), imageUrl: data.imageUrl?.trim(),
           categoryId: parseInt(data.categoryId),
           initialStock: parseInt(data.initialStock || 0),
           lowStockThreshold: parseInt(data.lowStockThreshold || 10),
@@ -132,17 +144,17 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
       }
       onSaved(); onClose()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save product')
+      showApiError(err, setError, 'Failed to save product', { sku: 'sku' })
     } finally { setLoading(false) }
   }
 
   return (
     <>
       <Modal open={open} onClose={onClose} title={isEdit ? 'Edit Product' : 'New Product'} size="lg">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Product Name" className="col-span-2" error={errors.name?.message}
-              {...register('name', { required: 'Required' })} />
+              {...register('name', requiredText('Product name', 200))} />
 
             {!isEdit && (
               <div className="col-span-2 sm:col-span-1">
@@ -154,7 +166,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
                 </label>
                 <div className="flex gap-2">
                   <input className="input flex-1" placeholder="Select a category first"
-                    {...register('sku', { required: 'Required' })} />
+                    {...register('sku', requiredText('SKU', 50))} />
                   <button type="button" onClick={refreshSKU} title="Regenerate SKU"
                     className="btn-secondary px-3 flex-shrink-0">
                     <RefreshCw className="w-4 h-4" />
@@ -164,13 +176,15 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
               </div>
             )}
 
-            <Input label="Brand" {...register('brand')} />
-            <Input label="Price ($)" type="number" step="0.01" error={errors.price?.message}
-              {...register('price', { required: 'Required', min: { value: 0.01, message: 'Must be > 0' } })} />
-            <Input label="Compare-at Price ($)" type="number" step="0.01" {...register('compareAtPrice')} />
+            <Input label="Brand" error={errors.brand?.message} {...register('brand', maxText(100))} />
+            <Input label="Price (₦)" type="number" step="0.01" min="0" error={errors.price?.message}
+              {...register('price', priceRules)} />
+            <Input label="Compare-at Price (₦)" type="number" step="0.01" min="0" placeholder="Optional"
+              error={errors.compareAtPrice?.message}
+              {...register('compareAtPrice', compareAtRules)} />
 
             <Select label="Category" error={errors.categoryId?.message}
-              {...register('categoryId', { required: 'Required' })}>
+              {...register('categoryId', { required: 'Select a category' })}>
               <option value="">Select category…</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
@@ -188,8 +202,10 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
               </>
             ) : (
               <>
-                <Input label="Initial Stock" type="number" defaultValue="0" {...register('initialStock')} />
-                <Input label="Low Stock Threshold" type="number" defaultValue="10" {...register('lowStockThreshold')} />
+                <Input label="Initial Stock" type="number" min="0" step="1" defaultValue="0"
+                  error={errors.initialStock?.message} {...register('initialStock', stockRules)} />
+                <Input label="Low Stock Threshold" type="number" min="1" step="1" defaultValue="10"
+                  error={errors.lowStockThreshold?.message} {...register('lowStockThreshold', thresholdRules)} />
               </>
             )}
 
@@ -197,13 +213,15 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
             <div className="col-span-2">
               <label className="label">Product Image</label>
               <div className="flex gap-2">
-                <input className="input flex-1" placeholder="https://… or pick from library below"
-                  {...register('imageUrl')} />
+                <input className={`input flex-1 ${errors.imageUrl ? 'border-red-400 focus:ring-red-400' : ''}`}
+                  placeholder="https://… or pick from library below"
+                  {...register('imageUrl', urlRules)} />
                 <button type="button" onClick={() => setPickerOpen(true)}
                   className="btn-secondary px-4 flex-shrink-0 gap-2 text-sm">
                   <ImageIcon className="w-4 h-4" /> Library
                 </button>
               </div>
+              {errors.imageUrl && <p className="text-red-500 text-xs mt-1">{errors.imageUrl.message}</p>}
 
               {/* Live preview */}
               {imageUrl && (
@@ -230,7 +248,8 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
 
           <div>
             <label className="label">Description</label>
-            <textarea className="input min-h-[80px] resize-y" {...register('description')} />
+            <textarea className="input min-h-[80px] resize-y" {...register('description', maxText(4000))} />
+            {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

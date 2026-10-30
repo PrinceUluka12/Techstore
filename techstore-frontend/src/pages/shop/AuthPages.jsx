@@ -11,6 +11,10 @@ import { authApi, cartApi, orderApi, paystackApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
 import { Input, Spinner } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
+import {
+  emailRules, nameRules, passwordRules, phoneRules, postalCodeRules,
+  requiredText, maxText, normalizePhone, showApiError,
+} from '../../utils/validation'
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
@@ -21,58 +25,6 @@ const NIGERIAN_STATES = [
 ]
 
 const PAYSTACK_PUBLIC_KEY = 'pk_live_6db9f9605582bc9866757429306bf6089eb4d7a4'
-
-// ── Auth form rules (keep in sync with TechStore.API/Validators/Validators.cs) ─
-const EMAIL_RE    = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-const NAME_RE     = /^\p{L}[\p{L}\p{M}\s'.-]*$/u // \p{M}: tone marks in names like Adébáyọ̀
-const NG_PHONE_RE = /^(\+234|0)[789]\d{9}$/
-
-const normalizePhone = (v = '') => v.replace(/[\s()-]/g, '')
-
-const emailRules = {
-  validate: {
-    required: v => v.trim() !== '' || 'Email is required',
-    format:   v => EMAIL_RE.test(v.trim()) || 'Enter a valid email address',
-  },
-  maxLength: { value: 200, message: 'Email is too long' },
-}
-
-const nameRules = (label) => ({
-  validate: {
-    required: v => v.trim() !== '' || `${label} is required`,
-    letters:  v => NAME_RE.test(v.trim()) || 'Letters only',
-  },
-  maxLength: { value: 50, message: 'Max 50 characters' },
-})
-
-const passwordRules = {
-  required: 'Password is required',
-  validate: {
-    length: v => v.length >= 8 || 'At least 8 characters',
-    upper:  v => /[A-Z]/.test(v) || 'Include an uppercase letter',
-    digit:  v => /[0-9]/.test(v) || 'Include a number',
-  },
-}
-
-const phoneRules = {
-  validate: v => {
-    const phone = normalizePhone(v)
-    return phone === '' || NG_PHONE_RE.test(phone) || 'Enter a Nigerian number, e.g. 08012345678'
-  },
-}
-
-// Field errors from the API go under the matching input; the toast always says why
-function showApiError(err, setError, fallback) {
-  const { status, data } = err.response ?? {}
-  if (status === 429) {
-    toast.error('Too many attempts. Please wait a minute and try again.')
-    return
-  }
-  const fieldErrors = Object.entries(data?.errors ?? {})
-  fieldErrors.forEach(([key, messages]) =>
-    setError(key.charAt(0).toLowerCase() + key.slice(1), { type: 'server', message: messages[0] }))
-  toast.error(data?.message || fieldErrors[0]?.[1]?.[0] || fallback)
-}
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 export function LoginPage() {
@@ -455,8 +407,14 @@ function CouponInput({ onApply, onRemove, appliedCode, discount, loading }) {
 }
 
 // ── Checkout ──────────────────────────────────────────────────────────────────
+// API field names → checkout form field names, for showApiError
+const CHECKOUT_FIELDS = {
+  shippingfirstname: 'firstName', shippinglastname: 'lastName', shippingaddress: 'address',
+  shippingcity: 'city', shippingprovince: 'province', shippingpostalcode: 'postalCode',
+}
+
 export function CheckoutPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]               = useState(false)
   const [paymentMethod, setPaymentMethod]   = useState('Card')
   const { items, total, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
@@ -475,16 +433,16 @@ export function CheckoutPage() {
   }
 
   const buildOrderPayload = (data) => ({
-    shippingFirstName:  data.firstName,
-    shippingLastName:   data.lastName,
-    shippingAddress:    data.address,
-    shippingCity:       data.city,
+    shippingFirstName:  data.firstName.trim(),
+    shippingLastName:   data.lastName.trim(),
+    shippingAddress:    data.address.trim(),
+    shippingCity:       data.city.trim(),
     shippingProvince:   data.province,
-    shippingPostalCode: data.postalCode,
+    shippingPostalCode: data.postalCode.trim(),
     shippingCountry:    'Nigeria',
-    shippingPhone:      data.phone,
+    shippingPhone:      normalizePhone(data.phone) || null,
     paymentMethod,
-    notes:              data.notes,
+    notes:              data.notes?.trim() || null,
     couponCode:         couponCode || null,
   })
 
@@ -527,7 +485,7 @@ export function CheckoutPage() {
         openPaystack(order.id, order.total, data.email || user?.email)
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Checkout failed')
+      showApiError(err, setError, 'Checkout failed', CHECKOUT_FIELDS)
       setLoading(false)
     }
   }
@@ -562,7 +520,7 @@ export function CheckoutPage() {
         <div className="grid lg:grid-cols-3 gap-8">
 
           {/* ── Left — form ── */}
-          <form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-2 space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="lg:col-span-2 space-y-5">
 
             {/* Shipping */}
             <div className="card p-6">
@@ -573,26 +531,29 @@ export function CheckoutPage() {
                 <h2 className="font-semibold text-surface-900">Shipping Address</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="First Name" error={errors.firstName?.message}
-                  {...register('firstName', { required: 'Required' })} />
-                <Input label="Last Name" error={errors.lastName?.message}
-                  {...register('lastName', { required: 'Required' })} />
-                <Input label="Phone Number" className="col-span-2" type="tel"
-                  placeholder="+234 800 000 0000" {...register('phone')} />
-                <Input label="Street Address" className="col-span-2" error={errors.address?.message}
+                <Input label="First Name" autoComplete="given-name" error={errors.firstName?.message}
+                  {...register('firstName', nameRules('First name'))} />
+                <Input label="Last Name" autoComplete="family-name" error={errors.lastName?.message}
+                  {...register('lastName', nameRules('Last name'))} />
+                <Input label="Phone Number" className="col-span-2" type="tel" autoComplete="tel"
+                  placeholder="08012345678" error={errors.phone?.message}
+                  {...register('phone', phoneRules)} />
+                <Input label="Street Address" className="col-span-2" autoComplete="street-address"
+                  error={errors.address?.message}
                   placeholder="House number, street name"
-                  {...register('address', { required: 'Required' })} />
-                <Input label="City" error={errors.city?.message}
-                  {...register('city', { required: 'Required' })} />
+                  {...register('address', requiredText('Street address', 200))} />
+                <Input label="City" autoComplete="address-level2" error={errors.city?.message}
+                  {...register('city', requiredText('City', 100))} />
                 <div>
                   <label className="label">State {errors.province && <span className="text-red-500 text-xs ml-1">{errors.province.message}</span>}</label>
-                  <select className="input w-full" {...register('province', { required: 'Required' })}>
+                  <select className="input w-full" {...register('province', { required: 'Select a state' })}>
                     <option value="">Select state…</option>
                     {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <Input label="Postal Code" placeholder="100001" error={errors.postalCode?.message}
-                  {...register('postalCode', { required: 'Required' })} />
+                <Input label="Postal Code" placeholder="100001" inputMode="numeric" maxLength={6}
+                  autoComplete="postal-code" error={errors.postalCode?.message}
+                  {...register('postalCode', postalCodeRules)} />
               </div>
             </div>
 
@@ -624,7 +585,8 @@ export function CheckoutPage() {
             <div className="card p-5">
               <label className="label">Order Notes <span className="text-surface-400 font-normal">(optional)</span></label>
               <textarea className="input min-h-[80px] resize-none" placeholder="Special delivery instructions…"
-                {...register('notes')} />
+                {...register('notes', maxText(500))} />
+              {errors.notes && <p className="text-red-500 text-xs mt-1">{errors.notes.message}</p>}
             </div>
 
             {/* Place order */}

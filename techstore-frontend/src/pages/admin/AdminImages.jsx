@@ -6,6 +6,15 @@ import { Spinner } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { Link } from 'react-router-dom'
+import { IMAGE_EXTENSIONS, MAX_IMAGE_BYTES, MAX_UPLOAD_BYTES, showApiError } from '../../utils/validation'
+
+// Same checks as ImageService, so bad files are skipped before anything is sent
+function checkImage(file) {
+  const ext = file.name.split('.').pop()?.toLowerCase()
+  if (!IMAGE_EXTENSIONS.includes(ext)) return `'${file.name}': unsupported type (allowed: jpg, png, webp, gif).`
+  if (file.size > MAX_IMAGE_BYTES)   return `'${file.name}': larger than 5 MB.`
+  return null
+}
 
 export default function AdminImages() {
   const [images, setImages]       = useState([])
@@ -27,8 +36,19 @@ export default function AdminImages() {
 
   const handleFiles = async (files) => {
     if (!files?.length) return
+    const valid = []
+    Array.from(files).forEach(f => {
+      const problem = checkImage(f)
+      if (problem) toast.error(problem, { duration: 5000 })
+      else valid.push(f)
+    })
+    if (!valid.length) return
+    if (valid.reduce((sum, f) => sum + f.size, 0) > MAX_UPLOAD_BYTES) {
+      toast.error('These files add up to more than 20 MB. Upload them in smaller batches.')
+      return
+    }
     const formData = new FormData()
-    Array.from(files).forEach(f => formData.append('files', f))
+    valid.forEach(f => formData.append('files', f))
     setUploading(true)
     try {
       const { data } = await imageApi.upload(formData)
@@ -38,7 +58,7 @@ export default function AdminImages() {
         data.errors.forEach(e => toast.error(e, { duration: 5000 }))
       load()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Upload failed')
+      showApiError(err, null, 'Upload failed')
     } finally { setUploading(false) }
   }
 

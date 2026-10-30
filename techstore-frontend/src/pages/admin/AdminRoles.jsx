@@ -37,10 +37,24 @@ function RoleModal({ role, allPerms, onClose, onSaved }) {
   const [description, setDescription] = useState(role?.description ?? '')
   const [permissions, setPermissions] = useState(role?.permissions ?? [])
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({})
+
+  const validate = () => {
+    const next = {}
+    const trimmed = name.trim()
+    if (!isEdit) {
+      if (!trimmed) next.name = 'Role name is required'
+      else if (trimmed.length > 50) next.name = 'Max 50 characters'
+      else if (!/^[\p{L}\d][\p{L}\d\s&-]*$/u.test(trimmed)) next.name = 'Use letters, numbers, spaces, & and -'
+    }
+    if (description.trim().length > 200) next.description = 'Max 200 characters'
+    setErrors(next)
+    return Object.keys(next).length === 0
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!name.trim()) return toast.error('Name is required.')
+    if (!validate()) return
     setLoading(true)
     try {
       if (isEdit) {
@@ -72,18 +86,18 @@ function RoleModal({ role, allPerms, onClose, onSaved }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 overflow-hidden">
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             <div>
               <label className="label">Role Name</label>
               <input
-                className="input"
+                className={`input ${errors.name ? 'border-red-400 focus:ring-red-400' : ''}`}
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Inventory Manager"
                 disabled={isEdit}
-                required
               />
+              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
               {isEdit && (
                 <p className="text-xs text-surface-400 mt-1">Role name cannot be changed after creation.</p>
               )}
@@ -92,11 +106,12 @@ function RoleModal({ role, allPerms, onClose, onSaved }) {
             <div>
               <label className="label">Description <span className="text-surface-400 font-normal">(optional)</span></label>
               <input
-                className="input"
+                className={`input ${errors.description ? 'border-red-400 focus:ring-red-400' : ''}`}
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="What can this role do?"
               />
+              {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description}</p>}
             </div>
 
             <div>

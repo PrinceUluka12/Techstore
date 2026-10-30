@@ -5,9 +5,18 @@ import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Modal, Input, Spinner, EmptyState } from '../../components/ui'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { requiredText, maxText, numberRules, withChecks } from '../../utils/validation'
+
+const thresholdRules = numberRules({ label: 'Threshold', required: true, integer: true, min: 1 })
 
 function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm()
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({ mode: 'onTouched' })
+
+  // The API rejects removals that would take stock below zero
+  const quantityRules = withChecks(numberRules({ label: 'Quantity', required: true, integer: true, min: 1 }), {
+    enoughStock: v => mode !== 'remove' || !inventory || Number(v) <= inventory.quantityOnHand
+      || `Only ${inventory.quantityOnHand} on hand`,
+  })
   const [loading, setLoading] = useState(false)
 
   useEffect(() => { if (open) reset({}) }, [open])
@@ -18,8 +27,8 @@ function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
       if (mode === 'restock') {
         await inventoryApi.restock(inventory.productId, {
           quantity: parseInt(data.quantity),
-          supplier: data.supplier,
-          notes: data.notes,
+          supplier: data.supplier?.trim() || null,
+          notes: data.notes?.trim() || null,
         })
         toast.success(`+${data.quantity} units restocked`)
       } else {
@@ -28,8 +37,8 @@ function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
           : parseInt(data.quantity)
         await inventoryApi.adjust(inventory.productId, {
           quantity: qty,
-          reason: data.reason,
-          notes: data.notes,
+          reason: data.reason.trim(),
+          notes: data.notes?.trim() || null,
         })
         toast.success(`Stock adjusted by ${qty > 0 ? '+' : ''}${qty}`)
       }
@@ -53,20 +62,24 @@ function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
           </p>
         </div>
       )}
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {mode === 'threshold' ? (
-          <Input label="New Low-Stock Threshold" type="number" error={errors.lowStockThreshold?.message}
+          <Input label="New Low-Stock Threshold" type="number" min="1" step="1"
+            error={errors.lowStockThreshold?.message}
             defaultValue={inventory?.lowStockThreshold}
-            {...register('lowStockThreshold', { required: 'Required', min: { value: 1, message: 'Min 1' } })} />
+            {...register('lowStockThreshold', thresholdRules)} />
         ) : (
           <>
-            <Input label="Quantity" type="number" error={errors.quantity?.message}
-              {...register('quantity', { required: 'Required', min: { value: 1, message: 'Must be ≥ 1' } })} />
+            <Input label="Quantity" type="number" min="1" step="1" error={errors.quantity?.message}
+              {...register('quantity', quantityRules)} />
             {mode === 'restock'
-              ? <Input label="Supplier (optional)" {...register('supplier')} />
-              : <Input label="Reason" error={errors.reason?.message}
-                  {...register('reason', { required: 'Required' })} />}
-            <Input label="Notes (optional)" {...register('notes')} />
+              ? <Input label="Supplier (optional)" error={errors.supplier?.message}
+                  {...register('supplier', maxText(100))} />
+              : <Input label="Reason" placeholder="e.g. Damaged, stock count correction"
+                  error={errors.reason?.message}
+                  {...register('reason', requiredText('Reason', 200))} />}
+            <Input label="Notes (optional)" error={errors.notes?.message}
+              {...register('notes', maxText(500))} />
           </>
         )}
         <div className="flex justify-end gap-3 pt-1">

@@ -2,23 +2,23 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Mail, ArrowLeft } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { authApi } from '../../services/api'
 import { Input, Spinner } from '../../components/ui'
 import { Navbar } from '../../components/layout/ShopLayout'
+import { emailRules, showApiError } from '../../utils/validation'
 
 export default function ForgotPasswordPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
 
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      await authApi.forgotPassword(data)
+      await authApi.forgotPassword({ email: data.email.trim() })
       setSent(true)
-    } catch {
-      toast.error('Something went wrong. Please try again.')
+    } catch (err) {
+      showApiError(err, setError, 'Something went wrong. Please try again.')
     } finally { setLoading(false) }
   }
 
@@ -51,16 +51,14 @@ export default function ForgotPasswordPage() {
                 <p className="text-surface-500 text-sm mt-1">Enter your email and we'll send a reset link</p>
               </div>
               <div className="card p-6">
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
                   <Input
                     label="Email Address"
                     type="email"
                     placeholder="you@example.com"
+                    autoComplete="email"
                     error={errors.email?.message}
-                    {...register('email', {
-                      required: 'Email is required',
-                      pattern: { value: /^\S+@\S+$/i, message: 'Invalid email' }
-                    })}
+                    {...register('email', emailRules)}
                   />
                   <button type="submit" disabled={loading} className="btn-primary w-full btn-lg">
                     {loading ? <Spinner size="sm" /> : 'Send Reset Link'}

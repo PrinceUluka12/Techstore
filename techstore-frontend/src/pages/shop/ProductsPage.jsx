@@ -50,6 +50,10 @@ export default function ProductsPage() {
   const activeFilterCount = [filters.categoryId, filters.minPrice, filters.maxPrice, filters.inStock]
     .filter(Boolean).length
 
+  // Prices can't be negative, so ignore those keystrokes instead of searching with them
+  const setPrice = (key, val) => { if (val === '' || Number(val) >= 0) setFilter(key, val) }
+  const priceRangeError = filters.minPrice && filters.maxPrice && Number(filters.minPrice) > Number(filters.maxPrice)
+
   return (
     <div className="min-h-screen flex flex-col">
       <Helmet><title>Shop All Products — Hytel Phones</title></Helmet>
@@ -114,14 +118,16 @@ export default function ProductsPage() {
               </select>
             </div>
             <div>
-              <label className="label">Min Price</label>
-              <input type="number" className="input text-sm" placeholder="$0"
-                value={filters.minPrice} onChange={e => setFilter('minPrice', e.target.value)} />
+              <label className="label">Min Price (₦)</label>
+              <input type="number" min="0" className="input text-sm" placeholder="₦0"
+                value={filters.minPrice} onChange={e => setPrice('minPrice', e.target.value)} />
             </div>
             <div>
-              <label className="label">Max Price</label>
-              <input type="number" className="input text-sm" placeholder="Any"
-                value={filters.maxPrice} onChange={e => setFilter('maxPrice', e.target.value)} />
+              <label className="label">Max Price (₦)</label>
+              <input type="number" min="0" placeholder="Any"
+                className={`input text-sm ${priceRangeError ? 'border-red-400 focus:ring-red-400' : ''}`}
+                value={filters.maxPrice} onChange={e => setPrice('maxPrice', e.target.value)} />
+              {priceRangeError && <p className="text-red-500 text-xs mt-1">Max must be at least the min price</p>}
             </div>
             <div>
               <label className="label">Availability</label>

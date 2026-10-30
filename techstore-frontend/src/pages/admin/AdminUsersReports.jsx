@@ -8,6 +8,7 @@ import { Spinner, Pagination } from '../../components/ui'
 import { Input } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format, subDays } from 'date-fns'
+import { emailRules, nameRules, passwordRules, showApiError } from '../../utils/validation'
 
 function useRoles() {
   const [roles, setRoles] = useState([])
@@ -21,19 +22,26 @@ function useRoles() {
 
 // ── Create Staff Modal ────────────────────────────────────────────────────────
 function CreateStaffModal({ onClose, onCreated }) {
-  const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { role: 'Admin' } })
+  const { register, handleSubmit, setError, formState: { errors } } = useForm({
+    mode: 'onTouched', defaultValues: { role: 'Admin' },
+  })
   const [saving, setSaving] = useState(false)
   const roles = useRoles()
 
   const onSubmit = async (data) => {
     setSaving(true)
     try {
-      await adminApi.createStaff(data)
-      toast.success(`${data.role} account created for ${data.firstName}`)
+      await adminApi.createStaff({
+        ...data,
+        firstName: data.firstName.trim(),
+        lastName:  data.lastName.trim(),
+        email:     data.email.trim(),
+      })
+      toast.success(`${data.role} account created for ${data.firstName.trim()}`)
       onCreated()
       onClose()
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to create account')
+      showApiError(err, setError, 'Failed to create account')
     } finally { setSaving(false) }
   }
 
@@ -54,34 +62,29 @@ function CreateStaffModal({ onClose, onCreated }) {
           <button onClick={onClose} className="btn-icon"><X className="w-4 h-4" /></button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Input label="First Name" placeholder="John"
               error={errors.firstName?.message}
-              {...register('firstName', { required: 'Required' })} />
+              {...register('firstName', nameRules('First name'))} />
             <Input label="Last Name" placeholder="Doe"
               error={errors.lastName?.message}
-              {...register('lastName', { required: 'Required' })} />
+              {...register('lastName', nameRules('Last name'))} />
           </div>
 
           <Input label="Email Address" type="email" placeholder="staff@pgusolutions.com"
+            autoComplete="off"
             error={errors.email?.message}
-            {...register('email', {
-              required: 'Required',
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' }
-            })} />
+            {...register('email', emailRules)} />
 
-          <Input label="Temporary Password" type="password" placeholder="Min. 8 characters"
+          <Input label="Temporary Password" type="password" placeholder="8+ characters, 1 uppercase, 1 number"
+            autoComplete="new-password"
             error={errors.password?.message}
-            {...register('password', {
-              required: 'Required',
-              minLength: { value: 8, message: 'At least 8 characters' },
-              pattern: { value: /(?=.*[A-Z])(?=.*[0-9])/, message: 'Must include uppercase and a number' },
-            })} />
+            {...register('password', passwordRules)} />
 
           <div>
             <label className="label">Role</label>
-            <select className="input text-sm" {...register('role', { required: true })}>
+            <select className="input text-sm" {...register('role', { required: 'Select a role' })}>
               {roles.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
             <p className="text-xs text-surface-400 mt-1.5">

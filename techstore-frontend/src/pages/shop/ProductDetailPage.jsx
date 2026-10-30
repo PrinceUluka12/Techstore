@@ -95,7 +95,7 @@ function ReviewForm({ productId, onSubmitted }) {
     if (!rating) { toast.error('Please select a star rating'); return }
     setLoading(true)
     try {
-      await reviewApi.create({ productId, rating, title: title || null, comment: comment || null })
+      await reviewApi.create({ productId, rating, title: title.trim() || null, comment: comment.trim() || null })
       toast.success('Review submitted!')
       setRating(0); setTitle(''); setComment('')
       onSubmitted()

@@ -6,6 +6,17 @@ import { Modal, Input, Spinner, Pagination } from '../../components/ui'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { requiredText, maxText, numberRules, withChecks } from '../../utils/validation'
+
+const codeRules = withChecks(requiredText('Code', 50), {
+  format: v => /^[A-Za-z0-9_-]+$/.test(v.trim()) || 'Letters, numbers, - and _ only (no spaces)',
+})
+const amountRules   = numberRules({ min: 0 })
+const usageRules    = numberRules({ integer: true, min: 1 })
+// Dates come from <input type="date"> as YYYY-MM-DD, so string comparison is safe
+const validToRules  = {
+  validate: (v, form) => !v || !form.validFrom || v >= form.validFrom || 'Must be on or after the start date',
+}
 
 const EMPTY_FORM = {
   code: '', description: '', type: 'Percentage', value: '',
@@ -20,25 +31,24 @@ function toFormDate(iso) {
 
 function CouponForm({ initial, onSave, onClose, saving }) {
   const { register, handleSubmit, watch, formState: { errors } } = useForm({
+    mode: 'onTouched',
     defaultValues: initial ?? EMPTY_FORM,
   })
   const type = watch('type')
 
   return (
-    <form onSubmit={handleSubmit(onSave)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSave)} noValidate className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <Input
           label="Code"
           className="font-mono uppercase col-span-2"
           placeholder="SAVE10"
           error={errors.code?.message}
-          {...register('code', { required: 'Required' })}
+          {...register('code', codeRules)}
         />
-        <div className="col-span-2">
-          <label className="label">Description</label>
-          <input className="input w-full" placeholder="Optional description…"
-            {...register('description')} />
-        </div>
+        <Input label="Description" className="col-span-2" placeholder="Optional description…"
+          error={errors.description?.message}
+          {...register('description', maxText(200))} />
 
         <div>
           <label className="label">Discount Type</label>
@@ -53,32 +63,29 @@ function CouponForm({ initial, onSave, onClose, saving }) {
           type="number" step="0.01" min="0.01"
           placeholder={type === 'Percentage' ? '10' : '500'}
           error={errors.value?.message}
-          {...register('value', {
-            required: 'Required',
-            min: { value: 0.01, message: 'Must be > 0' },
-            ...(type === 'Percentage' ? { max: { value: 100, message: 'Max 100%' } } : {}),
-          })}
+          {...register('value', numberRules({
+            label: 'Value', required: true, positive: true,
+            max: type === 'Percentage' ? 100 : undefined,
+          }))}
         />
 
         <Input label="Min Order Amount (₦)" type="number" step="0.01" min="0"
-          placeholder="Optional" {...register('minimumOrderAmount')} />
+          placeholder="Optional" error={errors.minimumOrderAmount?.message}
+          {...register('minimumOrderAmount', amountRules)} />
 
         <Input label="Max Discount Cap (₦)" type="number" step="0.01" min="0"
-          placeholder="Optional" {...register('maximumDiscountAmount')} />
+          placeholder="Optional" error={errors.maximumDiscountAmount?.message}
+          {...register('maximumDiscountAmount', amountRules)} />
 
-        <Input label="Usage Limit" type="number" min="1"
-          placeholder="Unlimited" {...register('usageLimit')} />
+        <Input label="Usage Limit" type="number" min="1" step="1"
+          placeholder="Unlimited" error={errors.usageLimit?.message}
+          {...register('usageLimit', usageRules)} />
 
         <div />
 
-        <div>
-          <label className="label">Valid From</label>
-          <input type="date" className="input w-full" {...register('validFrom')} />
-        </div>
-        <div>
-          <label className="label">Valid To</label>
-          <input type="date" className="input w-full" {...register('validTo')} />
-        </div>
+        <Input label="Valid From" type="date" {...register('validFrom', { deps: ['validTo'] })} />
+        <Input label="Valid To" type="date" error={errors.validTo?.message}
+          {...register('validTo', validToRules)} />
 
         <div className="col-span-2 flex items-center gap-3">
           <input type="checkbox" id="isActive" className="w-4 h-4 accent-brand-500"
@@ -142,8 +149,8 @@ export default function AdminCoupons() {
     setSaving(true)
     try {
       await couponApi.create({
-        code:                 data.code.toUpperCase(),
-        description:          data.description || null,
+        code:                 data.code.trim().toUpperCase(),
+        description:          data.description?.trim() || null,
         type:                 data.type,
         value:                parseFloat(data.value),
         minimumOrderAmount:   data.minimumOrderAmount   ? parseFloat(data.minimumOrderAmount)   : null,
@@ -165,8 +172,8 @@ export default function AdminCoupons() {
     setSaving(true)
     try {
       await couponApi.update(editTarget.id, {
-        code:                 data.code.toUpperCase(),
-        description:          data.description || null,
+        code:                 data.code.trim().toUpperCase(),
+        description:          data.description?.trim() || null,
         type:                 data.type,
         value:                parseFloat(data.value),
         minimumOrderAmount:   data.minimumOrderAmount   ? parseFloat(data.minimumOrderAmount)   : null,

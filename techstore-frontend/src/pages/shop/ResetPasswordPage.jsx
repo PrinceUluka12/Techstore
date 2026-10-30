@@ -2,16 +2,16 @@ import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Lock, CheckCircle } from 'lucide-react'
-import toast from 'react-hot-toast'
 import { authApi } from '../../services/api'
 import { Input, Spinner } from '../../components/ui'
 import { Navbar } from '../../components/layout/ShopLayout'
+import { passwordRules, showApiError } from '../../utils/validation'
 
 export default function ResetPasswordPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const token = searchParams.get('token')
-  const { register, handleSubmit, watch, formState: { errors } } = useForm()
+  const { register, handleSubmit, getValues, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -36,7 +36,7 @@ export default function ResetPasswordPage() {
       setDone(true)
       setTimeout(() => navigate('/login'), 3000)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Reset failed. The link may have expired.')
+      showApiError(err, setError, 'Reset failed. The link may have expired.')
     } finally { setLoading(false) }
   }
 
@@ -60,26 +60,24 @@ export default function ResetPasswordPage() {
                 <p className="text-surface-500 text-sm mt-1">Choose a strong password for your account</p>
               </div>
               <div className="card p-6">
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
                   <Input
                     label="New Password"
                     type="password"
-                    placeholder="Min. 8 characters"
+                    placeholder="8+ characters, 1 uppercase, 1 number"
+                    autoComplete="new-password"
                     error={errors.newPassword?.message}
-                    {...register('newPassword', {
-                      required: 'Required',
-                      minLength: { value: 8, message: 'At least 8 characters' },
-                      pattern: { value: /(?=.*[A-Z])(?=.*[0-9])/, message: 'Must include uppercase and a number' },
-                    })}
+                    {...register('newPassword', passwordRules)}
                   />
                   <Input
                     label="Confirm Password"
                     type="password"
                     placeholder="Repeat password"
+                    autoComplete="new-password"
                     error={errors.confirm?.message}
                     {...register('confirm', {
-                      required: 'Required',
-                      validate: v => v === watch('newPassword') || 'Passwords do not match',
+                      required: 'Please confirm your password',
+                      validate: v => v === getValues('newPassword') || 'Passwords do not match',
                     })}
                   />
                   <button type="submit" disabled={loading} className="btn-primary w-full btn-lg">
