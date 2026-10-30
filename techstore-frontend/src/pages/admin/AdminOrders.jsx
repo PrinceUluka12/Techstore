@@ -5,6 +5,7 @@ import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Modal, StatusBadge, Spinner, Pagination } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { Link } from 'react-router-dom'
 
 const ORDER_STATUSES = ['Pending','Confirmed','Processing','Shipped','Delivered','Cancelled','Refunded']
 
@@ -180,6 +181,14 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                 <span className="text-sm text-surface-400">
                   {format(new Date(order.createdAt), 'MMM d, yyyy · h:mm a')}
                 </span>
+                {order.channel === 'InStore' && (
+                  <>
+                    <span className="badge-gray">In-store{order.storeName && ` · ${order.storeName}`}</span>
+                    <Link to={`/admin/pos/sales/${order.id}`} className="text-xs text-brand-600 hover:underline">
+                      View / print receipt
+                    </Link>
+                  </>
+                )}
                 {order.paymentMethodDetails && (
                   <span className="text-xs text-surface-500 bg-surface-100 px-2.5 py-1 rounded-full">
                     {order.paymentMethodDetails}
@@ -343,7 +352,10 @@ export default function AdminOrders() {
                 <tr><td colSpan={8} className="text-center py-12 text-surface-400">No orders found</td></tr>
               ) : orders.map(o => (
                 <tr key={o.id}>
-                  <td><span className="font-mono text-xs text-brand-600 font-medium">{o.orderNumber}</span></td>
+                  <td>
+                    <span className="font-mono text-xs text-brand-600 font-medium">{o.orderNumber}</span>
+                    {o.channel === 'InStore' && <p className="text-[10px] text-surface-400">In-store · {o.storeName}</p>}
+                  </td>
                   <td><span className="text-sm font-medium">{o.customerName}</span></td>
                   <td><span className="text-sm text-surface-500">{format(new Date(o.createdAt), 'MMM d, yyyy')}</span></td>
                   <td><span className="text-sm text-surface-500">{o.itemCount} items</span></td>

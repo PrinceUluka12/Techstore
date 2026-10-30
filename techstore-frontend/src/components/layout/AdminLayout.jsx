@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store
+  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store, ScanBarcode
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
@@ -28,6 +28,7 @@ const navSections = [
   {
     label: 'Sales',
     items: [
+      { to: '/admin/pos',     label: 'Point of Sale', icon: ScanBarcode, permission: 'pos.sell' },
       { to: '/admin/orders',  label: 'Orders',    icon: ShoppingBag, permission: 'orders.view' },
       { to: '/admin/users',   label: 'Customers', icon: Users,       permission: 'users.view' },
       { to: '/admin/coupons', label: 'Coupons',   icon: Tag,         permission: 'coupons.manage' },
