@@ -3,6 +3,7 @@ using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Inventory;
 using TechStore.API.DTOs.Order;
+using TechStore.API.DTOs.Pos;
 using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Role;
 using TechStore.API.DTOs.Store;
@@ -87,6 +88,16 @@ public interface IInventoryService
     Task<InventoryDto> AdjustStockAsync(int? storeId, int productId, AdjustStockRequest request);
     Task<InventoryDto> RestockAsync(int? storeId, int productId, RestockRequest request);
     Task<InventoryDto> UpdateThresholdAsync(int? storeId, int productId, UpdateThresholdRequest request);
+}
+
+public interface IPosService
+{
+    // isAdmin: admins can work at any shop, everyone else only at their home shop
+    Task<IEnumerable<PosProductDto>> SearchProductsAsync(int userId, bool isAdmin, int? storeId, string? query);
+    Task<IEnumerable<PosApproverDto>> GetApproversAsync();
+    Task<PosSaleDto> CreateSaleAsync(int cashierId, bool isAdmin, PosSaleRequest request);
+    Task<PosSaleDto?> GetSaleAsync(int userId, bool isAdmin, int id);
+    Task SetApprovalPinAsync(int userId, string currentPassword, string pin);
 }
 
 public interface IStoreService

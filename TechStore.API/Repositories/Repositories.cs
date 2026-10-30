@@ -177,7 +177,7 @@ public class OrderRepository : IOrderRepository
     public OrderRepository(AppDbContext db) => _db = db;
 
     public Task<Order?> GetByIdAsync(int id) =>
-        _db.Orders.Include(o => o.User).Include(o => o.Items).ThenInclude(i => i.Product)
+        _db.Orders.Include(o => o.User).Include(o => o.Store).Include(o => o.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(o => o.Id == id);
 
     public Task<Order?> GetByOrderNumberAsync(string num) =>
@@ -192,7 +192,7 @@ public class OrderRepository : IOrderRepository
 
     public async Task<(IEnumerable<Order> Items, int Total)> GetAllAsync(int page, int pageSize, string? status)
     {
-        var q = _db.Orders.Include(o => o.User).Include(o => o.Items).AsQueryable();
+        var q = _db.Orders.Include(o => o.User).Include(o => o.Store).Include(o => o.Items).AsQueryable();
         if (status != null && Enum.TryParse<OrderStatus>(status, true, out var s))
             q = q.Where(o => o.Status == s);
         q = q.OrderByDescending(o => o.CreatedAt);
@@ -211,7 +211,9 @@ public class OrderRepository : IOrderRepository
     public async Task<Order> UpdateAsync(Order order)
     {
         order.UpdatedAt = DateTime.UtcNow;
-        _db.Orders.Update(order);
+        // Same as ProductRepository.UpdateAsync: Update() would also rewrite the loaded
+        // customer, shop and products with the values read earlier
+        if (_db.Entry(order).State == EntityState.Detached) _db.Orders.Update(order);
         await _db.SaveChangesAsync();
         return order;
     }
@@ -325,6 +327,14 @@ public class InventoryRepository : IInventoryRepository
             .Where(i => i.QuantityOnHand - i.QuantityReserved >= quantity)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(i => i.QuantityReserved, i => i.QuantityReserved + quantity)
+                .SetProperty(i => i.UpdatedAt, DateTime.UtcNow)) == 1;
+
+    // In-store sale: the units leave the shop now, but never ones reserved for online orders
+    public async Task<bool> TrySellAsync(int storeId, int productId, int quantity) =>
+        await Row(storeId, productId)
+            .Where(i => i.QuantityOnHand - i.QuantityReserved >= quantity)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(i => i.QuantityOnHand, i => i.QuantityOnHand - quantity)
                 .SetProperty(i => i.UpdatedAt, DateTime.UtcNow)) == 1;
 
     public Task ReleaseAsync(int storeId, int productId, int quantity) =>

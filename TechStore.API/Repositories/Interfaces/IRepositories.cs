@@ -85,6 +85,7 @@ public interface IInventoryRepository
     // Each of these is a single UPDATE, so sales and restocks happening at the
     // same moment can't overwrite each other's numbers
     Task<bool> TryReserveAsync(int storeId, int productId, int quantity);
+    Task<bool> TrySellAsync(int storeId, int productId, int quantity); // in-store sale
     Task ReleaseAsync(int storeId, int productId, int quantity);
     Task FulfilAsync(int storeId, int productId, int quantity); // reserved units leave the shop
     Task<bool> TryAdjustOnHandAsync(int storeId, int productId, int delta);

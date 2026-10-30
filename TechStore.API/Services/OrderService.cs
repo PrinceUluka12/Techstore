@@ -308,10 +308,16 @@ public class OrderService : IOrderService
         return null;
     }
 
+    // Walk-in sales may have no account, only the name the cashier typed (or nothing)
+    private static string CustomerNameOf(Order o) =>
+        o.User != null ? $"{o.User.FirstName} {o.User.LastName}".Trim()
+        : !string.IsNullOrWhiteSpace(o.CustomerName) ? o.CustomerName
+        : "Walk-in customer";
+
     private static OrderDto MapToDto(Order o) => new(
         o.Id, o.OrderNumber, o.UserId,
-        $"{o.User?.FirstName} {o.User?.LastName}".Trim(),
-        o.User?.Email ?? "",
+        CustomerNameOf(o),
+        o.User?.Email ?? o.CustomerEmail ?? "",
         o.Status, o.PaymentStatus, o.PaymentMethod,
         BuildPaymentMethodDetails(o),
         o.SubTotal, o.DiscountAmount, o.CouponCode,
@@ -322,13 +328,15 @@ public class OrderService : IOrderService
         o.Items.Select(i => new OrderItemDto(
             i.Id, i.ProductId, i.ProductName, i.ProductSKU,
             i.Product?.ImageUrl,
-            i.UnitPrice, i.Quantity, i.LineTotal)).ToList()
+            i.UnitPrice, i.Quantity, i.LineTotal)).ToList(),
+        o.Channel, o.Store?.Name
     );
 
     private static OrderSummaryDto MapToSummaryDto(Order o) => new(
         o.Id, o.OrderNumber,
-        $"{o.User?.FirstName} {o.User?.LastName}".Trim(),
+        CustomerNameOf(o),
         o.Status, o.PaymentStatus, o.Total,
-        o.Items.Sum(i => i.Quantity), o.CreatedAt
+        o.Items.Sum(i => i.Quantity), o.CreatedAt,
+        o.Channel, o.Store?.Name
     );
 }

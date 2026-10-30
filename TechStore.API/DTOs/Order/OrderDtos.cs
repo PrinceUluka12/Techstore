@@ -5,7 +5,7 @@ namespace TechStore.API.DTOs.Order;
 public record OrderDto(
     int Id,
     string OrderNumber,
-    int UserId,
+    int? UserId, // null for walk-in sales without an account
     string CustomerName,
     string CustomerEmail,
     OrderStatus Status,
@@ -27,7 +27,9 @@ public record OrderDto(
     DateTime? ShippedAt,
     DateTime? DeliveredAt,
     DateTime CreatedAt,
-    List<OrderItemDto> Items
+    List<OrderItemDto> Items,
+    SalesChannel Channel = SalesChannel.Online,
+    string? StoreName = null
 );
 
 public record OrderItemDto(
@@ -49,7 +51,9 @@ public record OrderSummaryDto(
     PaymentStatus PaymentStatus,
     decimal Total,
     int ItemCount,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    SalesChannel Channel = SalesChannel.Online,
+    string? StoreName = null
 );
 
 public record CreateOrderRequest(
