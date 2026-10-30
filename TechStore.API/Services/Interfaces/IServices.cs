@@ -125,7 +125,7 @@ public interface IAdminService
 {
     Task<DashboardStatsDto> GetDashboardStatsAsync();
     Task<SalesReportDto> GetSalesReportAsync(DateTime from, DateTime to);
-    Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize);
+    Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize, bool? staff = null);
     Task<bool> ToggleUserStatusAsync(int userId);
 }
 

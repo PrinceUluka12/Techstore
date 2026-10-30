@@ -372,7 +372,7 @@ export default function AdminPos() {
     <AdminLayout>
       <div className="card p-8 max-w-lg text-center space-y-2">
         <h1 className="font-display text-xl font-semibold">No home shop</h1>
-        <p className="text-surface-500 text-sm">You need a home shop to use the till. An admin can set it on the Customers page.</p>
+        <p className="text-surface-500 text-sm">You need a home shop to use the till. An admin can set it on the Staff page.</p>
       </div>
     </AdminLayout>
   )

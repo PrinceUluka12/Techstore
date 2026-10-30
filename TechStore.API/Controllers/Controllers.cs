@@ -449,11 +449,11 @@ public class AdminController : ControllerBase
         return Ok(await _admin.GetSalesReportAsync(start, end));
     }
 
-    /// <summary>Get paginated user list with stats</summary>
+    /// <summary>Get paginated user list with stats; staff=true for staff only, staff=false for customers only</summary>
     [HttpGet("users")]
     [RequirePermission(Perms.UsersView)]
-    public async Task<IActionResult> Users([FromQuery] int page = 1, [FromQuery] int pageSize = 20) =>
-        Ok(await _admin.GetUsersAsync(page, pageSize));
+    public async Task<IActionResult> Users([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? staff = null) =>
+        Ok(await _admin.GetUsersAsync(page, pageSize, staff));
 
     /// <summary>Toggle user active/inactive status</summary>
     [HttpPut("users/{userId}/toggle")]

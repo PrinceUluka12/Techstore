@@ -117,7 +117,9 @@ export default function App() {
             <Route path="/admin/products"   element={<RequireAdmin><AdminProducts /></RequireAdmin>} />
             <Route path="/admin/orders"     element={<RequireAdmin><AdminOrders /></RequireAdmin>} />
             <Route path="/admin/inventory"  element={<RequireAdmin><AdminInventory /></RequireAdmin>} />
-            <Route path="/admin/users"      element={<RequireAdmin><AdminUsers /></RequireAdmin>} />
+            {/* Same page component, so the keys keep each list's page number apart */}
+            <Route path="/admin/users"      element={<RequireAdmin key="customers"><AdminUsers /></RequireAdmin>} />
+            <Route path="/admin/staff"      element={<RequireAdmin key="staff"><AdminUsers staff /></RequireAdmin>} />
             <Route path="/admin/reports"    element={<RequireAdmin><AdminReports /></RequireAdmin>} />
             <Route path="/admin/images"     element={<RequireAdmin><AdminImages /></RequireAdmin>} />
             <Route path="/admin/coupons"    element={<RequireAdmin><AdminCoupons /></RequireAdmin>} />

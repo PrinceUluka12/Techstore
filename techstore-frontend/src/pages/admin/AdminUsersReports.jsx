@@ -31,7 +31,7 @@ function useStores() {
 // ── Create Staff Modal ────────────────────────────────────────────────────────
 function CreateStaffModal({ onClose, onCreated }) {
   const { register, handleSubmit, setError, formState: { errors } } = useForm({
-    mode: 'onTouched', defaultValues: { role: 'Admin' },
+    mode: 'onTouched', defaultValues: { role: '' },
   })
   const [saving, setSaving] = useState(false)
   const roles = useRoles()
@@ -65,8 +65,8 @@ function CreateStaffModal({ onClose, onCreated }) {
               <UserPlus className="w-4 h-4 text-brand-600" />
             </div>
             <div>
-              <h2 className="font-display font-semibold text-surface-900">Create Back Office Account</h2>
-              <p className="text-xs text-surface-400 mt-0.5">Account will be created with no order history</p>
+              <h2 className="font-display font-semibold text-surface-900">Add Staff Member</h2>
+              <p className="text-xs text-surface-400 mt-0.5">They sign in with this email and temporary password</p>
             </div>
           </div>
           <button onClick={onClose} className="btn-icon"><X className="w-4 h-4" /></button>
@@ -95,8 +95,10 @@ function CreateStaffModal({ onClose, onCreated }) {
           <div>
             <label className="label">Role</label>
             <select className="input text-sm" {...register('role', { required: 'Select a role' })}>
-              {roles.map(r => <option key={r} value={r}>{r}</option>)}
+              <option value="">Choose a role…</option>
+              {roles.filter(r => r !== 'Customer').map(r => <option key={r} value={r}>{r}</option>)}
             </select>
+            {errors.role && <p className="text-xs text-red-500 mt-1">{errors.role.message}</p>}
             <p className="text-xs text-surface-400 mt-1.5">
               Admin has full access. Custom roles have only the permissions assigned to them.
             </p>
@@ -185,8 +187,10 @@ function StoreCell({ user, stores, onChanged }) {
   )
 }
 
-// ── Users Page ────────────────────────────────────────────────────────────────
-export function AdminUsers() {
+// ── Customers / Staff Pages ───────────────────────────────────────────────────
+// One page, two lists: customers (/admin/users) and back-office staff (/admin/staff).
+// Changing someone's role moves them to the other list.
+export function AdminUsers({ staff = false }) {
   const [users, setUsers] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -196,13 +200,14 @@ export function AdminUsers() {
   const stores = useStores()
   const pageSize = 20
   const totalPages = Math.ceil(total / pageSize)
+  const columns = staff ? 8 : 9
 
   const load = useCallback(() => {
     setLoading(true)
-    adminApi.getUsers({ page, pageSize })
+    adminApi.getUsers({ page, pageSize, staff })
       .then(r => { setUsers(r.data.items); setTotal(r.data.total) })
       .finally(() => setLoading(false))
-  }, [page])
+  }, [page, staff])
 
   useEffect(() => { load() }, [load])
 
@@ -224,25 +229,29 @@ export function AdminUsers() {
       <div className="space-y-6 max-w-[1400px]">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-2xl font-semibold">Users</h1>
-            <p className="text-surface-400 text-sm mt-0.5">{total} registered accounts</p>
+            <h1 className="font-display text-2xl font-semibold">{staff ? 'Staff' : 'Customers'}</h1>
+            <p className="text-surface-400 text-sm mt-0.5">
+              {staff
+                ? `${total} staff account${total === 1 ? '' : 's'} · roles decide what each person can do`
+                : `${total} customer account${total === 1 ? '' : 's'}`}
+            </p>
           </div>
-          <button onClick={() => setShowCreate(true)} className="btn-primary gap-2">
-            <UserPlus className="w-4 h-4" /> Create Back Office Account
-          </button>
+          {staff && (
+            <button onClick={() => setShowCreate(true)} className="btn-primary gap-2">
+              <UserPlus className="w-4 h-4" /> Add Staff
+            </button>
+          )}
         </div>
 
         <div className="table-container">
           <table className="data-table">
             <thead>
               <tr>
-                <th>User</th>
+                <th>{staff ? 'Name' : 'Customer'}</th>
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Role</th>
-                <th>Shop</th>
-                <th>Orders</th>
-                <th>Total Spent</th>
+                {staff ? <th>Shop</th> : <><th>Orders</th><th>Total Spent</th></>}
                 <th>Status</th>
                 <th>Joined</th>
                 <th>Actions</th>
@@ -250,9 +259,9 @@ export function AdminUsers() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={10} className="text-center py-12"><Spinner /></td></tr>
+                <tr><td colSpan={columns} className="text-center py-12"><Spinner /></td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-12 text-surface-400">No users found</td></tr>
+                <tr><td colSpan={columns} className="text-center py-12 text-surface-400">{staff ? 'No staff yet' : 'No customers yet'}</td></tr>
               ) : users.map(u => (
                 <tr key={u.id}>
                   <td>
@@ -267,9 +276,12 @@ export function AdminUsers() {
                   <td><span className="text-sm text-surface-600">{u.email}</span></td>
                   <td><span className="text-sm text-surface-500">{u.phone || '—'}</span></td>
                   <td><RoleCell user={u} allRoles={allRoles} onChanged={load} /></td>
-                  <td><StoreCell user={u} stores={stores} onChanged={load} /></td>
-                  <td><span className="text-sm font-medium">{u.totalOrders}</span></td>
-                  <td><span className="text-sm font-semibold text-surface-900">₦{u.totalSpent.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
+                  {staff ? (
+                    <td><StoreCell user={u} stores={stores} onChanged={load} /></td>
+                  ) : <>
+                    <td><span className="text-sm font-medium">{u.totalOrders}</span></td>
+                    <td><span className="text-sm font-semibold text-surface-900">₦{u.totalSpent.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
+                  </>}
                   <td>
                     <span className={`badge ${u.isActive ? 'badge-green' : 'badge-red'}`}>
                       {u.isActive ? 'Active' : 'Inactive'}
