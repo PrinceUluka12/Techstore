@@ -7,6 +7,7 @@ public class Category
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool RequiresImei { get; set; } = false; // in-store sales record an IMEI per unit
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<Product> Products { get; set; } = new List<Product>();

@@ -62,6 +62,7 @@ builder.Services.AddScoped<IWishlistService, WishlistService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<IStoreService, StoreService>();
+builder.Services.AddScoped<IPosService, PosService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 
 // Azure Blob Storage

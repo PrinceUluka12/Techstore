@@ -17,6 +17,11 @@ public class User
     public DateTime? PasswordResetTokenExpiry { get; set; }
     public int? StoreId { get; set; } // Staff home shop; null for customers
     public Store? Store { get; set; }
+
+    // PIN a manager enters on the till to approve a discount or price change
+    public string? ApprovalPinHash { get; set; }
+    public int FailedPinAttempts { get; set; } = 0;
+    public DateTime? PinLockoutUntil { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

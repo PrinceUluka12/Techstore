@@ -1,4 +1,7 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
+using TechStore.API.DTOs.Pos;
+using TechStore.API.Models;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Order;
@@ -52,6 +55,67 @@ public class UpdateStoreRequestValidator : AbstractValidator<UpdateStoreRequest>
         RuleFor(x => x.City).MaximumLength(100);
         RuleFor(x => x.Phone).Matches(@"^[0-9+()\-\s]{7,20}$")
             .WithMessage("Enter a valid phone number.").When(x => !string.IsNullOrEmpty(x.Phone));
+    }
+}
+
+public class PosSaleRequestValidator : AbstractValidator<PosSaleRequest>
+{
+    public PosSaleRequestValidator()
+    {
+        RuleFor(x => x.Items).NotEmpty().WithMessage("Add at least one item.")
+            .Must(i => i.Count <= 50).WithMessage("A sale can have at most 50 lines.");
+        RuleForEach(x => x.Items).SetValidator(new PosSaleItemRequestValidator());
+
+        RuleFor(x => x.Payments).NotEmpty().WithMessage("Add at least one payment.")
+            .Must(p => p.Count <= 5).WithMessage("A sale can be split into at most 5 payments.");
+        RuleForEach(x => x.Payments).SetValidator(new PosPaymentRequestValidator());
+
+        RuleFor(x => x.DiscountAmount).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.DiscountReason).MaximumLength(200);
+        RuleFor(x => x.Approval!.ApproverUserId).GreaterThan(0).When(x => x.Approval != null);
+        RuleFor(x => x.Approval!.Pin).Matches(@"^\d{4,6}$").WithMessage("The PIN is 4–6 digits.")
+            .When(x => x.Approval != null);
+
+        RuleFor(x => x.CustomerName).MaximumLength(100);
+        RuleFor(x => x.CustomerPhone)
+            .Must(p => Regex.IsMatch(Regex.Replace(p!, @"[\s()-]", ""), @"^(\+234|0)[789]\d{9}$"))
+            .WithMessage("Enter a valid Nigerian phone number (e.g. 08012345678).")
+            .When(x => !string.IsNullOrWhiteSpace(x.CustomerPhone));
+        RuleFor(x => x.CustomerEmail).EmailAddress().MaximumLength(200)
+            .When(x => !string.IsNullOrWhiteSpace(x.CustomerEmail));
+        RuleFor(x => x.Notes).MaximumLength(500);
+    }
+}
+
+public class PosSaleItemRequestValidator : AbstractValidator<PosSaleItemRequest>
+{
+    public PosSaleItemRequestValidator()
+    {
+        RuleFor(x => x.ProductId).GreaterThan(0);
+        RuleFor(x => x.Quantity).InclusiveBetween(1, 99);
+        RuleFor(x => x.UnitPrice).GreaterThan(0).When(x => x.UnitPrice.HasValue);
+        RuleForEach(x => x.SerialNumbers).MaximumLength(50)
+            .Matches(@"^[A-Za-z0-9-]*$").WithMessage("Serial numbers can only contain letters, numbers and -.");
+    }
+}
+
+public class PosPaymentRequestValidator : AbstractValidator<PosPaymentRequest>
+{
+    public PosPaymentRequestValidator()
+    {
+        RuleFor(x => x.Method).Must(m => PaymentMethods.InStore.Contains(m))
+            .WithMessage($"Payment method must be one of: {string.Join(", ", PaymentMethods.InStore)}.");
+        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Reference).MaximumLength(100);
+    }
+}
+
+public class SetApprovalPinRequestValidator : AbstractValidator<SetApprovalPinRequest>
+{
+    public SetApprovalPinRequestValidator()
+    {
+        RuleFor(x => x.CurrentPassword).NotEmpty();
+        RuleFor(x => x.Pin).Matches(@"^\d{4,6}$").WithMessage("The PIN must be 4–6 digits.");
     }
 }
 

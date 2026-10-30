@@ -19,15 +19,34 @@ public enum PaymentStatus
     Refunded
 }
 
+public enum SalesChannel
+{
+    Online,
+    InStore
+}
+
 public class Order
 {
     public int Id { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
-    public int UserId { get; set; }
-    public User User { get; set; } = null!;
-    // Shop whose stock this order reserved; cancelling or delivering it updates that shop
+    public SalesChannel Channel { get; set; } = SalesChannel.Online;
+    // Null for walk-in sales without an account; CustomerName/Phone/Email hold their details
+    public int? UserId { get; set; }
+    public User? User { get; set; }
+    // Shop whose stock this order reserved (online) or sold from (in store)
     public int? StoreId { get; set; }
     public Store? Store { get; set; }
+
+    // In-store sales
+    public int? SoldByUserId { get; set; }
+    public User? SoldBy { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+    public string? CustomerEmail { get; set; }
+    public int? DiscountApprovedByUserId { get; set; } // manager who approved a discount or price change
+    public User? DiscountApprovedBy { get; set; }
+    public string? DiscountReason { get; set; }
+    public ICollection<OrderPayment> Payments { get; set; } = new List<OrderPayment>();
 
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
@@ -71,6 +90,44 @@ public class OrderItem
     public string ProductName { get; set; } = string.Empty; // Snapshot
     public string? ProductSKU { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal? OriginalUnitPrice { get; set; } // catalogue price, when an approved change replaced it
     public int Quantity { get; set; }
     public decimal LineTotal { get; set; }
+    public ICollection<OrderItemSerial> Serials { get; set; } = new List<OrderItemSerial>();
+}
+
+// One row per unit sold of an IMEI/serial-tracked product
+public class OrderItemSerial
+{
+    public int Id { get; set; }
+    public int OrderItemId { get; set; }
+    public OrderItem OrderItem { get; set; } = null!;
+    public string SerialNumber { get; set; } = string.Empty;
+}
+
+// A sale can be paid in several parts (e.g. cash + transfer)
+public class OrderPayment
+{
+    public int Id { get; set; }
+    public int OrderId { get; set; }
+    public Order Order { get; set; } = null!;
+    public string Method { get; set; } = string.Empty; // PaymentMethods
+    public decimal Amount { get; set; }                // applied to the order
+    public decimal? Tendered { get; set; }             // cash handed over; Tendered - Amount = change
+    public string? Reference { get; set; }             // terminal / transfer reference
+    public int? ReceivedByUserId { get; set; }
+    public User? ReceivedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public static class PaymentMethods
+{
+    public const string Cash = "Cash";
+    public const string Card = "Card";               // POS terminal
+    public const string BankTransfer = "BankTransfer";
+    public const string Ussd = "USSD";
+    public const string Other = "Other";
+
+    public static readonly string[] InStore = [Cash, Card, BankTransfer, Ussd, Other];
+    public static readonly string[] NeedReference = [Card, BankTransfer, Ussd];
 }

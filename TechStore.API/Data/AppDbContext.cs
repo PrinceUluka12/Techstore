@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
     public DbSet<AppRole> AppRoles => Set<AppRole>();
     public DbSet<Store> Stores => Set<Store>();
+    public DbSet<OrderPayment> OrderPayments => Set<OrderPayment>();
+    public DbSet<OrderItemSerial> OrderItemSerials => Set<OrderItemSerial>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -89,6 +91,33 @@ public class AppDbContext : DbContext
                 .HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(o => o.Store).WithMany()
                 .HasForeignKey(o => o.StoreId).OnDelete(DeleteBehavior.Restrict);
+            e.Property(o => o.Channel).HasConversion<string>().HasMaxLength(20);
+            e.HasIndex(o => new { o.Channel, o.StoreId, o.CreatedAt });
+            e.HasOne(o => o.SoldBy).WithMany()
+                .HasForeignKey(o => o.SoldByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(o => o.DiscountApprovedBy).WithMany()
+                .HasForeignKey(o => o.DiscountApprovedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // OrderPayment — the parts a sale was paid in
+        builder.Entity<OrderPayment>(e =>
+        {
+            e.Property(p => p.Amount).HasColumnType("decimal(18,2)");
+            e.Property(p => p.Tendered).HasColumnType("decimal(18,2)");
+            e.Property(p => p.Method).HasMaxLength(20);
+            e.HasOne(p => p.Order).WithMany(o => o.Payments)
+                .HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(p => p.ReceivedBy).WithMany()
+                .HasForeignKey(p => p.ReceivedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // OrderItemSerial — IMEI / serial number per unit sold
+        builder.Entity<OrderItemSerial>(e =>
+        {
+            e.Property(s => s.SerialNumber).HasMaxLength(50);
+            e.HasIndex(s => s.SerialNumber);
+            e.HasOne(s => s.OrderItem).WithMany(i => i.Serials)
+                .HasForeignKey(s => s.OrderItemId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // OrderItem
@@ -96,6 +125,7 @@ public class AppDbContext : DbContext
         {
             e.Property(i => i.UnitPrice).HasColumnType("decimal(18,2)");
             e.Property(i => i.LineTotal).HasColumnType("decimal(18,2)");
+            e.Property(i => i.OriginalUnitPrice).HasColumnType("decimal(18,2)");
             e.HasOne(i => i.Order).WithMany(o => o.Items)
                 .HasForeignKey(i => i.OrderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(i => i.Product).WithMany(p => p.OrderItems)
@@ -183,7 +213,7 @@ public class AppDbContext : DbContext
 
         // Seed categories
         builder.Entity<Category>().HasData(
-            new Category { Id = 1, Name = "Smartphones", Description = "Latest smartphones and accessories", IsActive = true, CreatedAt = DateTime.UtcNow },
+            new Category { Id = 1, Name = "Smartphones", Description = "Latest smartphones and accessories", IsActive = true, RequiresImei = true, CreatedAt = DateTime.UtcNow },
             new Category { Id = 2, Name = "Tablets", Description = "Tablets and e-readers", IsActive = true, CreatedAt = DateTime.UtcNow },
             new Category { Id = 3, Name = "Smart Watches", Description = "Wearable technology", IsActive = true, CreatedAt = DateTime.UtcNow },
             new Category { Id = 4, Name = "Laptops", Description = "Laptops and ultrabooks", IsActive = true, CreatedAt = DateTime.UtcNow },
