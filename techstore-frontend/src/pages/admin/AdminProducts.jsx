@@ -28,6 +28,42 @@ function generateSKU(categoryId) {
   return `TS-${code}-${random}`
 }
 
+// ── Brands per category (keys match CATEGORY_CODES) ──────────────────────────
+// Anything not listed can still be typed in with "Other…"
+const BRANDS_BY_CATEGORY = {
+  1: ['Apple', 'Google', 'Honor', 'Huawei', 'Infinix', 'itel', 'Motorola', 'Nokia', 'OnePlus', 'Oppo', 'Realme', 'Samsung', 'Tecno', 'Vivo', 'Xiaomi'],
+  2: ['Amazon', 'Apple', 'Honor', 'Huawei', 'Lenovo', 'Microsoft', 'Samsung', 'Tecno', 'Xiaomi'],
+  3: ['Amazfit', 'Apple', 'Fitbit', 'Garmin', 'Google', 'Huawei', 'Oraimo', 'Samsung', 'Xiaomi'],
+  4: ['Acer', 'Apple', 'Asus', 'Dell', 'HP', 'Huawei', 'Lenovo', 'Microsoft', 'MSI', 'Samsung'],
+  5: ['Anker', 'Apple', 'Baseus', 'Belkin', 'JBL', 'Logitech', 'Oraimo', 'Samsung', 'Sony', 'Ugreen', 'Xiaomi'],
+}
+const OTHER_BRAND = '__other'
+
+const brandsFor = (categoryId) => BRANDS_BY_CATEGORY[categoryId] ?? []
+
+// Splits a saved brand into the dropdown choice and the "Other…" text box.
+// Matches ignoring case, so an old "APPLE" picks "Apple" (and is saved that way)
+function brandFields(brand, categoryId) {
+  if (!brand) return { brandOption: '', brandOther: '' }
+  const match = brandsFor(categoryId).find(b => b.toLowerCase() === brand.trim().toLowerCase())
+  return match
+    ? { brandOption: match, brandOther: '' }
+    : { brandOption: OTHER_BRAND, brandOther: brand }
+}
+
+// Every field is listed so reset() also clears what the inputs show; with missing
+// fields, "Add Product" after an edit kept displaying the previous product
+const EMPTY_PRODUCT = {
+  name: '', categoryId: '', sku: '', brandOption: '', brandOther: '', price: '', compareAtPrice: '',
+  initialStock: 0, lowStockThreshold: 10, imageUrl: '', description: '',
+}
+
+// The brand to save; '' rather than null so clearing it on edit actually clears it
+function brandValue({ categoryId, brandOption, brandOther }) {
+  const typed = brandOption === OTHER_BRAND || brandsFor(categoryId).length === 0
+  return ((typed ? brandOther : brandOption) ?? '').trim()
+}
+
 // ── Image Picker Modal ────────────────────────────────────────────────────────
 function ImagePickerModal({ open, onClose, onSelect }) {
   const [images, setImages]   = useState([])
@@ -96,22 +132,36 @@ function ImagePickerModal({ open, onClose, onSelect }) {
 
 // ── Product Form Modal ────────────────────────────────────────────────────────
 function ProductFormModal({ open, onClose, product, categories, onSaved }) {
-  const { register, handleSubmit, reset, setValue, setError, control, formState: { errors } } = useForm({ mode: 'onTouched' })
+  const { register, handleSubmit, reset, setValue, getValues, setError, control, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]       = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const isEdit = !!product
 
-  const imageUrl   = useWatch({ control, name: 'imageUrl',   defaultValue: '' })
-  const categoryId = useWatch({ control, name: 'categoryId', defaultValue: '' })
+  const imageUrl    = useWatch({ control, name: 'imageUrl',    defaultValue: '' })
+  const categoryId  = useWatch({ control, name: 'categoryId',  defaultValue: '' })
+  const brandOption = useWatch({ control, name: 'brandOption', defaultValue: '' })
+  const brandOptions = brandsFor(categoryId)
 
   useEffect(() => {
-    if (product) reset({ ...product, isActive: product.isActive?.toString(), isFeatured: product.isFeatured?.toString() })
-    else reset({ initialStock: 0, lowStockThreshold: 10 })
+    // The API omits null fields, so start from EMPTY_PRODUCT here too
+    if (product) reset({
+      ...EMPTY_PRODUCT,
+      ...product,
+      ...brandFields(product.brand, product.categoryId),
+      isActive: product.isActive?.toString(), isFeatured: product.isFeatured?.toString(),
+    })
+    else reset(EMPTY_PRODUCT)
   }, [product, open])
 
-  useEffect(() => {
-    if (!isEdit && categoryId) setValue('sku', generateSKU(parseInt(categoryId)))
-  }, [categoryId, isEdit])
+  // On the user's change rather than in an effect: an effect also fired when the
+  // modal reopened, generating a SKU from the previous product's category
+  const onCategoryChange = (e) => {
+    const id = e.target.value
+    if (!isEdit && id) setValue('sku', generateSKU(parseInt(id)))
+    // A brand picked for one category may not exist in the next one
+    const option = getValues('brandOption')
+    if (option && option !== OTHER_BRAND && !brandsFor(id).includes(option)) setValue('brandOption', '')
+  }
 
   const refreshSKU = () => { if (!isEdit && categoryId) setValue('sku', generateSKU(parseInt(categoryId))) }
 
@@ -123,7 +173,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
           name: data.name.trim(), description: data.description?.trim(),
           price: parseFloat(data.price),
           compareAtPrice: data.compareAtPrice ? parseFloat(data.compareAtPrice) : null,
-          brand: data.brand?.trim(), imageUrl: data.imageUrl?.trim(),
+          brand: brandValue(data), imageUrl: data.imageUrl?.trim(),
           categoryId: parseInt(data.categoryId),
           isActive:   data.isActive   === 'true' || data.isActive   === true,
           isFeatured: data.isFeatured === 'true' || data.isFeatured === true,
@@ -134,7 +184,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
           name: data.name.trim(), description: data.description?.trim(), sku: data.sku.trim(),
           price: parseFloat(data.price),
           compareAtPrice: data.compareAtPrice ? parseFloat(data.compareAtPrice) : null,
-          brand: data.brand?.trim(), imageUrl: data.imageUrl?.trim(),
+          brand: brandValue(data), imageUrl: data.imageUrl?.trim(),
           categoryId: parseInt(data.categoryId),
           initialStock: parseInt(data.initialStock || 0),
           lowStockThreshold: parseInt(data.lowStockThreshold || 10),
@@ -158,7 +208,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
 
             {/* Category first: choosing it generates the SKU below */}
             <Select label="Category" className={isEdit ? '' : 'col-span-2'} error={errors.categoryId?.message}
-              {...register('categoryId', { required: 'Select a category' })}>
+              {...register('categoryId', { required: 'Select a category', onChange: onCategoryChange })}>
               <option value="">Select category…</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
@@ -183,7 +233,21 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
               </div>
             )}
 
-            <Input label="Brand" error={errors.brand?.message} {...register('brand', maxText(100))} />
+            {categoryId && brandOptions.length === 0 ? (
+              <Input label="Brand" error={errors.brandOther?.message} {...register('brandOther', maxText(100))} />
+            ) : (
+              <div>
+                <Select label="Brand" disabled={!categoryId} {...register('brandOption')}>
+                  <option value="">{categoryId ? 'Select brand…' : 'Select a category first'}</option>
+                  {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                  {categoryId && <option value={OTHER_BRAND}>Other…</option>}
+                </Select>
+                {brandOption === OTHER_BRAND && (
+                  <Input className="mt-2" placeholder="Type the brand name" error={errors.brandOther?.message}
+                    {...register('brandOther', requiredText('Brand', 100))} />
+                )}
+              </div>
+            )}
             <Input label="Price (₦)" type="number" step="0.01" min="0" error={errors.price?.message}
               {...register('price', priceRules)} />
             <Input label="Compare-at Price (₦)" type="number" step="0.01" min="0" placeholder="Optional"
