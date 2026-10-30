@@ -64,7 +64,9 @@ function LowStockTable({ items }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-surface-900 truncate">{inv.productName}</p>
-            <p className="text-xs font-mono text-surface-400">{inv.productSKU}</p>
+            <p className="text-xs text-surface-400">
+              <span className="font-mono">{inv.productSKU}</span>{inv.storeName && ` · ${inv.storeName}`}
+            </p>
           </div>
           <div className="text-right flex-shrink-0">
             <p className={`text-sm font-bold ${inv.quantityAvailable <= 0 ? 'text-red-500' : 'text-amber-600'}`}>

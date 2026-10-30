@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck
+  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
@@ -36,6 +36,7 @@ const navSections = [
   {
     label: 'System',
     items: [
+      { to: '/admin/shops', label: 'Shops', icon: Store,       permission: 'stores.manage' },
       { to: '/admin/roles', label: 'Roles', icon: ShieldCheck, adminOnly: true },
     ]
   },

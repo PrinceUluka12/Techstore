@@ -56,7 +56,9 @@ public record CreateStaffRequest(
     string LastName,
     string Email,
     string Password,
-    string Role
+    string Role,
+    int? StoreId = null // home shop
 );
 
 public record AssignRoleRequest(string Role);
+public record AssignStoreRequest(int? StoreId);

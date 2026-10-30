@@ -108,7 +108,9 @@ public class AdminService : IAdminService
                 u.Role, u.IsActive,
                 u.Orders.Count,
                 u.Orders.Where(o => o.PaymentStatus == PaymentStatus.Paid).Sum(o => o.Total),
-                u.CreatedAt))
+                u.CreatedAt,
+                u.StoreId,
+                u.Store != null ? u.Store.Name : null))
             .ToListAsync();
 
         return new PagedResult<UserAdminDto>(users, total, page, pageSize);

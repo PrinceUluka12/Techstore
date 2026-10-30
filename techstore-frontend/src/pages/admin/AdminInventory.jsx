@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Plus, Minus, RefreshCw, Package } from 'lucide-react'
-import { inventoryApi, productApi } from '../../services/api'
+import { inventoryApi, storeApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Modal, Input, Spinner, EmptyState } from '../../components/ui'
 import { useForm } from 'react-hook-form'
@@ -29,7 +29,7 @@ function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
           quantity: parseInt(data.quantity),
           supplier: data.supplier?.trim() || null,
           notes: data.notes?.trim() || null,
-        })
+        }, inventory.storeId)
         toast.success(`+${data.quantity} units restocked`)
       } else {
         const qty = mode === 'remove'
@@ -39,7 +39,7 @@ function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
           quantity: qty,
           reason: data.reason.trim(),
           notes: data.notes?.trim() || null,
-        })
+        }, inventory.storeId)
         toast.success(`Stock adjusted by ${qty > 0 ? '+' : ''}${qty}`)
       }
       onSaved()
@@ -56,7 +56,9 @@ function AdjustModal({ open, onClose, inventory, mode, onSaved }) {
       {inventory && (
         <div className="mb-4 p-3 bg-surface-50 rounded-xl text-sm">
           <p className="font-medium">{inventory.productName}</p>
-          <p className="text-surface-500 text-xs mt-0.5 font-mono">{inventory.productSKU}</p>
+          <p className="text-surface-500 text-xs mt-0.5">
+            <span className="font-mono">{inventory.productSKU}</span> · {inventory.storeName}
+          </p>
           <p className="text-surface-600 text-xs mt-1">
             Current stock: <strong>{inventory.quantityOnHand}</strong> on hand · <strong>{inventory.quantityAvailable}</strong> available
           </p>
@@ -100,33 +102,27 @@ export default function AdminInventory() {
   const [selected, setSelected] = useState(null)
   const [mode, setMode] = useState('restock')
   const [modalOpen, setModalOpen] = useState(false)
+  const [stores, setStores] = useState([])
+  const [storeId, setStoreId] = useState(null)
 
+  // Start on the shop that sends online orders (the API lists it first)
+  useEffect(() => {
+    storeApi.getAll()
+      .then(r => { setStores(r.data); setStoreId(r.data.find(s => s.sendsOnlineOrders)?.id ?? r.data[0]?.id ?? null) })
+      .catch(() => toast.error('Failed to load shops'))
+  }, [])
+
+  // One request for the whole shop (this used to make one request per product)
   const load = () => {
+    if (!storeId) return
     setLoading(true)
-    const fn = showLowOnly ? inventoryApi.lowStock() : productApi.search({ page: 1, pageSize: 100 })
-      .then(r => Promise.all(r.data.items.map(p => inventoryApi.getByProduct(p.id).then(inv => inv.data).catch(() => null))))
-      .then(invs => ({ data: invs.filter(Boolean) }))
-
-    ;(showLowOnly ? inventoryApi.lowStock() : inventoryApi.lowStock().then(() => {
-      return productApi.search({ page: 1, pageSize: 100 }).then(r =>
-        Promise.all(r.data.items.map(p =>
-          inventoryApi.getByProduct(p.id).then(inv => inv.data).catch(() => null)
-        ))
-      ).then(invs => ({ data: invs.filter(Boolean) }))
-    }))
-
-    if (showLowOnly) {
-      inventoryApi.lowStock().then(r => setInventory(r.data)).finally(() => setLoading(false))
-    } else {
-      productApi.search({ page: 1, pageSize: 100 }).then(r =>
-        Promise.all(r.data.items.map(p =>
-          inventoryApi.getByProduct(p.id).then(inv => inv.data).catch(() => null)
-        ))
-      ).then(invs => setInventory(invs.filter(Boolean))).finally(() => setLoading(false))
-    }
+    inventoryApi.getByStore(storeId, showLowOnly)
+      .then(r => setInventory(r.data))
+      .catch(() => toast.error('Failed to load inventory'))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [showLowOnly])
+  useEffect(() => { load() }, [storeId, showLowOnly])
 
   const openModal = (inv, m) => { setSelected(inv); setMode(m); setModalOpen(true) }
 
@@ -138,11 +134,21 @@ export default function AdminInventory() {
             <h1 className="font-display text-2xl font-semibold">Inventory</h1>
             <p className="text-surface-400 text-sm mt-0.5">{inventory.length} products tracked</p>
           </div>
-          <button onClick={() => setShowLowOnly(v => !v)}
-            className={`btn-secondary gap-2 ${showLowOnly ? 'border-amber-400 text-amber-700 bg-amber-50' : ''}`}>
-            <AlertTriangle className="w-4 h-4" />
-            {showLowOnly ? 'Show All' : 'Low Stock Only'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <select className="input w-auto text-sm" value={storeId ?? ''} aria-label="Shop"
+              onChange={e => setStoreId(Number(e.target.value))}>
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name}{s.sendsOnlineOrders ? ' (online orders)' : ''}{s.isActive ? '' : ' (inactive)'}
+                </option>
+              ))}
+            </select>
+            <button onClick={() => setShowLowOnly(v => !v)}
+              className={`btn-secondary gap-2 ${showLowOnly ? 'border-amber-400 text-amber-700 bg-amber-50' : ''}`}>
+              <AlertTriangle className="w-4 h-4" />
+              {showLowOnly ? 'Show All' : 'Low Stock Only'}
+            </button>
+          </div>
         </div>
 
         <div className="table-container">

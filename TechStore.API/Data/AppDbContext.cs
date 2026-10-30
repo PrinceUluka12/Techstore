@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<OrderStatusLog> OrderStatusLogs => Set<OrderStatusLog>();
     public DbSet<Wishlist> Wishlists => Set<Wishlist>();
     public DbSet<AppRole> AppRoles => Set<AppRole>();
+    public DbSet<Store> Stores => Set<Store>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -33,6 +34,24 @@ public class AppDbContext : DbContext
         builder.Entity<User>(e =>
         {
             e.HasIndex(u => u.Email).IsUnique();
+            e.HasOne(u => u.Store).WithMany()
+                .HasForeignKey(u => u.StoreId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Store
+        builder.Entity<Store>(e =>
+        {
+            e.HasIndex(s => s.Code).IsUnique();
+            e.Property(s => s.Name).HasMaxLength(100);
+            e.Property(s => s.Code).HasMaxLength(10);
+        });
+
+        // Inventory — one row per product per shop
+        builder.Entity<Inventory>(e =>
+        {
+            e.HasIndex(i => new { i.StoreId, i.ProductId }).IsUnique();
+            e.HasOne(i => i.Store).WithMany(s => s.Inventories)
+                .HasForeignKey(i => i.StoreId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // RefreshToken
@@ -51,8 +70,8 @@ public class AppDbContext : DbContext
             e.Property(p => p.CompareAtPrice).HasColumnType("decimal(18,2)");
             e.HasOne(p => p.Category).WithMany(c => c.Products)
                 .HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Restrict);
-            e.HasOne(p => p.Inventory).WithOne(i => i.Product)
-                .HasForeignKey<Inventory>(i => i.ProductId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(p => p.Inventories).WithOne(i => i.Product)
+                .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Order
@@ -68,6 +87,8 @@ public class AppDbContext : DbContext
             e.Property(o => o.PaymentStatus).HasConversion<string>();
             e.HasOne(o => o.User).WithMany(u => u.Orders)
                 .HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(o => o.Store).WithMany()
+                .HasForeignKey(o => o.StoreId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // OrderItem
@@ -151,6 +172,13 @@ public class AppDbContext : DbContext
         builder.Entity<AppRole>().HasData(
             new AppRole { Id = 1, Name = "Admin",    IsSystem = true, Description = "Full access to all features.",      Permissions = Perms.All.ToList(),  CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
             new AppRole { Id = 2, Name = "Customer", IsSystem = true, Description = "Standard customer account.",        Permissions = [],                  CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
+        );
+
+        // Seed the main shop. Existing stock and orders move here in the AddStores
+        // migration; rename it and add the other shops from the admin Shops page.
+        builder.Entity<Store>().HasData(
+            new Store { Id = 1, Name = "Main Shop", Code = "MAIN", IsActive = true, SendsOnlineOrders = true,
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
 
         // Seed categories

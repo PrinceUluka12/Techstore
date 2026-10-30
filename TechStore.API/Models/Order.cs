@@ -25,6 +25,9 @@ public class Order
     public string OrderNumber { get; set; } = string.Empty;
     public int UserId { get; set; }
     public User User { get; set; } = null!;
+    // Shop whose stock this order reserved; cancelling or delivering it updates that shop
+    public int? StoreId { get; set; }
+    public Store? Store { get; set; }
 
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;

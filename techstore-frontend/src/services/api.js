@@ -117,12 +117,21 @@ export const orderApi = {
 }
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
+// storeId picks the shop; leaving it out means the shop that sends online orders
 export const inventoryApi = {
-  getByProduct:    (id)    => api.get(`/inventory/product/${id}`),
-  lowStock:        ()      => api.get('/inventory/low-stock'),
-  adjust:          (id, d) => api.post(`/inventory/product/${id}/adjust`, d),
-  restock:         (id, d) => api.post(`/inventory/product/${id}/restock`, d),
-  updateThreshold: (id, d) => api.put(`/inventory/product/${id}/threshold`, d),
+  getByStore:      (storeId, lowStockOnly = false) => api.get('/inventory', { params: { storeId, lowStockOnly } }),
+  getByProduct:    (id, storeId)    => api.get(`/inventory/product/${id}`, { params: { storeId } }),
+  lowStock:        (storeId)        => api.get('/inventory/low-stock', { params: { storeId } }),
+  adjust:          (id, d, storeId) => api.post(`/inventory/product/${id}/adjust`, d, { params: { storeId } }),
+  restock:         (id, d, storeId) => api.post(`/inventory/product/${id}/restock`, d, { params: { storeId } }),
+  updateThreshold: (id, d, storeId) => api.put(`/inventory/product/${id}/threshold`, d, { params: { storeId } }),
+}
+
+// ── Shops ─────────────────────────────────────────────────────────────────────
+export const storeApi = {
+  getAll: ()         => api.get('/stores'),
+  create: (data)     => api.post('/stores', data),
+  update: (id, data) => api.put(`/stores/${id}`, data),
 }
 
 // ── Images ────────────────────────────────────────────────────────────────────
@@ -150,6 +159,7 @@ export const adminApi = {
   toggleUser:    (id)     => api.put(`/admin/users/${id}/toggle`),
   createStaff:   (data)   => api.post('/admin/users/staff', data),
   assignRole:    (id, role) => api.put(`/admin/users/${id}/role`, { role }),
+  assignStore:   (id, storeId) => api.put(`/admin/users/${id}/store`, { storeId }),
 }
 
 // ── Coupons ───────────────────────────────────────────────────────────────────

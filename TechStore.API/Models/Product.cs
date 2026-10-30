@@ -33,7 +33,12 @@ public class Product
     public int CategoryId { get; set; }
     public Category Category { get; set; } = null!;
 
-    public Inventory? Inventory { get; set; }
+    public ICollection<Inventory> Inventories { get; set; } = new List<Inventory>(); // One per shop
+
+    // Stock of the shop that sends online orders. Only set when the query used
+    // IncludeOnlineStock() (Repositories/StockQueries.cs), which loads that row and its Store.
+    public Inventory? OnlineInventory => Inventories.FirstOrDefault(i => i.Store?.SendsOnlineOrders == true);
+
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
 }

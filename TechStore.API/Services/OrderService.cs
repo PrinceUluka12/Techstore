@@ -17,6 +17,7 @@ public class OrderService : IOrderService
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
     private readonly ICouponRepository _coupons;
+    private readonly IStoreRepository _stores;
     private readonly AppDbContext _db;
     private readonly IHttpContextAccessor _http;
     private readonly IEmailService _email;
@@ -27,6 +28,7 @@ public class OrderService : IOrderService
         IInventoryRepository inventory,
         IUserRepository users,
         ICouponRepository coupons,
+        IStoreRepository stores,
         AppDbContext db,
         IHttpContextAccessor http,
         IEmailService email)
@@ -36,6 +38,7 @@ public class OrderService : IOrderService
         _inventory = inventory;
         _users     = users;
         _coupons   = coupons;
+        _stores    = stores;
         _db        = db;
         _http      = http;
         _email     = email;
@@ -68,12 +71,15 @@ public class OrderService : IOrderService
         if (cart == null || !cart.Items.Any())
             throw new InvalidOperationException("Cart is empty.");
 
+        // Online orders sell from the shop that sends online orders
+        var store = await _stores.GetOnlineAsync();
+
         foreach (var item in cart.Items)
         {
-            var inv = await _inventory.GetByProductIdAsync(item.ProductId);
-            if (inv == null || inv.QuantityAvailable < item.Quantity)
+            var available = item.Product?.OnlineInventory?.QuantityAvailable ?? 0;
+            if (available < item.Quantity)
                 throw new InvalidOperationException(
-                    $"Insufficient stock for '{item.Product?.Name}'. Available: {inv?.QuantityAvailable ?? 0}");
+                    $"Insufficient stock for '{item.Product?.Name}'. Available: {available}");
         }
 
         var orderItems = cart.Items.Select(i => new OrderItem
@@ -117,6 +123,7 @@ public class OrderService : IOrderService
         {
             OrderNumber        = GenerateOrderNumber(),
             UserId             = userId,
+            StoreId            = store.Id,
             Status             = OrderStatus.Pending,
             PaymentStatus      = PaymentStatus.Pending,
             PaymentMethod      = req.PaymentMethod,
@@ -139,27 +146,32 @@ public class OrderService : IOrderService
             Items              = orderItems
         };
 
-        var created = await _orders.CreateAsync(order);
-
-        // Write initial status log — placed by customer
-        await WriteLogAsync(created.Id, null, OrderStatus.Pending, OrderStatus.Pending,
-            "Order placed by customer", isSystem: true);
-
-        // Reserve inventory
-        foreach (var item in cart.Items)
+        // The order, stock reservation, emptied cart and coupon use save together or not at
+        // all. Each reservation is a conditional UPDATE, so two checkouts can't take the same
+        // last unit. The retrying execution strategy requires the transaction to run inside it.
+        var strategy = _db.Database.CreateExecutionStrategy();
+        var created = await strategy.ExecuteAsync(async () =>
         {
-            var inv = await _inventory.GetByProductIdAsync(item.ProductId);
-            if (inv != null)
-            {
-                inv.QuantityReserved += item.Quantity;
-                await _inventory.UpdateAsync(inv);
-            }
-        }
+            await using var tx = await _db.Database.BeginTransactionAsync();
 
-        await _carts.ClearAsync(userId);
-        // Increment coupon usage
-        if (appliedCoupon != null)
-            await _coupons.IncrementUsageAsync(appliedCoupon.Id);
+            var saved = await _orders.CreateAsync(order);
+
+            foreach (var item in cart.Items)
+                if (!await _inventory.TryReserveAsync(store.Id, item.ProductId, item.Quantity))
+                    throw new InvalidOperationException(
+                        $"'{item.Product?.Name}' has just sold out. Please update your cart and try again.");
+
+            // Write initial status log — placed by customer
+            await WriteLogAsync(saved.Id, null, OrderStatus.Pending, OrderStatus.Pending,
+                "Order placed by customer", isSystem: true);
+
+            await _carts.ClearAsync(userId);
+            if (appliedCoupon != null)
+                await _coupons.IncrementUsageAsync(appliedCoupon.Id);
+
+            await tx.CommitAsync();
+            return saved;
+        });
 
         var result = MapToDto(await _orders.GetByIdAsync(created.Id) ?? created);
         _ = _email.SendOrderConfirmationAsync(user.Email, user.FirstName, result.OrderNumber, result.Total);
@@ -188,17 +200,23 @@ public class OrderService : IOrderService
         }
 
         if (req.Status == OrderStatus.Cancelled && prevStatus != OrderStatus.Cancelled)
+            order.PaymentStatus = PaymentStatus.Refunded;
+
+        // Stock is reserved from checkout until the order is delivered (the units leave the
+        // shop) or cancelled/refunded first (the reservation is released). Before this,
+        // delivery never took stock off and cancelling a delivered order released other
+        // orders' reservations.
+        var stillReserved = prevStatus is not (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Refunded);
+        if (stillReserved && req.Status is (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Refunded))
         {
+            var storeId = order.StoreId ?? (await _stores.GetOnlineAsync()).Id;
             foreach (var item in order.Items)
             {
-                var inv = await _inventory.GetByProductIdAsync(item.ProductId);
-                if (inv != null)
-                {
-                    inv.QuantityReserved = Math.Max(0, inv.QuantityReserved - item.Quantity);
-                    await _inventory.UpdateAsync(inv);
-                }
+                if (req.Status == OrderStatus.Delivered)
+                    await _inventory.FulfilAsync(storeId, item.ProductId, item.Quantity);
+                else
+                    await _inventory.ReleaseAsync(storeId, item.ProductId, item.Quantity);
             }
-            order.PaymentStatus = PaymentStatus.Refunded;
         }
 
         if (req.Notes != null) order.Notes = req.Notes;

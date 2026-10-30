@@ -47,6 +47,7 @@ builder.Services.AddScoped<ICouponRepository, CouponRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IStoreRepository, StoreRepository>();
 
 // Services
 builder.Services.AddHttpContextAccessor();
@@ -60,6 +61,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IWishlistService, WishlistService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IStoreService, StoreService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 
 // Azure Blob Storage

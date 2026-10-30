@@ -16,6 +16,7 @@ public class AuthService : IAuthService
     private readonly IEmailService _email;
     private readonly IRoleService _roleService;
     private readonly IRoleRepository _roles;
+    private readonly IStoreRepository _stores;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -26,6 +27,7 @@ public class AuthService : IAuthService
         IEmailService email,
         IRoleService roleService,
         IRoleRepository roles,
+        IStoreRepository stores,
         ILogger<AuthService> logger)
     {
         _users = users;
@@ -35,6 +37,7 @@ public class AuthService : IAuthService
         _email = email;
         _roleService = roleService;
         _roles = roles;
+        _stores = stores;
         _logger = logger;
     }
 
@@ -289,6 +292,9 @@ public class AuthService : IAuthService
         if (await _users.EmailExistsAsync(req.Email))
             throw new InvalidOperationException("Email already registered.");
 
+        if (req.StoreId.HasValue && await _stores.GetByIdAsync(req.StoreId.Value) == null)
+            throw new InvalidOperationException("Shop not found.");
+
         var user = new User
         {
             FirstName    = req.FirstName,
@@ -296,6 +302,7 @@ public class AuthService : IAuthService
             Email        = req.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
             Role         = req.Role,
+            StoreId      = req.StoreId,
         };
 
         await _users.CreateAsync(user);
@@ -317,6 +324,19 @@ public class AuthService : IAuthService
         // Revoke all sessions so the new role takes effect immediately
         await _refreshTokens.RevokeAllUserTokensAsync(targetUserId);
         _logger.LogInformation("Role for user {UserId} changed to {Role}", targetUserId, role);
+    }
+
+    public async Task AssignStoreAsync(int targetUserId, int? storeId)
+    {
+        if (storeId.HasValue && await _stores.GetByIdAsync(storeId.Value) == null)
+            throw new KeyNotFoundException("Shop not found.");
+
+        var user = await _users.GetByIdAsync(targetUserId)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        user.StoreId = storeId;
+        await _users.UpdateAsync(user);
+        _logger.LogInformation("Home shop for user {UserId} set to {StoreId}", targetUserId, storeId);
     }
 
     private static UserProfileDto MapToProfile(User u) =>

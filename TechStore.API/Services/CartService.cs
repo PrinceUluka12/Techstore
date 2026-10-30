@@ -30,7 +30,7 @@ public class CartService : ICartService
         if (!product.IsActive)
             throw new InvalidOperationException("Product is not available.");
 
-        var available = product.Inventory?.QuantityAvailable ?? 0;
+        var available = product.OnlineInventory?.QuantityAvailable ?? 0;
         if (available < req.Quantity)
             throw new InvalidOperationException($"Only {available} units available.");
 
@@ -70,7 +70,7 @@ public class CartService : ICartService
         }
         else
         {
-            var available = item.Product?.Inventory?.QuantityAvailable ?? int.MaxValue;
+            var available = item.Product?.OnlineInventory?.QuantityAvailable ?? int.MaxValue;
             if (req.Quantity > available)
                 throw new InvalidOperationException($"Only {available} units available.");
             item.Quantity = req.Quantity;
@@ -103,7 +103,7 @@ public class CartService : ICartService
             i.Product?.Price ?? 0,
             i.Quantity,
             (i.Product?.Price ?? 0) * i.Quantity,
-            i.Product?.Inventory?.QuantityAvailable
+            i.Product?.OnlineInventory?.QuantityAvailable
         )).ToList();
 
         return new CartDto(

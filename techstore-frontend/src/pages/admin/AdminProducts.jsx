@@ -267,7 +267,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
               </>
             ) : (
               <>
-                <Input label="Initial Stock" type="number" min="0" step="1" defaultValue="0"
+                <Input label="Initial Stock (online shop)" type="number" min="0" step="1" defaultValue="0"
                   error={errors.initialStock?.message} {...register('initialStock', stockRules)} />
                 <Input label="Low Stock Threshold" type="number" min="1" step="1" defaultValue="10"
                   error={errors.lowStockThreshold?.message} {...register('lowStockThreshold', thresholdRules)} />

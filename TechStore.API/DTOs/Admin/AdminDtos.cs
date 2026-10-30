@@ -39,5 +39,7 @@ public record UserAdminDto(
     bool IsActive,
     int TotalOrders,
     decimal TotalSpent,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    int? StoreId,
+    string? StoreName
 );
