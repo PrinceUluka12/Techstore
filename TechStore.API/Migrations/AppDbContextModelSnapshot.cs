@@ -62,7 +62,7 @@ namespace TechStore.API.Migrations
                             Description = "Full access to all features.",
                             IsSystem = true,
                             Name = "Admin",
-                            Permissions = "[\"orders.view\",\"orders.manage\",\"products.view\",\"products.manage\",\"inventory.manage\",\"users.view\",\"users.manage\",\"roles.manage\",\"reports.view\",\"coupons.manage\",\"images.manage\",\"stores.manage\",\"pos.sell\",\"pos.discount.approve\"]"
+                            Permissions = "[\"orders.view\",\"orders.manage\",\"products.view\",\"products.manage\",\"inventory.manage\",\"users.view\",\"users.manage\",\"roles.manage\",\"reports.view\",\"coupons.manage\",\"images.manage\",\"stores.manage\",\"pos.sell\",\"pos.discount.approve\",\"transfers.manage\"]"
                         },
                         new
                         {
@@ -164,7 +164,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 30, 4, 39, 42, 549, DateTimeKind.Utc).AddTicks(7445),
+                            CreatedAt = new DateTime(2026, 10, 30, 12, 42, 28, 104, DateTimeKind.Utc).AddTicks(4071),
                             Description = "Latest smartphones and accessories",
                             IsActive = true,
                             Name = "Smartphones",
@@ -173,7 +173,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 30, 4, 39, 42, 549, DateTimeKind.Utc).AddTicks(7448),
+                            CreatedAt = new DateTime(2026, 10, 30, 12, 42, 28, 104, DateTimeKind.Utc).AddTicks(4077),
                             Description = "Tablets and e-readers",
                             IsActive = true,
                             Name = "Tablets",
@@ -182,7 +182,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 30, 4, 39, 42, 549, DateTimeKind.Utc).AddTicks(7451),
+                            CreatedAt = new DateTime(2026, 10, 30, 12, 42, 28, 104, DateTimeKind.Utc).AddTicks(4080),
                             Description = "Wearable technology",
                             IsActive = true,
                             Name = "Smart Watches",
@@ -191,7 +191,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 30, 4, 39, 42, 549, DateTimeKind.Utc).AddTicks(7454),
+                            CreatedAt = new DateTime(2026, 10, 30, 12, 42, 28, 104, DateTimeKind.Utc).AddTicks(4083),
                             Description = "Laptops and ultrabooks",
                             IsActive = true,
                             Name = "Laptops",
@@ -200,7 +200,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 30, 4, 39, 42, 549, DateTimeKind.Utc).AddTicks(7457),
+                            CreatedAt = new DateTime(2026, 10, 30, 12, 42, 28, 104, DateTimeKind.Utc).AddTicks(4086),
                             Description = "Cases, chargers, and more",
                             IsActive = true,
                             Name = "Accessories",
@@ -738,6 +738,96 @@ namespace TechStore.API.Migrations
                     b.ToTable("Reviews");
                 });
 
+            modelBuilder.Entity("TechStore.API.Models.StockTransfer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CompletedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FromStoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("ToStoreId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TransferNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedByUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("FromStoreId");
+
+                    b.HasIndex("ToStoreId");
+
+                    b.HasIndex("TransferNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("StockTransfers");
+                });
+
+            modelBuilder.Entity("TechStore.API.Models.StockTransferItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProductSKU")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StockTransferId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("StockTransferId");
+
+                    b.ToTable("StockTransferItems");
+                });
+
             modelBuilder.Entity("TechStore.API.Models.Store", b =>
                 {
                     b.Property<int>("Id")
@@ -1081,6 +1171,59 @@ namespace TechStore.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TechStore.API.Models.StockTransfer", b =>
+                {
+                    b.HasOne("TechStore.API.Models.User", "CompletedBy")
+                        .WithMany()
+                        .HasForeignKey("CompletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("TechStore.API.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TechStore.API.Models.Store", "FromStore")
+                        .WithMany()
+                        .HasForeignKey("FromStoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TechStore.API.Models.Store", "ToStore")
+                        .WithMany()
+                        .HasForeignKey("ToStoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CompletedBy");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("FromStore");
+
+                    b.Navigation("ToStore");
+                });
+
+            modelBuilder.Entity("TechStore.API.Models.StockTransferItem", b =>
+                {
+                    b.HasOne("TechStore.API.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("TechStore.API.Models.StockTransfer", "StockTransfer")
+                        .WithMany("Items")
+                        .HasForeignKey("StockTransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("StockTransfer");
+                });
+
             modelBuilder.Entity("TechStore.API.Models.User", b =>
                 {
                     b.HasOne("TechStore.API.Models.Store", "Store")
@@ -1139,6 +1282,11 @@ namespace TechStore.API.Migrations
                     b.Navigation("Inventories");
 
                     b.Navigation("OrderItems");
+                });
+
+            modelBuilder.Entity("TechStore.API.Models.StockTransfer", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("TechStore.API.Models.Store", b =>

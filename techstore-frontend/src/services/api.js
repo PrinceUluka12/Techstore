@@ -135,6 +135,17 @@ export const posApi = {
   createSale: (data)       => api.post('/pos/sales', data),
   getSale:    (id)         => api.get(`/pos/sales/${id}`),
   setPin:     (data)       => api.put('/pos/approval-pin', data),
+  cashUp:     (params)     => api.get('/pos/cash-up', { params }), // { date: 'YYYY-MM-DD', storeId }
+}
+
+// ── Stock transfers between shops ─────────────────────────────────────────────
+export const transferApi = {
+  list:     (params)     => api.get('/transfers', { params }), // { storeId, status }
+  get:      (id)         => api.get(`/transfers/${id}`),
+  products: (q, storeId) => api.get('/transfers/products', { params: { q, storeId } }),
+  create:   (data)       => api.post('/transfers', data),
+  receive:  (id)         => api.post(`/transfers/${id}/receive`),
+  cancel:   (id)         => api.post(`/transfers/${id}/cancel`),
 }
 
 // ── Shops ─────────────────────────────────────────────────────────────────────

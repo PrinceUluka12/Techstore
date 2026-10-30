@@ -27,6 +27,8 @@ import AdminRoles from './pages/admin/AdminRoles'
 import AdminStores from './pages/admin/AdminStores'
 import AdminPos from './pages/admin/AdminPos'
 import AdminPosReceipt from './pages/admin/AdminPosReceipt'
+import AdminCashUp from './pages/admin/AdminCashUp'
+import AdminTransfers from './pages/admin/AdminTransfers'
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 function RequireAuth({ children }) {
@@ -46,6 +48,7 @@ const PERMISSION_TO_ROUTE = [
   { perm: 'images.manage',    route: '/admin/images' },
   { perm: 'stores.manage',    route: '/admin/shops' },
   { perm: 'pos.sell',         route: '/admin/pos' },
+  { perm: 'transfers.manage', route: '/admin/transfers' },
 ]
 
 function RequireAdmin({ children }) {
@@ -122,6 +125,8 @@ export default function App() {
             <Route path="/admin/shops"      element={<RequireAdmin><AdminStores /></RequireAdmin>} />
             <Route path="/admin/pos"        element={<RequireAdmin><AdminPos /></RequireAdmin>} />
             <Route path="/admin/pos/sales/:id" element={<RequireAdmin><AdminPosReceipt /></RequireAdmin>} />
+            <Route path="/admin/pos/cash-up" element={<RequireAdmin><AdminCashUp /></RequireAdmin>} />
+            <Route path="/admin/transfers"  element={<RequireAdmin><AdminTransfers /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={

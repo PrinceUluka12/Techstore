@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using FluentValidation;
 using TechStore.API.DTOs.Pos;
+using TechStore.API.DTOs.Transfer;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
@@ -107,6 +108,22 @@ public class PosPaymentRequestValidator : AbstractValidator<PosPaymentRequest>
             .WithMessage($"Payment method must be one of: {string.Join(", ", PaymentMethods.InStore)}.");
         RuleFor(x => x.Amount).GreaterThan(0);
         RuleFor(x => x.Reference).MaximumLength(100);
+    }
+}
+
+public class CreateTransferRequestValidator : AbstractValidator<CreateTransferRequest>
+{
+    public CreateTransferRequestValidator()
+    {
+        RuleFor(x => x.ToStoreId).GreaterThan(0).WithMessage("Choose the shop to send to.");
+        RuleFor(x => x.Items).NotEmpty().WithMessage("Add at least one product.")
+            .Must(i => i.Count <= 50).WithMessage("A transfer can have at most 50 lines.");
+        RuleForEach(x => x.Items).ChildRules(item =>
+        {
+            item.RuleFor(i => i.ProductId).GreaterThan(0);
+            item.RuleFor(i => i.Quantity).InclusiveBetween(1, 999);
+        });
+        RuleFor(x => x.Notes).MaximumLength(500);
     }
 }
 

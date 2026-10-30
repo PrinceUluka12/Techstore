@@ -2,7 +2,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store, ScanBarcode
+  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store, ScanBarcode,
+  ArrowLeftRight, Calculator
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuthStore } from '../../store'
@@ -22,13 +23,15 @@ const navSections = [
     items: [
       { to: '/admin/products',  label: 'Products',  icon: Package,   permission: 'products.manage' },
       { to: '/admin/inventory', label: 'Inventory', icon: Warehouse, permission: 'inventory.manage' },
+      { to: '/admin/transfers', label: 'Transfers', icon: ArrowLeftRight, permission: 'transfers.manage' },
       { to: '/admin/images',    label: 'Images',    icon: Image,     permission: 'images.manage' },
     ]
   },
   {
     label: 'Sales',
     items: [
-      { to: '/admin/pos',     label: 'Point of Sale', icon: ScanBarcode, permission: 'pos.sell' },
+      { to: '/admin/pos',     label: 'Point of Sale', icon: ScanBarcode, permission: 'pos.sell', exact: true },
+      { to: '/admin/pos/cash-up', label: 'Cash-up',   icon: Calculator,  permission: 'pos.sell' },
       { to: '/admin/orders',  label: 'Orders',    icon: ShoppingBag, permission: 'orders.view' },
       { to: '/admin/users',   label: 'Customers', icon: Users,       permission: 'users.view' },
       { to: '/admin/coupons', label: 'Coupons',   icon: Tag,         permission: 'coupons.manage' },

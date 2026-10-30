@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package,
-  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store
+  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store, ArrowLeftRight, Calculator
 } from 'lucide-react'
 import { useState } from 'react'
 import { clsx } from 'clsx'
@@ -14,9 +14,11 @@ import { Spinner } from '../ui'
 const STAFF_PAGES = [
   { to: '/admin',           label: 'Dashboard',  icon: LayoutDashboard, adminOnly: true },
   { to: '/admin/pos',       label: 'Point of Sale', icon: ScanBarcode,  perms: ['pos.sell'] },
+  { to: '/admin/pos/cash-up', label: 'Cash-up',   icon: Calculator,     perms: ['pos.sell'] },
   { to: '/admin/orders',    label: 'Orders',      icon: ShoppingBag,    perms: ['orders.view', 'orders.manage'] },
   { to: '/admin/products',  label: 'Products',    icon: Package,        perms: ['products.manage'] },
   { to: '/admin/inventory', label: 'Inventory',   icon: Warehouse,      perms: ['inventory.manage'] },
+  { to: '/admin/transfers', label: 'Transfers',   icon: ArrowLeftRight, perms: ['transfers.manage'] },
   { to: '/admin/users',     label: 'Customers',   icon: Users,          perms: ['users.view', 'users.manage'] },
   { to: '/admin/reports',   label: 'Reports',     icon: BarChart3,      perms: ['reports.view'] },
   { to: '/admin/coupons',   label: 'Coupons',     icon: Tag,            perms: ['coupons.manage'] },

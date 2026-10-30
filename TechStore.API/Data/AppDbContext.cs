@@ -27,6 +27,8 @@ public class AppDbContext : DbContext
     public DbSet<Store> Stores => Set<Store>();
     public DbSet<OrderPayment> OrderPayments => Set<OrderPayment>();
     public DbSet<OrderItemSerial> OrderItemSerials => Set<OrderItemSerial>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferItem> StockTransferItems => Set<StockTransferItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -109,6 +111,31 @@ public class AppDbContext : DbContext
                 .HasForeignKey(p => p.OrderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(p => p.ReceivedBy).WithMany()
                 .HasForeignKey(p => p.ReceivedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // StockTransfer — stock moving between shops
+        builder.Entity<StockTransfer>(e =>
+        {
+            e.HasIndex(t => t.TransferNumber).IsUnique();
+            e.HasIndex(t => new { t.Status, t.CreatedAt });
+            e.Property(t => t.TransferNumber).HasMaxLength(40);
+            e.Property(t => t.Status).HasConversion<string>().HasMaxLength(20);
+            e.HasOne(t => t.FromStore).WithMany()
+                .HasForeignKey(t => t.FromStoreId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(t => t.ToStore).WithMany()
+                .HasForeignKey(t => t.ToStoreId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(t => t.CreatedBy).WithMany()
+                .HasForeignKey(t => t.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(t => t.CompletedBy).WithMany()
+                .HasForeignKey(t => t.CompletedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<StockTransferItem>(e =>
+        {
+            e.HasOne(i => i.StockTransfer).WithMany(t => t.Items)
+                .HasForeignKey(i => i.StockTransferId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(i => i.Product).WithMany()
+                .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // OrderItemSerial — IMEI / serial number per unit sold

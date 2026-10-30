@@ -377,6 +377,37 @@ export function AdminReports() {
               </ResponsiveContainer>
             </div>
 
+            {/* Revenue by shop and by channel */}
+            <div className="grid lg:grid-cols-2 gap-6">
+              {[
+                { title: 'Revenue by Shop', rows: report.byShop ?? [] },
+                { title: 'Online vs In-store', rows: (report.byChannel ?? []).map(r => ({ ...r, name: r.name === 'InStore' ? 'In-store' : r.name })) },
+              ].map(({ title, rows }) => {
+                const total = rows.reduce((sum, r) => sum + r.revenue, 0) || 1
+                return (
+                  <div key={title} className="card p-6">
+                    <h2 className="font-display font-semibold mb-4">{title}</h2>
+                    {rows.length === 0 ? <p className="text-sm text-surface-400">No paid orders in this period.</p> : (
+                      <div className="space-y-3">
+                        {rows.map(r => (
+                          <div key={r.name}>
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium text-surface-800">{r.name}</span>
+                              <span>₦{r.revenue.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                <span className="text-surface-400 text-xs"> · {r.orders} order{r.orders === 1 ? '' : 's'}</span></span>
+                            </div>
+                            <div className="h-1.5 bg-surface-100 rounded-full mt-1 overflow-hidden">
+                              <div className="h-full bg-brand-500 rounded-full" style={{ width: `${(r.revenue / total) * 100}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
             {/* Top products */}
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="card p-6">

@@ -48,6 +48,12 @@ public class PosController : ControllerBase
             return sale == null ? NotFound() : Ok(sale);
         });
 
+    /// <summary>End-of-day cash-up for a shop; date is a day in Nigeria time (default today)</summary>
+    [HttpGet("cash-up")]
+    [RequirePermission(Perms.PosSell)]
+    public Task<IActionResult> CashUp([FromQuery] int? storeId, [FromQuery] DateOnly? date) =>
+        Run(async () => Ok(await _pos.GetCashUpAsync(UserId, IsAdmin, storeId, date ?? PosService.TodayInNigeria())));
+
     /// <summary>Set your own approval PIN (staff who can approve discounts)</summary>
     [HttpPut("approval-pin")]
     public Task<IActionResult> SetApprovalPin([FromBody] SetApprovalPinRequest req) =>

@@ -190,11 +190,32 @@ public class OrderRepository : IOrderRepository
             .OrderByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
-    public async Task<(IEnumerable<Order> Items, int Total)> GetAllAsync(int page, int pageSize, string? status)
+    public async Task<(IEnumerable<Order> Items, int Total)> GetAllAsync(
+        int page, int pageSize, string? status, SalesChannel? channel = null, int? storeId = null, string? search = null)
     {
         var q = _db.Orders.Include(o => o.User).Include(o => o.Store).Include(o => o.Items).AsQueryable();
         if (status != null && Enum.TryParse<OrderStatus>(status, true, out var s))
             q = q.Where(o => o.Status == s);
+        if (channel.HasValue) q = q.Where(o => o.Channel == channel);
+        if (storeId.HasValue) q = q.Where(o => o.StoreId == storeId);
+
+        // Order number, customer (account or walk-in) or an IMEI/serial sold on the order
+        var term = search?.Trim();
+        if (!string.IsNullOrEmpty(term))
+        {
+            // Phones are saved without spaces; match on the number after its 0 or +234 so
+            // "0803 …" and "+234 803 …" find each other
+            var digits = new string(term.Where(char.IsAsciiDigit).ToArray());
+            if (digits.StartsWith("234") && digits.Length > 10) digits = digits[3..];
+            digits = digits.TrimStart('0');
+            var phone = digits.Length >= 4 ? digits : null;
+            q = q.Where(o => o.OrderNumber.Contains(term)
+                || (o.CustomerName != null && o.CustomerName.Contains(term))
+                || (phone != null && o.CustomerPhone != null && o.CustomerPhone.Contains(phone))
+                || (o.CustomerEmail != null && o.CustomerEmail.Contains(term))
+                || (o.User != null && (o.User.Email.Contains(term) || (o.User.FirstName + " " + o.User.LastName).Contains(term)))
+                || o.Items.Any(i => i.Serials.Any(sn => sn.SerialNumber.Contains(term))));
+        }
         q = q.OrderByDescending(o => o.CreatedAt);
         var total = await q.CountAsync();
         var items = await q.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

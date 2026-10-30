@@ -56,9 +56,10 @@ public class OrderService : IOrderService
         return orders.Select(MapToSummaryDto);
     }
 
-    public async Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status)
+    public async Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(
+        int page, int pageSize, string? status, SalesChannel? channel = null, int? storeId = null, string? search = null)
     {
-        var (items, total) = await _orders.GetAllAsync(page, pageSize, status);
+        var (items, total) = await _orders.GetAllAsync(page, pageSize, status, channel, storeId, search);
         return new PagedResult<OrderSummaryDto>(items.Select(MapToSummaryDto), total, page, pageSize);
     }
 

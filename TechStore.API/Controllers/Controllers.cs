@@ -9,6 +9,7 @@ using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Role;
 using TechStore.API.Helpers;
+using TechStore.API.Models;
 using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Controllers;
@@ -316,14 +317,17 @@ public class OrdersController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    /// <summary>Get all orders</summary>
+    /// <summary>Get all orders; search matches order number, customer, phone, email or IMEI</summary>
     [HttpGet]
     [RequirePermission(Perms.OrdersView)]
     public async Task<IActionResult> GetAll(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? status = null) =>
-        Ok(await _orders.GetAllOrdersAsync(page, pageSize, status));
+        [FromQuery] string? status = null,
+        [FromQuery] SalesChannel? channel = null,
+        [FromQuery] int? storeId = null,
+        [FromQuery] string? search = null) =>
+        Ok(await _orders.GetAllOrdersAsync(page, pageSize, status, channel, storeId, search));
 
     /// <summary>Update order status</summary>
     [HttpPut("{id}/status")]
@@ -437,7 +441,11 @@ public class AdminController : ControllerBase
         [FromQuery] DateTime? to)
     {
         var start = from ?? DateTime.UtcNow.AddDays(-30);
-        var end = to ?? DateTime.UtcNow;
+        // A plain date (the Reports page sends yyyy-MM-dd) includes the whole of that day;
+        // before, "to = today" left out everything sold today
+        var end = to.HasValue && to.Value.TimeOfDay == TimeSpan.Zero
+            ? to.Value.AddDays(1).AddTicks(-1)
+            : to ?? DateTime.UtcNow;
         return Ok(await _admin.GetSalesReportAsync(start, end));
     }
 
