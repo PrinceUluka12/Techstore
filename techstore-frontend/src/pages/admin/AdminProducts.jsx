@@ -156,6 +156,13 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
             <Input label="Product Name" className="col-span-2" error={errors.name?.message}
               {...register('name', requiredText('Product name', 200))} />
 
+            {/* Category first: choosing it generates the SKU below */}
+            <Select label="Category" className={isEdit ? '' : 'col-span-2'} error={errors.categoryId?.message}
+              {...register('categoryId', { required: 'Select a category' })}>
+              <option value="">Select category…</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </Select>
+
             {!isEdit && (
               <div className="col-span-2 sm:col-span-1">
                 <label className="label flex items-center justify-between">
@@ -182,12 +189,6 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
             <Input label="Compare-at Price (₦)" type="number" step="0.01" min="0" placeholder="Optional"
               error={errors.compareAtPrice?.message}
               {...register('compareAtPrice', compareAtRules)} />
-
-            <Select label="Category" error={errors.categoryId?.message}
-              {...register('categoryId', { required: 'Select a category' })}>
-              <option value="">Select category…</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
 
             {isEdit ? (
               <>
