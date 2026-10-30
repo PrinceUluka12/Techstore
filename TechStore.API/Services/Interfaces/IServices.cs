@@ -101,7 +101,7 @@ public interface IPosService
     Task<PosSaleDto> CreateSaleAsync(int cashierId, bool isAdmin, PosSaleRequest request);
     Task<PosSaleDto?> GetSaleAsync(int userId, bool isAdmin, int id);
     Task SetApprovalPinAsync(int userId, string currentPassword, string pin);
-    Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, int? storeId, DateOnly date);
+    Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, bool wholeShop, int? storeId, DateOnly date);
 }
 
 public interface ITransferService

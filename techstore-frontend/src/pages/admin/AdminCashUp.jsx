@@ -44,6 +44,9 @@ export default function AdminCashUp() {
       .finally(() => setLoading(false))
   }, [storeId, date])
 
+  // Cashiers only get their own sales back; managers and admins get the whole shop
+  const own = data?.ownSalesOnly
+
   if (noShop) return (
     <AdminLayout>
       <div className="card p-8 max-w-lg text-center space-y-2">
@@ -59,7 +62,11 @@ export default function AdminCashUp() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl font-semibold">End-of-day Cash-up</h1>
-            <p className="text-surface-400 text-sm mt-0.5">In-store takings for {data?.shop.name ?? '…'}, by payment method and cashier</p>
+            <p className="text-surface-400 text-sm mt-0.5">
+              {own
+                ? `Your own sales at ${data.shop.name}, by payment method. A manager sees the whole shop.`
+                : `In-store takings for ${data?.shop.name ?? '…'}, by payment method and cashier`}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {admin && (
@@ -97,7 +104,7 @@ export default function AdminCashUp() {
               <div className="card p-4 flex justify-between"><span className="text-surface-500">Discounts given</span><span className="font-medium">{naira(data.discountTotal)}</span></div>
             </div>
 
-            <div className="card p-4">
+            {!own && <div className="card p-4">
               <h2 className="font-semibold text-surface-900 mb-3">By cashier</h2>
               {data.byCashier.length === 0 ? <p className="text-sm text-surface-400">No sales on this day.</p> : (
                 <div className="overflow-x-auto">
@@ -126,16 +133,16 @@ export default function AdminCashUp() {
                   </table>
                 </div>
               )}
-            </div>
+            </div>}
 
             <div className="card p-4">
-              <h2 className="font-semibold text-surface-900 mb-3">Sales</h2>
+              <h2 className="font-semibold text-surface-900 mb-3">{own ? 'Your sales' : 'Sales'}</h2>
               {data.sales.length === 0 ? <p className="text-sm text-surface-400">No sales on this day.</p> : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-xs uppercase tracking-wide text-surface-400 border-b border-surface-100">
-                        <th className="py-2">Time</th><th className="py-2">Receipt</th><th className="py-2">Cashier</th>
+                        <th className="py-2">Time</th><th className="py-2">Receipt</th>{!own && <th className="py-2">Cashier</th>}
                         <th className="py-2">Paid by</th><th className="py-2 text-right">Total</th>
                       </tr>
                     </thead>
@@ -146,7 +153,7 @@ export default function AdminCashUp() {
                           <tr key={s.id} className={`border-b border-surface-50 ${cancelled ? 'text-surface-400 line-through' : ''}`}>
                             <td className="py-2">{timeOf(s.createdAt)}</td>
                             <td className="py-2"><Link to={`/admin/pos/sales/${s.id}`} className="font-mono text-xs text-brand-600 hover:underline">{s.orderNumber}</Link></td>
-                            <td className="py-2">{s.cashierName}</td>
+                            {!own && <td className="py-2">{s.cashierName}</td>}
                             <td className="py-2">{s.paymentMethod === 'Split' ? 'Split' : (METHOD_LABELS[s.paymentMethod] ?? s.paymentMethod).replace(' in till', '')}</td>
                             <td className="py-2 text-right font-medium">{naira(s.total)}</td>
                           </tr>
