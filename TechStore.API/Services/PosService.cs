@@ -275,8 +275,9 @@ public class PosService : IPosService
     }
 
     // End-of-day cash-up for one shop: what each cashier took, by payment method.
+    // Without wholeShop (managers and admins have it) cashiers only see their own sales.
     // Cancelled or refunded sales are counted separately and left out of the totals.
-    public async Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, int? storeId, DateOnly date)
+    public async Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, bool wholeShop, int? storeId, DateOnly date)
     {
         var store   = await ResolveStoreAsync(userId, isAdmin, storeId);
         var fromUtc = date.ToDateTime(TimeOnly.MinValue) - NigeriaOffset;
@@ -285,7 +286,8 @@ public class PosService : IPosService
         var orders = await _db.Orders.AsNoTracking()
             .Include(o => o.SoldBy).Include(o => o.Payments)
             .Where(o => o.Channel == SalesChannel.InStore && o.StoreId == store.Id
-                && o.CreatedAt >= fromUtc && o.CreatedAt < toUtc)
+                && o.CreatedAt >= fromUtc && o.CreatedAt < toUtc
+                && (wholeShop || o.SoldByUserId == userId))
             .OrderBy(o => o.CreatedAt)
             .AsSplitQuery()
             .ToListAsync();
@@ -321,7 +323,8 @@ public class PosService : IPosService
             orders.Select(o => new CashUpSaleDto(
                 o.Id, o.OrderNumber, o.CreatedAt, o.SoldBy != null ? FullName(o.SoldBy) : "",
                 o.Total, o.PaymentMethod ?? "", o.Status)).ToList(),
-            orders.Count - counted.Count);
+            orders.Count - counted.Count,
+            !wholeShop);
     }
 
     // Nigeria has no daylight saving, so its day always starts at 23:00 UTC the day before

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -21,10 +22,14 @@ public class PermissionFilter(string permission) : IAuthorizationFilter
     {
         var user = ctx.HttpContext.User;
         if (user.Identity?.IsAuthenticated != true) { ctx.Result = new UnauthorizedResult(); return; }
-        if (user.IsInRole("Admin")) return;
-
-        var perms = user.FindFirst("permissions")?.Value?.Split(',') ?? [];
-        if (!perms.Contains(permission))
+        if (!user.HasPermission(permission))
             ctx.Result = new ForbidResult();
     }
+}
+
+public static class PermissionClaims
+{
+    /// <summary>Admins have every permission; other users have the ones in their token</summary>
+    public static bool HasPermission(this ClaimsPrincipal user, string permission) =>
+        user.IsInRole("Admin") || (user.FindFirst("permissions")?.Value?.Split(',') ?? []).Contains(permission);
 }

@@ -98,7 +98,8 @@ public record CashUpDto(
     List<CashUpMethodDto> ByMethod, // Cash is what stayed in the till (tendered − change)
     List<CashUpCashierDto> ByCashier,
     List<CashUpSaleDto> Sales,
-    int CancelledCount             // cancelled sales are left out of the totals
+    int CancelledCount,            // cancelled sales are left out of the totals
+    bool OwnSalesOnly              // a cashier's own sales, not the whole shop's
 );
 
 public record CashUpMethodDto(string Method, decimal Amount, int Count);
