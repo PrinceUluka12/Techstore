@@ -11,7 +11,7 @@ export const POSTAL_CODE_RE = /^\d{6}$/
 export const URL_RE         = /^https?:\/\/\S+$/i
 
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'] // ImageService._allowed
-export const MAX_IMAGE_BYTES  = 5 * 1024 * 1024                        // ImageService.MaxBytes
+export const MAX_IMAGE_BYTES  = 10 * 1024 * 1024                       // ImageService.MaxBytes
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024                       // ImagesController [RequestSizeLimit]
 
 // 15 digits whose last digit is the Luhn check digit (same check as PosService.IsValidImei)

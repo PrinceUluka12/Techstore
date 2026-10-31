@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { useWishlistStore, useCartStore, useAuthStore } from '../../store'
 import { cartApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
-import { Spinner } from '../../components/ui'
+import { Spinner, ProductImage } from '../../components/ui'
 
 export default function WishlistPage() {
   const { items, fetch, remove, loading } = useWishlistStore()
@@ -53,7 +53,7 @@ export default function WishlistPage() {
               <div key={item.id} className="card overflow-hidden group">
                 <Link to={`/products/${item.productId}`} className="block aspect-square bg-surface-50 overflow-hidden">
                   {item.productImageUrl
-                    ? <img src={item.productImageUrl} alt={item.productName}
+                    ? <ProductImage src={item.productImageUrl} alt={item.productName}
                         className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300" />
                     : <div className="w-full h-full flex items-center justify-center text-surface-200">
                         <ShoppingCart className="w-8 h-8" />

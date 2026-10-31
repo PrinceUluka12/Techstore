@@ -87,8 +87,7 @@
 | Static Web App | pgusolutions | Frontend hosting + custom domain |
 | App Service | (API host) | Backend API hosting |
 | Azure SQL | techstore_db | Production database |
-| Storage Account | hytelimages | Product/category image uploads |
-| Azure CDN Front Door | hytelimages-e2fge0bsabapfnd7.z03.azurefd.net | Image CDN delivery |
+| Storage Account | hytelstorage | Product/category images (served directly to browsers) |
 | Communication Services | hytelcomunication | Transactional email sending |
 | Key Vault | hytel-keyvault | All production secrets |
 
@@ -173,9 +172,9 @@ This file must be created manually by each developer. It is **gitignored** and n
   },
   "AzureStorage": {
     "ConnectionString": "<azure-storage-connection-string>",
-    "AccountName": "hytelimages",
+    "AccountName": "hytelstorage",
     "ContainerName": "images",
-    "CdnBaseUrl": "https://hytelimages-e2fge0bsabapfnd7.z03.azurefd.net"
+    "CdnBaseUrl": ""
   },
   "Jwt": {
     "Secret": "<jwt-secret>",
@@ -422,13 +421,14 @@ The application is currently configured with **live Paystack keys**. Any success
 
 | Setting | Value |
 |---|---|
-| Storage account | `hytelimages` |
-| Container | `images` |
-| CDN URL | `https://hytelimages-e2fge0bsabapfnd7.z03.azurefd.net` |
+| Storage account | `hytelstorage` |
+| Container | `images` (anonymous read access for blobs) |
+| Image URL | `https://hytelstorage.blob.core.windows.net/images/<file>` |
+| CDN | none (`AzureStorage:CdnBaseUrl` is empty) |
 
-All product and category images are uploaded via the admin **Images** page (`/admin/images`). The upload goes to Blob Storage and the returned CDN URL is saved against the product.
+All product and category images are uploaded via the admin **Images** page (`/admin/images`). Each upload is resized to fit 1200 × 1200, saved as WebP, and gets a 480 × 480 copy in `images/thumbs/` with the same name, which product lists, carts and admin tables use. Files are cached by browsers for a year (they're never overwritten). The returned image URL is saved against the product.
 
-Images are served through Azure Front Door CDN — do not use the raw blob storage URL in the app.
+Browsers load images straight from the storage account. Azure Front Door was removed in October 2026 to save its monthly base fee. To put a CDN back (e.g. Cloudflare or Front Door), point it at the container and set `AzureStorage:CdnBaseUrl` to its address; new uploads then use it, and saved links need their host updating like the `MoveImageLinksToStorage` migration does.
 
 ---
 

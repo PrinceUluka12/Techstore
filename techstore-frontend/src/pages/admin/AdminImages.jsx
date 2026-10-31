@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Upload, Copy, Trash2, Image as ImageIcon, CheckCircle, X } from 'lucide-react'
 import { imageApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
-import { Spinner } from '../../components/ui'
+import { Spinner, ProductImage } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { Link } from 'react-router-dom'
@@ -12,7 +12,7 @@ import { IMAGE_EXTENSIONS, MAX_IMAGE_BYTES, MAX_UPLOAD_BYTES, showApiError } fro
 function checkImage(file) {
   const ext = file.name.split('.').pop()?.toLowerCase()
   if (!IMAGE_EXTENSIONS.includes(ext)) return `'${file.name}': unsupported type (allowed: jpg, png, webp, gif).`
-  if (file.size > MAX_IMAGE_BYTES)   return `'${file.name}': larger than 5 MB.`
+  if (file.size > MAX_IMAGE_BYTES)   return `'${file.name}': larger than 10 MB.`
   return null
 }
 
@@ -131,7 +131,7 @@ export default function AdminImages() {
                   {dragOver ? 'Drop to upload' : 'Drag & drop images here'}
                 </p>
                 <p className="text-surface-400 text-sm mt-0.5">
-                  or click to browse · JPG, PNG, WebP, GIF · Max 5 MB each
+                  or click to browse · JPG, PNG, WebP, GIF · Max 10 MB each, shrunk automatically
                 </p>
               </div>
             </div>
@@ -155,7 +155,7 @@ export default function AdminImages() {
               <div key={img.fileName} className="group card overflow-hidden">
                 {/* Thumbnail */}
                 <div className="aspect-square bg-surface-50 overflow-hidden relative">
-                  <img
+                  <ProductImage
                     src={img.url}
                     alt={img.fileName}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

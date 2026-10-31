@@ -100,6 +100,24 @@ export function StatusBadge({ status }) {
   return <span className={statusMap[status] || 'badge-gray'}>{status}</span>
 }
 
+// ── Product image ─────────────────────────────────────────────────────────────
+// Uploads get a small copy in thumbs/ (ImageService). Only those have one: their names start
+// with the 17-digit upload time.
+export function thumbUrl(url) {
+  const m = url?.match(/^(.*\/images\/)(\d{17}-[^/]+)$/)
+  return m ? `${m[1]}thumbs/${m[2]}` : url
+}
+
+// For lists, carts and tables: the thumbnail (falling back to the full image for older
+// uploads without one), loaded only when it scrolls into view
+export function ProductImage({ src, alt = '', ...props }) {
+  return (
+    <img src={thumbUrl(src)} alt={alt} loading="lazy" decoding="async"
+      onError={e => { if (e.currentTarget.src !== src) e.currentTarget.src = src }}
+      {...props} />
+  )
+}
+
 // ── Price ─────────────────────────────────────────────────────────────────────
 export function Price({ value, compare, className }) {
   const fmt = v => `₦${Number(v).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

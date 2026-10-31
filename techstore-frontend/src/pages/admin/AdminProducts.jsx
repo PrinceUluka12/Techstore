@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, X, RefreshCw } from 'lucide-react'
 import { productApi, imageApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
-import { Modal, Input, Select, Spinner, Pagination } from '../../components/ui'
+import { Modal, Input, Select, Spinner, Pagination, ProductImage } from '../../components/ui'
 import { useForm, useWatch } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
@@ -113,7 +113,7 @@ function ImagePickerModal({ open, onClose, onSelect }) {
             {images.map(img => (
               <button key={img.fileName} onClick={() => { onSelect(img.url); onClose() }}
                 className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-brand-400 transition-all duration-150 bg-surface-50">
-                <img src={img.url} alt={img.fileName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                <ProductImage src={img.url} alt={img.fileName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
                 <div className="absolute inset-0 bg-brand-500/0 group-hover:bg-brand-500/10 transition-all flex items-center justify-center">
                   <div className="opacity-0 group-hover:opacity-100 bg-white rounded-full px-2 py-1 text-[10px] font-medium text-brand-600 shadow">Select</div>
                 </div>
@@ -400,7 +400,7 @@ export default function AdminProducts() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-white flex-shrink-0 overflow-hidden border border-surface-200">
                         {p.imageUrl
-                          ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-contain p-1" />
+                          ? <ProductImage src={p.imageUrl} alt={p.name} className="w-full h-full object-contain p-1" />
                           : <div className="w-full h-full flex items-center justify-center"><Package className="w-4 h-4 text-surface-300" /></div>}
                       </div>
                       <div className="min-w-0">

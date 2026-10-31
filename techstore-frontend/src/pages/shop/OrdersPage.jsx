@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw } from 'lucide-react'
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
-import { StatusBadge, LoadingPage, EmptyState, Pagination } from '../../components/ui'
+import { StatusBadge, LoadingPage, EmptyState, Pagination, ProductImage } from '../../components/ui'
 import { format } from 'date-fns'
 
 const STATUS_ICONS = {
@@ -160,7 +160,7 @@ export function OrderDetailPage() {
                   <div key={item.id} className="flex gap-3">
                     <div className="w-14 h-14 bg-white border border-surface-100 rounded-xl flex-shrink-0 overflow-hidden">
                       {item.productImageUrl
-                        ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
+                        ? <ProductImage src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
                         : <div className="w-full h-full flex items-center justify-center text-surface-200"><Package className="w-5 h-5" /></div>}
                     </div>
                     <div className="flex-1">
