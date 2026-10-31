@@ -181,19 +181,6 @@ public class AuthService : IAuthService
         _logger.LogInformation("Password changed for user {UserId} — all sessions revoked", userId);
     }
 
-    public async Task PromoteToAdminAsync(int targetUserId)
-    {
-        var user = await _users.GetByIdAsync(targetUserId)
-            ?? throw new KeyNotFoundException("User not found.");
-
-        if (user.Role == "Admin")
-            throw new InvalidOperationException("User is already an Admin.");
-
-        user.Role = "Admin";
-        await _users.UpdateAsync(user);
-        _logger.LogInformation("User {UserId} promoted to Admin", targetUserId);
-    }
-
     public async Task<UserProfileDto?> GetProfileAsync(int userId)
     {
         var user = await _users.GetByIdAsync(userId);
@@ -260,8 +247,9 @@ public class AuthService : IAuthService
         user.PasswordResetTokenExpiry = DateTime.UtcNow.AddHours(1);
         await _users.UpdateAsync(user);
 
-        var baseUrl = _config["Email:PasswordResetBaseUrl"] ?? "https://www.pgusolutions.com/reset-password";
-        var link = $"{baseUrl}?token={token}";
+        // From settings, never from the request, so the link can't be pointed at another site
+        var siteUrl = (_config["Email:SiteUrl"] ?? "").TrimEnd('/');
+        var link = $"{siteUrl}/reset-password?token={token}";
         _ = _email.SendPasswordResetAsync(user.Email, user.FirstName, link);
         _logger.LogInformation("Password reset token issued for {Email}", email);
     }
@@ -284,10 +272,10 @@ public class AuthService : IAuthService
         _logger.LogInformation("Password reset completed for user {UserId}", user.Id);
     }
 
-    public async Task<UserProfileDto> CreateStaffAccountAsync(CreateStaffRequest req)
+    public async Task<UserProfileDto> CreateStaffAccountAsync(int actorId, CreateStaffRequest req)
     {
-        if (!await _roles.ExistsAsync(req.Role))
-            throw new InvalidOperationException($"Role '{req.Role}' does not exist.");
+        var role = await GetRoleNameAsync(req.Role);
+        await _roleService.EnsureCanGiveRoleAsync(actorId, role);
 
         if (await _users.EmailExistsAsync(req.Email))
             throw new InvalidOperationException("Email already registered.");
@@ -301,7 +289,7 @@ public class AuthService : IAuthService
             LastName     = req.LastName,
             Email        = req.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
-            Role         = req.Role,
+            Role         = role,
             StoreId      = req.StoreId,
         };
 
@@ -310,13 +298,18 @@ public class AuthService : IAuthService
         return MapToProfile(user);
     }
 
-    public async Task AssignRoleAsync(int targetUserId, string role)
+    public async Task AssignRoleAsync(int actorId, int targetUserId, string role)
     {
-        if (!await _roles.ExistsAsync(role))
-            throw new InvalidOperationException($"Role '{role}' does not exist.");
+        role = await GetRoleNameAsync(role);
 
         var user = await _users.GetByIdAsync(targetUserId)
             ?? throw new KeyNotFoundException("User not found.");
+
+        // Even an Admin, so the shop is never left without one by accident
+        if (user.Id == actorId)
+            throw new ForbiddenException("You can't change your own role.");
+        await _roleService.EnsureCanManageUserAsync(actorId, user);
+        await _roleService.EnsureCanGiveRoleAsync(actorId, role);
 
         user.Role = role;
         await _users.UpdateAsync(user);
@@ -326,7 +319,7 @@ public class AuthService : IAuthService
         _logger.LogInformation("Role for user {UserId} changed to {Role}", targetUserId, role);
     }
 
-    public async Task AssignStoreAsync(int targetUserId, int? storeId)
+    public async Task AssignStoreAsync(int actorId, int targetUserId, int? storeId)
     {
         if (storeId.HasValue && await _stores.GetByIdAsync(storeId.Value) == null)
             throw new KeyNotFoundException("Shop not found.");
@@ -334,10 +327,17 @@ public class AuthService : IAuthService
         var user = await _users.GetByIdAsync(targetUserId)
             ?? throw new KeyNotFoundException("User not found.");
 
+        await _roleService.EnsureCanManageUserAsync(actorId, user);
+
         user.StoreId = storeId;
         await _users.UpdateAsync(user);
         _logger.LogInformation("Home shop for user {UserId} set to {StoreId}", targetUserId, storeId);
     }
+
+    // The role's name as saved, so "admin" can't slip past the checks for "Admin"
+    private async Task<string> GetRoleNameAsync(string role) =>
+        (await _roles.GetByNameAsync(role.Trim()))?.Name
+            ?? throw new InvalidOperationException($"Role '{role}' does not exist.");
 
     private static UserProfileDto MapToProfile(User u) =>
         new(u.Id, u.FirstName, u.LastName, u.Email, u.Phone, u.Address, u.Role, u.CreatedAt, u.StoreId);

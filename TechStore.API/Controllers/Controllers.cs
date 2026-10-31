@@ -464,7 +464,7 @@ public class AdminController : ControllerBase
     [RequirePermission(Perms.UsersManage)]
     public async Task<IActionResult> ToggleUser(int userId)
     {
-        var result = await _admin.ToggleUserStatusAsync(userId);
+        var result = await _admin.ToggleUserStatusAsync(GetUserId(), userId);
         return result ? Ok(new { message = "User status updated." }) : NotFound();
     }
 
@@ -473,7 +473,7 @@ public class AdminController : ControllerBase
     [RequirePermission(Perms.UsersManage)]
     public async Task<IActionResult> CreateStaff([FromBody] CreateStaffRequest req, [FromServices] IAuthService auth)
     {
-        try { return Ok(await auth.CreateStaffAccountAsync(req)); }
+        try { return Ok(await auth.CreateStaffAccountAsync(GetUserId(), req)); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -484,7 +484,7 @@ public class AdminController : ControllerBase
     {
         try
         {
-            await auth.AssignRoleAsync(userId, req.Role);
+            await auth.AssignRoleAsync(GetUserId(), userId, req.Role);
             return Ok(new { message = $"Role updated to {req.Role}." });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
@@ -498,11 +498,14 @@ public class AdminController : ControllerBase
     {
         try
         {
-            await auth.AssignStoreAsync(userId, req.StoreId);
+            await auth.AssignStoreAsync(GetUserId(), userId, req.StoreId);
             return Ok(new { message = "Home shop updated." });
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }
 
 [ApiController]
@@ -513,11 +516,14 @@ public class RolesController : ControllerBase
     private readonly IRoleService _roles;
     public RolesController(IRoleService roles) => _roles = roles;
 
-    /// <summary>List all roles</summary>
+    /// <summary>List all roles (also for staff who manage users, to pick a role for someone)</summary>
     [HttpGet]
-    [RequirePermission(Perms.RolesManage)]
-    public async Task<IActionResult> GetAll() =>
-        Ok(await _roles.GetAllAsync());
+    public async Task<IActionResult> GetAll()
+    {
+        if (!User.HasPermission(Perms.RolesManage) && !User.HasPermission(Perms.UsersManage))
+            return Forbid();
+        return Ok(await _roles.GetAllAsync());
+    }
 
     /// <summary>List all available permission keys and labels</summary>
     [HttpGet("permissions")]
@@ -539,7 +545,7 @@ public class RolesController : ControllerBase
     [RequirePermission(Perms.RolesManage)]
     public async Task<IActionResult> Create([FromBody] CreateRoleRequest req)
     {
-        try { return Ok(await _roles.CreateAsync(req)); }
+        try { return Ok(await _roles.CreateAsync(GetUserId(), req)); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
@@ -548,7 +554,7 @@ public class RolesController : ControllerBase
     [RequirePermission(Perms.RolesManage)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateRoleRequest req)
     {
-        try { return Ok(await _roles.UpdateAsync(id, req)); }
+        try { return Ok(await _roles.UpdateAsync(GetUserId(), id, req)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
@@ -558,8 +564,11 @@ public class RolesController : ControllerBase
     [RequirePermission(Perms.RolesManage)]
     public async Task<IActionResult> Delete(int id)
     {
-        try { await _roles.DeleteAsync(id); return NoContent(); }
+        try { await _roles.DeleteAsync(GetUserId(), id); return NoContent(); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

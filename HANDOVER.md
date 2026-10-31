@@ -31,11 +31,11 @@
 
 | Item | Detail |
 |---|---|
-| Live site | https://www.pgusolutions.com |
-| Admin panel | https://www.pgusolutions.com/admin |
-| API (Swagger) | https://hytelphonesapi-fkamcxexbwdwccc6.canadacentral-01.azurewebsites.net/index.html |
+| Live site | https://icy-pebble-07872b30f.3.azurestaticapps.net |
+| Admin panel | https://icy-pebble-07872b30f.3.azurestaticapps.net/admin |
+| API | https://hytel-api-fjhha9chhjgxecct.canadacentral-01.azurewebsites.net/api (Swagger is only served when running locally) |
 | Support email | support@hytelphones.ng |
-| Sender email | DoNotReply@pgusolutions.com |
+| Sender email | Set in Key Vault as `Email--From` (see section 9) |
 
 ---
 
@@ -51,7 +51,7 @@
               │                             │                          │
    ┌──────────▼──────────┐   ┌─────────────▼──────┐   ┌──────────────▼──────┐
    │  Azure SQL Database │   │  Azure Blob Storage │   │  Azure Key Vault    │
-   │  (techstore_db)     │   │  (hytelimages)      │   │  (hytel-keyvault)   │
+   │  (techstore_db)     │   │  (hytelimages)      │   │  (hytel-key-vault)  │
    └─────────────────────┘   └────────────────────┘   └─────────────────────┘
                                             │
               ┌─────────────────────────────┼──────────────────────────┐
@@ -84,12 +84,12 @@
 
 | Resource | Name | Purpose |
 |---|---|---|
-| Static Web App | pgusolutions | Frontend hosting + custom domain |
+| Static Web App | — | Frontend hosting (icy-pebble-07872b30f.3.azurestaticapps.net) |
 | App Service | (API host) | Backend API hosting |
 | Azure SQL | techstore_db | Production database |
 | Storage Account | hytelstorage | Product/category images (served directly to browsers) |
 | Communication Services | hytelcomunication | Transactional email sending |
-| Key Vault | hytel-keyvault | All production secrets |
+| Key Vault | hytel-key-vault | All production secrets |
 
 ### App Service — Required Settings
 
@@ -97,13 +97,13 @@ The App Service must have a **System-assigned Managed Identity** enabled, with t
 
 ```
 Role:  Key Vault Secrets User
-Scope: hytel-keyvault
+Scope: hytel-key-vault
 ```
 
 To set this via CLI:
 ```bash
 az keyvault set-policy \
-  --name hytel-keyvault \
+  --name hytel-key-vault \
   --object-id <app-service-principal-id> \
   --secret-permissions get list
 ```
@@ -165,7 +165,7 @@ This file must be created manually by each developer. It is **gitignored** and n
 ```json
 {
   "KeyVault": {
-    "Url": "https://hytel-keyvault.vault.azure.net/"
+    "Url": "https://hytel-key-vault.vault.azure.net/"
   },
   "ConnectionStrings": {
     "DefaultConnection": "Server=(localdb)\\MSSQLLocalDB;Database=techstore_db;Integrated Security=True;TrustServerCertificate=True;"
@@ -189,9 +189,9 @@ This file must be created manually by each developer. It is **gitignored** and n
   },
   "Email": {
     "ConnectionString": "<acs-connection-string>",
-    "From": "DoNotReply@pgusolutions.com",
+    "From": "DoNotReply@<your-acs-sender-domain>",
     "FromName": "Hytel Phones",
-    "PasswordResetBaseUrl": "http://localhost:5173/reset-password"
+    "SiteUrl": "http://localhost:5173"
   },
   "Paystack": {
     "PublicKey": "<paystack-public-key>",
@@ -213,7 +213,7 @@ This file must be created manually by each developer. It is **gitignored** and n
 
 ## 6. Azure Key Vault Secrets
 
-Key Vault: `https://hytel-keyvault.vault.azure.net/`
+Key Vault: `https://hytel-key-vault.vault.azure.net/`
 
 .NET's Key Vault config provider maps `--` in secret names to `:` in config keys.
 
@@ -232,7 +232,7 @@ Key Vault: `https://hytel-keyvault.vault.azure.net/`
 To add or update a secret:
 ```bash
 az keyvault secret set \
-  --vault-name hytel-keyvault \
+  --vault-name hytel-key-vault \
   --name "Secret--Name" \
   --value "the-value"
 ```
@@ -326,16 +326,14 @@ dotnet ef migrations add <MigrationName>
 - **Reuse detection:** presenting a previously-revoked refresh token immediately revokes all sessions for that user
 - **Password reset tokens:** GUID-based, URL-safe Base64, 1-hour expiry, cleared after use
 - **Rate limiting:** auth endpoints limited to 10 requests/minute
-- **CORS:** only `pgusolutions.com` and localhost origins allowed
+- **CORS:** only the shop's address and localhost origins allowed
+- **Staff permissions:** staff with "Manage users" or "Manage roles" can only hand out permissions they hold themselves. Only an Admin can give the Admin role or change an Admin's account, and nobody can change their own role or switch off their own account.
+- **Security headers:** `staticwebapp.config.json` sets a Content-Security-Policy (scripts only from the site itself) and stops the shop being shown inside another site's frame
+- **Swagger:** only served when running locally; on live, the API's root address just says it's running
 
-### To promote a user to Admin
+### To make someone an Admin
 
-There is no UI for this. Run directly against the database or via Swagger:
-
-```
-POST /api/auth/promote/{userId}
-Authorization: Bearer <admin-token>
-```
+Sign in as an Admin, open **Staff**, and change their role to Admin. Only an Admin can do this.
 
 ---
 
@@ -344,8 +342,18 @@ Authorization: Bearer <admin-token>
 ### Resource
 
 - **Resource:** `hytelcomunication.unitedstates.communication.azure.com`
-- **Sender address:** `DoNotReply@pgusolutions.com`
-- **Verified domain:** `pgusolutions.com` (configured in ACS → Email → Domains)
+- **Sender address:** set in Key Vault as `Email--From`. It has to be on a domain that's verified and connected in ACS (Settings → Email → Domains). With no sender set, the API logs a warning and sends nothing.
+- **Shop address in emails:** `Email:SiteUrl` in `appsettings.json`, used for the links in emails, including the password reset link
+
+### Setting up a sender with Azure's free managed domain
+
+1. In the Azure portal, open the **Email Communication Service** resource → **Provision domains** → **Add domain** → **Azure managed domain**
+2. Open the Communication Services resource (`hytelcomunication`) → **Email** → **Domains** → **Connect domain**, and pick the new domain
+3. Copy its sender address (`DoNotReply@<something>.azurecomm.net`) and save it in Key Vault:
+   ```bash
+   az keyvault secret set --vault-name hytel-key-vault --name "Email--From" --value "DoNotReply@<something>.azurecomm.net"
+   ```
+4. Restart the App Service so it reads the new value
 
 ### Emails sent automatically
 
@@ -360,7 +368,7 @@ Authorization: Bearer <admin-token>
 
 1. User submits email at `/forgot-password`
 2. Backend generates a URL-safe Base64 token, saves with 1-hour expiry
-3. Email sent with link: `{PasswordResetBaseUrl}?token={token}`
+3. Email sent with link: `{SiteUrl}/reset-password?token={token}`
 4. User clicks link → `/reset-password?token=...` → submits new password
 5. Token is cleared, all sessions revoked
 
@@ -368,7 +376,7 @@ Authorization: Bearer <admin-token>
 
 1. Check the API logs for `SendGrid returned` or `Failed to send email` messages
 2. Verify the ACS connection string is still valid in Key Vault
-3. Confirm `pgusolutions.com` domain is still verified in the ACS portal (Settings → Email → Domains)
+3. Check `Email--From` is set in Key Vault, and that its domain is still verified and connected in the ACS portal (Settings → Email → Domains)
 
 ---
 
@@ -402,7 +410,7 @@ The webhook handles cases where the browser closes before step 5 completes. Pays
 2. Copy the webhook secret shown by Paystack
 3. Add to Key Vault:
    ```bash
-   az keyvault secret set --vault-name hytel-keyvault --name "Paystack--WebhookSecret" --value "<secret>"
+   az keyvault secret set --vault-name hytel-key-vault --name "Paystack--WebhookSecret" --value "<secret>"
    ```
 
 ### Test vs Live keys
@@ -493,7 +501,6 @@ Base path: `/api`
 | POST | `/reset-password` | — | Apply new password via token |
 | GET | `/profile` | User | Get own profile |
 | PUT | `/profile` | User | Update profile |
-| POST | `/promote/{id}` | Admin | Promote user to Admin |
 
 ### Products — `/api/products`
 
@@ -587,8 +594,7 @@ When deploying to a new domain, add it to `appsettings.json` → `Cors:AllowedOr
   "AllowedOrigins": [
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://icy-dune-0dc0e440f.7.azurestaticapps.net",
-    "https://www.pgusolutions.com"
+    "https://icy-pebble-07872b30f.3.azurestaticapps.net"
   ]
 }
 ```

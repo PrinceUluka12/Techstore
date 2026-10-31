@@ -27,6 +27,9 @@ public class PermissionFilter(string permission) : IAuthorizationFilter
     }
 }
 
+/// <summary>Not allowed for this user; the message goes back to them with a 403</summary>
+public class ForbiddenException(string message) : Exception(message);
+
 public static class PermissionClaims
 {
     /// <summary>Admins have every permission; other users have the ones in their token</summary>

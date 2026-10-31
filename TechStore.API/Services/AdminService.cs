@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TechStore.API.Data;
 using TechStore.API.DTOs.Admin;
+using TechStore.API.Helpers;
 using TechStore.API.Models;
 using TechStore.API.Repositories.Interfaces;
 using TechStore.API.Services.Interfaces;
@@ -14,19 +15,22 @@ public class AdminService : IAdminService
     private readonly IInventoryRepository _inventory;
     private readonly IUserRepository _users;
     private readonly IProductRepository _products;
+    private readonly IRoleService _roles;
 
     public AdminService(
         AppDbContext db,
         IOrderRepository orders,
         IInventoryRepository inventory,
         IUserRepository users,
-        IProductRepository products)
+        IProductRepository products,
+        IRoleService roles)
     {
         _db = db;
         _orders = orders;
         _inventory = inventory;
         _users = users;
         _products = products;
+        _roles = roles;
     }
 
     public async Task<DashboardStatsDto> GetDashboardStatsAsync()
@@ -128,10 +132,15 @@ public class AdminService : IAdminService
         return new PagedResult<UserAdminDto>(users, total, page, pageSize);
     }
 
-    public async Task<bool> ToggleUserStatusAsync(int userId)
+    public async Task<bool> ToggleUserStatusAsync(int actorId, int userId)
     {
         var user = await _db.Users.FindAsync(userId);
         if (user == null) return false;
+
+        if (user.Id == actorId)
+            throw new ForbiddenException("You can't switch off your own account.");
+        await _roles.EnsureCanManageUserAsync(actorId, user);
+
         user.IsActive  = !user.IsActive;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
