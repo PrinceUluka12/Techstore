@@ -3,7 +3,7 @@ import {
   ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package,
   ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store, ArrowLeftRight, Calculator, UserCog
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useAuthStore, useCartStore, useUIStore } from '../../store'
@@ -30,16 +30,20 @@ const STAFF_PAGES = [
 // ── Navbar ────────────────────────────────────────────────────────────────────
 export function Navbar() {
   const { isAuthenticated, user, logout, isAdmin, hasPermission, hasAnyAdminPermission } = useAuthStore()
-  const { itemCount } = useCartStore()
+  const { itemCount, loaded, loadCart, clearLocal } = useCartStore()
   const { toggleCart } = useUIStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
+  // Every shop page has the navbar, so this brings the cart back after a page reload
+  useEffect(() => { if (isAuthenticated && !loaded) loadCart() }, [isAuthenticated, loaded])
+
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* cookie cleared on client regardless */ }
     logout()
+    clearLocal() // don't leave the last person's cart on screen
     toast.success('Logged out')
     navigate('/')
     setUserMenuOpen(false)

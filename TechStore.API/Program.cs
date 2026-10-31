@@ -5,6 +5,7 @@ using Azure.Storage.Blobs;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -96,17 +97,32 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// Rate limiting — 10 requests/minute on auth endpoints
+// Rate limiting — 10 requests/minute on auth endpoints (sign-in, sign-up, password reset),
+// counted per visitor's IP address. One shared count used to let 10 sign-ins from anyone
+// in a minute lock out every other customer.
 builder.Services.AddRateLimiter(opts =>
 {
-    opts.AddFixedWindowLimiter("auth", o =>
-    {
-        o.PermitLimit            = 10;
-        o.Window                 = TimeSpan.FromMinutes(1);
-        o.QueueProcessingOrder   = QueueProcessingOrder.OldestFirst;
-        o.QueueLimit             = 0;
-    });
+    opts.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit          = 10,
+            Window               = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit           = 0,
+        }));
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
+// Azure App Service passes requests on with the visitor's IP in X-Forwarded-For; read it so
+// the limit above counts per visitor rather than per App Service front end. Only the last
+// address (the one App Service added) is used, so a visitor can't pick their own.
+builder.Services.Configure<ForwardedHeadersOptions>(opts =>
+{
+    opts.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    opts.ForwardLimit = 1;
+    opts.KnownNetworks.Clear(); // App Service's front ends don't have fixed addresses
+    opts.KnownProxies.Clear();
 });
 
 // Background token cleanup (runs every 24 h)
@@ -170,6 +186,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseForwardedHeaders(); // before the rate limiter, which counts per visitor IP
 app.UseRateLimiter();
 
 app.UseSwagger();

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
@@ -8,7 +8,7 @@ import {
 import toast from 'react-hot-toast'
 import { authApi, cartApi, orderApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
-import { Input, Spinner, ProductImage } from '../../components/ui'
+import { Input, Spinner, ProductImage, LoadingPage } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
 import {
@@ -256,8 +256,15 @@ export function CheckoutPage() {
   const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]               = useState(false)
   const accounts = useBankAccounts()            // nothing to pay into = online orders paused
-  const { items, total, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
+  const { items, total, loaded, loadCart, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
   const navigate = useNavigate()
+  const placed = useRef(false) // the cart empties when the order goes through; don't treat that as "nothing to buy"
+
+  // After a reload the cart has to be fetched before we know whether there's anything to check out
+  useEffect(() => { if (!loaded) loadCart() }, [loaded])
+  useEffect(() => {
+    if (loaded && !items.length && !placed.current) navigate('/products', { replace: true })
+  }, [loaded, items.length])
 
   // No VAT is charged (same as OrderService)
   const discount   = discountAmount || 0
@@ -288,6 +295,7 @@ export function CheckoutPage() {
     setLoading(true)
     try {
       const { data: order } = await orderApi.checkout(buildOrderPayload(data))
+      placed.current = true
       clearLocal()
       toast.success('Order placed! Please complete your bank transfer.')
       navigate(`/account/orders/${order.id}`)
@@ -297,10 +305,8 @@ export function CheckoutPage() {
     }
   }
 
-  if (!items.length) {
-    navigate('/products')
-    return null
-  }
+  if (!loaded) return <><Navbar /><LoadingPage /></>
+  if (!items.length) return null // on the way to /products
 
   return (
     <div className="min-h-screen flex flex-col">
