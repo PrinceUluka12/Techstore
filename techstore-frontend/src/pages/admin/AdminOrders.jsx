@@ -233,7 +233,9 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                   <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Order Total</p>
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>₦{order.subTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-                    <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                    {order.tax > 0 && ( // only orders from before VAT was dropped
+                      <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                    )}
                     <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                     <div className="flex justify-between font-bold text-surface-900 border-t border-surface-100 pt-2 mt-2">
                       <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

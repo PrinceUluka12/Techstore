@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw } from 'lucide-react'
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
+import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
 import { StatusBadge, LoadingPage, EmptyState, Pagination, ProductImage } from '../../components/ui'
 import { format } from 'date-fns'
 
@@ -123,6 +124,23 @@ export function MyOrdersPage() {
   )
 }
 
+// Where to send the money for an unpaid bank-transfer order
+function PayByTransfer({ order }) {
+  const accounts = useBankAccounts()
+  if (!accounts?.length) return null
+  return (
+    <div className="card p-5 border-amber-200 bg-amber-50/40">
+      <h2 className="font-semibold mb-1">Pay by bank transfer</h2>
+      <p className="text-sm text-surface-600 mb-3">
+        Transfer <strong>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> to {accounts.length > 1 ? 'one of these accounts' : 'this account'}.
+        Use <span className="font-mono font-semibold">{order.orderNumber}</span> or your name as the reference.
+      </p>
+      <BankAccountList accounts={accounts} />
+      <p className="text-xs text-surface-400 mt-3">We'll confirm your order once the payment arrives, usually within 1–2 business hours.</p>
+    </div>
+  )
+}
+
 export function OrderDetailPage() {
   const { id } = useParams()
   const [order, setOrder] = useState(null)
@@ -177,6 +195,8 @@ export function OrderDetailPage() {
           </div>
 
           <div className="space-y-4">
+            {order.paymentMethod === 'BankTransfer' && order.paymentStatus === 'Pending'
+              && !['Cancelled', 'Refunded'].includes(order.status) && <PayByTransfer order={order} />}
             <div className="card p-5">
               <h2 className="font-semibold mb-3">Order Summary</h2>
               <div className="space-y-2 text-sm">
@@ -187,7 +207,9 @@ export function OrderDetailPage() {
                     <span>–₦{order.discountAmount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-surface-500"><span>Tax (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                {order.tax > 0 && ( // only orders from before VAT was dropped
+                  <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                )}
                 <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-surface-100 text-base">
                   <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

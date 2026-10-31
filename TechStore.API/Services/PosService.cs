@@ -15,7 +15,6 @@ public class PosForbiddenException(string message) : Exception(message);
 // delivered, with its payments, the IMEIs of the units sold, and the cashier.
 public class PosService : IPosService
 {
-    private const decimal VatRate = 0.075m; // same as online checkout (OrderService)
     private const int MaxPinAttempts = 5;
     private static readonly TimeSpan PinLockout = TimeSpan.FromMinutes(15);
 
@@ -152,13 +151,13 @@ public class PosService : IPosService
                 throw new InvalidOperationException($"IMEI/serial '{alreadySold}' has already been sold.");
         }
 
-        // ── Totals, VAT as at online checkout ──
+        // ── Totals: no VAT is charged, as at online checkout ──
         var subTotal = items.Sum(i => i.LineTotal);
         var discount = Math.Round(req.DiscountAmount, 2);
         if (discount > subTotal)
             throw new InvalidOperationException("The discount can't be more than the subtotal.");
-        var tax   = Math.Round((subTotal - discount) * VatRate, 2);
-        var total = subTotal - discount + tax;
+        var tax   = 0m;
+        var total = subTotal - discount;
 
         // ── Discounts and price changes need a manager's PIN ──
         User? approver = null;

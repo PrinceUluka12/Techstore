@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using FluentValidation;
 using TechStore.API.DTOs.Pos;
 using TechStore.API.DTOs.Transfer;
+using TechStore.API.DTOs.BankAccount;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
@@ -127,6 +128,17 @@ public class CreateTransferRequestValidator : AbstractValidator<CreateTransferRe
     }
 }
 
+public class SaveBankAccountRequestValidator : AbstractValidator<SaveBankAccountRequest>
+{
+    public SaveBankAccountRequestValidator()
+    {
+        RuleFor(x => x.BankName).NotEmpty().WithMessage("Enter the bank's name.").MaximumLength(100);
+        RuleFor(x => x.AccountName).NotEmpty().WithMessage("Enter the account name.").MaximumLength(150);
+        // Nigerian account numbers (NUBAN) are 10 digits
+        RuleFor(x => x.AccountNumber).Matches(@"^\d{10}$").WithMessage("Enter the 10-digit account number.");
+    }
+}
+
 public class SetApprovalPinRequestValidator : AbstractValidator<SetApprovalPinRequest>
 {
     public SetApprovalPinRequestValidator()
@@ -164,11 +176,13 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
 
 public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 {
-    // Valid Nigerian payment methods accepted by the system
-    private static readonly string[] ValidPaymentMethods = { "Card", "BankTransfer" };
-
-    public CreateOrderRequestValidator()
+    public CreateOrderRequestValidator(IConfiguration config)
     {
+        // Card payments go through Paystack, which is switched off until it's set up
+        string[] validPaymentMethods = config.GetValue<bool>("Paystack:Enabled")
+            ? ["Card", "BankTransfer"]
+            : ["BankTransfer"];
+
         RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50);
         RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50);
         RuleFor(x => x.ShippingAddress).NotEmpty().MaximumLength(200);
@@ -189,8 +203,10 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 
         // Validate payment method when provided
         RuleFor(x => x.PaymentMethod)
-            .Must(m => m == null || ValidPaymentMethods.Contains(m))
-            .WithMessage($"Payment method must be one of: {string.Join(", ", ValidPaymentMethods)}.");
+            .Must(m => m == null || validPaymentMethods.Contains(m))
+            .WithMessage(validPaymentMethods.Length == 1
+                ? "Only bank transfer is available for online orders at the moment."
+                : $"Payment method must be one of: {string.Join(", ", validPaymentMethods)}.");
     }
 }
 

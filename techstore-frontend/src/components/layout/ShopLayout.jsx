@@ -261,7 +261,7 @@ export function CartDrawer() {
               <span className="text-surface-500">Subtotal</span>
               <span className="font-semibold">₦{total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            <p className="text-xs text-surface-400">Tax + shipping calculated at checkout</p>
+            <p className="text-xs text-surface-400">Shipping calculated at checkout</p>
             <button onClick={handleCheckout} className="btn-primary w-full btn-lg">
               Checkout →
             </button>

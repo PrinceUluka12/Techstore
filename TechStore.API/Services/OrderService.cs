@@ -72,6 +72,11 @@ public class OrderService : IOrderService
         if (cart == null || !cart.Items.Any())
             throw new InvalidOperationException("Cart is empty.");
 
+        // Bank transfer is how online orders are paid, so there has to be an account to pay into
+        if (req.PaymentMethod is null or "BankTransfer" && !await _db.BankAccounts.AnyAsync(b => b.IsActive))
+            throw new InvalidOperationException(
+                "Online orders are paused: there's no bank account to pay into yet. Please call or visit one of our shops.");
+
         // Online orders sell from the shop that sends online orders
         var store = await _stores.GetOnlineAsync();
 
@@ -121,9 +126,10 @@ public class OrderService : IOrderService
             }
         }
 
-        var tax      = Math.Round((subTotal - discount) * 0.075m, 2);
+        // No VAT is charged. Tax stays on orders because older ones were charged 7.5%.
+        var tax      = 0m;
         var shipping = subTotal >= 100 ? 0 : 9.99m;
-        var total    = subTotal - discount + tax + shipping;
+        var total    = subTotal - discount + shipping;
 
         var order = new Order
         {

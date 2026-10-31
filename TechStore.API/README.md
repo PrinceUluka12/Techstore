@@ -183,7 +183,8 @@ UPDATE techstore_db.Users SET Role = 'Admin' WHERE Email = 'your@email.com';
 
 ## Business Rules
 
-- **Tax:** 7.5% VAT (Nigeria) applied automatically at checkout
+- **Tax:** none. VAT isn't charged online or at the till (orders from before November 2026 include 7.5% VAT)
+- **Online payment:** bank transfer only, to the accounts admins set on the Bank Accounts page (every change is kept in its history). With no account shown, online checkout is paused. Card payments (Paystack) are off until `Paystack:Enabled` is set
 - **Free shipping:** Orders over ₦100 ship free; otherwise ₦9.99
 - **Inventory reservation:** Stock reserved when order is placed; released on cancellation
 - **Soft delete:** Products are deactivated, not deleted

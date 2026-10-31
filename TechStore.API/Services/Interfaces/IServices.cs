@@ -8,6 +8,7 @@ using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Role;
 using TechStore.API.DTOs.Store;
 using TechStore.API.DTOs.Transfer;
+using TechStore.API.DTOs.BankAccount;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Wishlist;
 using TechStore.API.Helpers;
@@ -112,6 +113,17 @@ public interface ITransferService
     Task<TransferDto> CreateAsync(int userId, bool isAdmin, CreateTransferRequest request);
     Task<TransferDto> ReceiveAsync(int userId, bool isAdmin, int id);
     Task<TransferDto> CancelAsync(int userId, bool isAdmin, int id);
+}
+
+public interface IBankAccountService
+{
+    Task<List<PublicBankAccountDto>> GetActiveAsync();
+    Task<List<BankAccountDto>> GetAllAsync();
+    // userId: the admin making the change, recorded in the history
+    Task<BankAccountDto> CreateAsync(int userId, SaveBankAccountRequest request);
+    Task<BankAccountDto?> UpdateAsync(int userId, int id, SaveBankAccountRequest request);
+    Task<bool> DeleteAsync(int userId, int id);
+    Task<PagedResult<BankAccountLogDto>> GetHistoryAsync(int page, int pageSize);
 }
 
 public interface IStoreService
