@@ -164,7 +164,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 30, 13, 31, 1, 130, DateTimeKind.Utc).AddTicks(773),
+                            CreatedAt = new DateTime(2026, 10, 31, 15, 41, 14, 702, DateTimeKind.Utc).AddTicks(1530),
                             Description = "Latest smartphones and accessories",
                             IsActive = true,
                             Name = "Smartphones",
@@ -173,7 +173,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 30, 13, 31, 1, 130, DateTimeKind.Utc).AddTicks(776),
+                            CreatedAt = new DateTime(2026, 10, 31, 15, 41, 14, 702, DateTimeKind.Utc).AddTicks(1532),
                             Description = "Tablets and e-readers",
                             IsActive = true,
                             Name = "Tablets",
@@ -182,7 +182,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 30, 13, 31, 1, 130, DateTimeKind.Utc).AddTicks(778),
+                            CreatedAt = new DateTime(2026, 10, 31, 15, 41, 14, 702, DateTimeKind.Utc).AddTicks(1534),
                             Description = "Wearable technology",
                             IsActive = true,
                             Name = "Smart Watches",
@@ -191,7 +191,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 30, 13, 31, 1, 130, DateTimeKind.Utc).AddTicks(780),
+                            CreatedAt = new DateTime(2026, 10, 31, 15, 41, 14, 702, DateTimeKind.Utc).AddTicks(1535),
                             Description = "Laptops and ultrabooks",
                             IsActive = true,
                             Name = "Laptops",
@@ -200,7 +200,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 30, 13, 31, 1, 130, DateTimeKind.Utc).AddTicks(782),
+                            CreatedAt = new DateTime(2026, 10, 31, 15, 41, 14, 702, DateTimeKind.Utc).AddTicks(1537),
                             Description = "Cases, chargers, and more",
                             IsActive = true,
                             Name = "Accessories",
