@@ -2,12 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
-  Package, CreditCard, Building2, Lock,
+  Package, Building2, Lock,
   ChevronDown, ChevronUp, CheckCircle, Truck, Shield, Tag, X
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import PaystackPop from '@paystack/inline-js'
-import { authApi, cartApi, orderApi, paystackApi } from '../../services/api'
+import { authApi, cartApi, orderApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
 import { Input, Spinner } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
@@ -23,8 +22,6 @@ const NIGERIAN_STATES = [
   'Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto',
   'Taraba','Yobe','Zamfara',
 ]
-
-const PAYSTACK_PUBLIC_KEY = 'pk_live_6db9f9605582bc9866757429306bf6089eb4d7a4'
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 export function LoginPage() {
@@ -163,146 +160,6 @@ export function RegisterPage() {
   )
 }
 
-// ── Payment method selector ───────────────────────────────────────────────────
-function PaymentSelector({ selected, onChange }) {
-  const options = [
-    {
-      id: 'Card',
-      label: 'Debit / Credit Card',
-      icon: CreditCard,
-      desc: 'Visa, Mastercard, Verve',
-    },
-    {
-      id: 'BankTransfer',
-      label: 'Bank Transfer',
-      icon: Building2,
-      desc: 'Direct bank payment',
-    },
-  ]
-
-  return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
-      {options.map(opt => (
-        <button key={opt.id} type="button" onClick={() => onChange(opt.id)}
-          className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all duration-150
-            ${selected === opt.id
-              ? 'border-brand-500 bg-brand-50'
-              : 'border-surface-200 hover:border-surface-300 bg-white'}`}>
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors
-            ${selected === opt.id ? 'bg-brand-500' : 'bg-surface-100'}`}>
-            <opt.icon className={`w-5 h-5 ${selected === opt.id ? 'text-white' : 'text-surface-500'}`} />
-          </div>
-          <div className="min-w-0">
-            <p className={`text-sm font-semibold leading-tight ${selected === opt.id ? 'text-brand-700' : 'text-surface-900'}`}>
-              {opt.label}
-            </p>
-            <p className={`text-xs mt-0.5 ${selected === opt.id ? 'text-brand-500' : 'text-surface-400'}`}>
-              {opt.desc}
-            </p>
-          </div>
-          {selected === opt.id && (
-            <CheckCircle className="w-4 h-4 text-brand-500 ml-auto flex-shrink-0" />
-          )}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ── Card details form ─────────────────────────────────────────────────────────
-function CardDetails({ register, errors }) {
-  const [showCvv, setShowCvv] = useState(false)
-
-  // Format card number with spaces
-  const formatCard = (e) => {
-    let v = e.target.value.replace(/\D/g, '').substring(0, 16)
-    e.target.value = v.replace(/(.{4})/g, '$1 ').trim()
-  }
-
-  // Format expiry MM/YY
-  const formatExpiry = (e) => {
-    let v = e.target.value.replace(/\D/g, '').substring(0, 4)
-    if (v.length >= 2) v = v.slice(0, 2) + '/' + v.slice(2)
-    e.target.value = v
-  }
-
-  return (
-    <div className="space-y-4 mt-4 pt-4 border-t border-surface-100">
-      <Input
-        label="Cardholder Name"
-        placeholder="Name on card"
-        error={errors.cardName?.message}
-        {...register('cardName', { required: 'Required' })}
-      />
-      <div>
-        <label className="label">Card Number</label>
-        <div className="relative">
-          <input
-            className="input pr-12"
-            placeholder="0000 0000 0000 0000"
-            maxLength={19}
-            onInput={formatCard}
-            {...register('cardNumber', {
-              required: 'Required',
-              minLength: { value: 19, message: 'Enter a valid 16-digit card number' },
-            })}
-          />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            <div className="w-6 h-4 rounded-sm bg-blue-600 opacity-80" />
-            <div className="w-6 h-4 rounded-sm bg-red-500 opacity-80 -ml-2" />
-          </div>
-        </div>
-        {errors.cardNumber && <p className="text-red-500 text-xs mt-1">{errors.cardNumber.message}</p>}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="label">Expiry Date</label>
-          <input
-            className="input"
-            placeholder="MM/YY"
-            maxLength={5}
-            onInput={formatExpiry}
-            {...register('cardExpiry', {
-              required: 'Required',
-              pattern: { value: /^(0[1-9]|1[0-2])\/\d{2}$/, message: 'Use MM/YY format' },
-            })}
-          />
-          {errors.cardExpiry && <p className="text-red-500 text-xs mt-1">{errors.cardExpiry.message}</p>}
-        </div>
-        <div>
-          <label className="label flex items-center gap-1.5">
-            CVV
-            <span className="text-[10px] text-surface-400 font-normal">3–4 digits on back</span>
-          </label>
-          <div className="relative">
-            <input
-              className="input pr-10"
-              placeholder="•••"
-              maxLength={4}
-              type={showCvv ? 'text' : 'password'}
-              {...register('cardCvv', {
-                required: 'Required',
-                minLength: { value: 3, message: 'Min 3 digits' },
-              })}
-            />
-            <button type="button" onClick={() => setShowCvv(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 text-xs">
-              {showCvv ? 'Hide' : 'Show'}
-            </button>
-          </div>
-          {errors.cardCvv && <p className="text-red-500 text-xs mt-1">{errors.cardCvv.message}</p>}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 text-xs text-surface-400 bg-surface-50 rounded-xl px-3 py-2.5">
-        <Lock className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-        Your card details are encrypted and never stored on our servers.
-      </div>
-    </div>
-  )
-}
-
 // ── Bank transfer details ─────────────────────────────────────────────────────
 function BankTransferDetails({ orderTotal }) {
   const [copied, setCopied] = useState(null)
@@ -416,15 +273,13 @@ const CHECKOUT_FIELDS = {
 export function CheckoutPage() {
   const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]               = useState(false)
-  const [paymentMethod, setPaymentMethod]   = useState('Card')
   const { items, total, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
-  const { user } = useAuthStore()
   const navigate = useNavigate()
 
+  // No VAT is charged (same as OrderService)
   const discount   = discountAmount || 0
-  const tax        = +((total - discount) * 0.075).toFixed(2)
   const shipping   = total >= 100 ? 0 : 9.99
-  const orderTotal = +(total - discount + tax + shipping).toFixed(2)
+  const orderTotal = +(total - discount + shipping).toFixed(2)
 
   const handleCoupon = async (code) => {
     const result = await applyCoupon(code)
@@ -441,49 +296,18 @@ export function CheckoutPage() {
     shippingPostalCode: data.postalCode.trim(),
     shippingCountry:    'Nigeria',
     shippingPhone:      normalizePhone(data.phone) || null,
-    paymentMethod,
+    paymentMethod:      'BankTransfer', // the only option until card payments (Paystack) are set up
     notes:              data.notes?.trim() || null,
     couponCode:         couponCode || null,
   })
-
-  const openPaystack = (orderId, amount, email) => {
-    const popup = new PaystackPop()
-    popup.newTransaction({
-      key:      PAYSTACK_PUBLIC_KEY,
-      email:    email || user?.email,
-      amount:   Math.round(amount * 100),
-      metadata: { order_id: orderId },
-      onSuccess: async (transaction) => {
-        try {
-          await paystackApi.verify(transaction.reference)
-          clearLocal()
-          toast.success('Payment confirmed! Order is being processed.')
-        } catch {
-          toast.success('Order placed. Payment verification in progress.')
-        }
-        navigate(`/account/orders/${orderId}`)
-      },
-      onCancel: () => {
-        toast('Payment cancelled. Your order is saved — you can pay later from your orders page.', { icon: 'ℹ️' })
-        clearLocal()
-        navigate(`/account/orders/${orderId}`)
-      },
-    })
-  }
 
   const onSubmit = async (data) => {
     setLoading(true)
     try {
       const { data: order } = await orderApi.checkout(buildOrderPayload(data))
-
-      if (paymentMethod === 'BankTransfer') {
-        clearLocal()
-        toast.success('Order placed! Please complete your bank transfer.')
-        navigate(`/account/orders/${order.id}`)
-      } else {
-        setLoading(false)
-        openPaystack(order.id, order.total, data.email || user?.email)
-      }
+      clearLocal()
+      toast.success('Order placed! Please complete your bank transfer.')
+      navigate(`/account/orders/${order.id}`)
     } catch (err) {
       showApiError(err, setError, 'Checkout failed', CHECKOUT_FIELDS)
       setLoading(false)
@@ -561,24 +385,12 @@ export function CheckoutPage() {
             <div className="card p-6">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-7 h-7 rounded-lg bg-brand-50 flex items-center justify-center">
-                  <CreditCard className="w-3.5 h-3.5 text-brand-600" />
+                  <Building2 className="w-3.5 h-3.5 text-brand-600" />
                 </div>
-                <h2 className="font-semibold text-surface-900">Payment Method</h2>
+                <h2 className="font-semibold text-surface-900">Payment: Bank Transfer</h2>
               </div>
 
-              <PaymentSelector selected={paymentMethod} onChange={setPaymentMethod} />
-
-              {paymentMethod === 'Card' && (
-                <div className="mt-4 pt-4 border-t border-surface-100">
-                  <div className="flex items-center gap-2 text-sm text-surface-600 bg-brand-50 rounded-xl px-3 py-2.5">
-                    <Lock className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />
-                    You'll be redirected to Paystack's secure checkout to complete payment.
-                  </div>
-                </div>
-              )}
-              {paymentMethod === 'BankTransfer' && (
-                <BankTransferDetails orderTotal={orderTotal} />
-              )}
+              <BankTransferDetails orderTotal={orderTotal} />
             </div>
 
             {/* Notes */}
@@ -596,9 +408,7 @@ export function CheckoutPage() {
                 ? <><Spinner size="sm" /> Processing…</>
                 : <>
                     <Lock className="w-4 h-4" />
-                    {paymentMethod === 'BankTransfer'
-                      ? 'Place Order — Pay via Transfer'
-                      : `Pay ₦${orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })} via Paystack`}
+                    Place Order — Pay via Transfer
                   </>}
             </button>
 
@@ -653,10 +463,6 @@ export function CheckoutPage() {
                   </div>
                 )}
                 <div className="flex justify-between text-surface-500">
-                  <span>VAT (7.5%)</span>
-                  <span>₦{tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between text-surface-500">
                   <span>Shipping</span>
                   <span>
                     {shipping === 0
@@ -670,11 +476,8 @@ export function CheckoutPage() {
                 </div>
               </div>
 
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium
-                ${paymentMethod === 'Card' ? 'bg-brand-50 text-brand-700' : 'bg-amber-50 text-amber-700'}`}>
-                {paymentMethod === 'Card'
-                  ? <><CreditCard className="w-3.5 h-3.5" /> Paying via Paystack</>
-                  : <><Building2 className="w-3.5 h-3.5" /> Paying by bank transfer</>}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium bg-amber-50 text-amber-700">
+                <Building2 className="w-3.5 h-3.5" /> Paying by bank transfer
               </div>
             </div>
           </div>

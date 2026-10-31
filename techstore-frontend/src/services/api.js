@@ -210,9 +210,4 @@ export const roleApi = {
   delete:         (id)      => api.delete(`/roles/${id}`),
 }
 
-// ── Paystack ──────────────────────────────────────────────────────────────────
-export const paystackApi = {
-  verify: (reference) => api.post(`/payments/paystack/verify/${reference}`),
-}
-
 export default api

@@ -397,7 +397,6 @@ export default function ProductDetailPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-surface-400">Prices include VAT</p>
               </div>
 
               <hr className="border-surface-100" />

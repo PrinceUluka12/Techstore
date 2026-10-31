@@ -8,7 +8,6 @@ import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Modal, Spinner } from '../../components/ui'
 import { isValidImei, EMAIL_RE, NG_PHONE_RE, PIN_RE, normalizePhone, showApiError } from '../../utils/validation'
 
-const VAT_RATE = 0.075 // same as PosService / online checkout
 const METHODS = [
   { id: 'Cash',         label: 'Cash' },
   { id: 'Card',         label: 'Card (POS terminal)' },
@@ -263,11 +262,10 @@ export default function AdminPos() {
 
   const shop = stores.find(s => s.id === storeId)
 
-  // ── Totals (the API works them out again and is the one that counts) ──
+  // ── Totals (the API works them out again and is the one that counts; no VAT) ──
   const subTotal     = round2(lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0))
   const discountNum  = round2(Number(discount) || 0)
-  const tax          = round2((subTotal - discountNum) * VAT_RATE)
-  const total        = round2(subTotal - discountNum + tax)
+  const total        = round2(subTotal - discountNum)
   const paid         = round2(payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0))
   const cashPaid     = round2(payments.filter(p => p.method === 'Cash').reduce((sum, p) => sum + (Number(p.amount) || 0), 0))
   const remaining    = round2(total - paid)
@@ -459,7 +457,6 @@ export default function AdminPos() {
             <div className="card p-4 space-y-2 text-sm">
               <div className="flex justify-between text-surface-500"><span>Subtotal</span><span>{naira(subTotal)}</span></div>
               {discountNum > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>–{naira(discountNum)}</span></div>}
-              <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>{naira(tax)}</span></div>
               <div className="flex justify-between font-bold text-lg pt-2 border-t border-surface-100"><span>Total</span><span>{naira(total)}</span></div>
             </div>
 

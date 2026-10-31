@@ -32,11 +32,17 @@ public class PaystackController : ControllerBase
         _httpFactory = httpFactory;
     }
 
+    // Card payments are switched off until Paystack is set up: set Paystack:Enabled to true
+    // (and bring the card option back to checkout). Until then both endpoints are 404.
+    private bool Enabled => _config.GetValue<bool>("Paystack:Enabled");
+
     /// <summary>Verify a Paystack payment and mark the order as paid</summary>
     [HttpPost("verify/{reference}")]
     [Authorize]
     public async Task<IActionResult> Verify(string reference)
     {
+        if (!Enabled) return NotFound(new { message = "Card payments aren't available." });
+
         var secretKey = _config["Paystack:SecretKey"];
         if (string.IsNullOrEmpty(secretKey))
             return StatusCode(503, new { message = "Payment verification not configured." });
@@ -90,6 +96,8 @@ public class PaystackController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> Webhook()
     {
+        if (!Enabled) return NotFound();
+
         using var reader = new StreamReader(Request.Body);
         var body = await reader.ReadToEndAsync();
 

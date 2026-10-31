@@ -137,7 +137,10 @@ export default function AdminPosReceipt() {
               {sale.discountAmount > 0 && (
                 <tr><td className="py-0.5 text-surface-500">Discount</td><td className="py-0.5 text-right">–{naira(sale.discountAmount)}</td></tr>
               )}
-              <tr><td className="py-0.5 text-surface-500">VAT (7.5%)</td><td className="py-0.5 text-right">{naira(sale.tax)}</td></tr>
+              {/* Only sales from before VAT was dropped have any */}
+              {sale.tax > 0 && (
+                <tr><td className="py-0.5 text-surface-500">VAT (7.5%)</td><td className="py-0.5 text-right">{naira(sale.tax)}</td></tr>
+              )}
               <tr className="border-t border-surface-300 font-bold text-base">
                 <td className="pt-2">Total</td><td className="pt-2 text-right">{naira(sale.total)}</td>
               </tr>
