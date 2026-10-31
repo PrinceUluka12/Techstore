@@ -348,7 +348,7 @@ export default function AdminProducts() {
 
   const load = () => {
     setLoading(true)
-    productApi.search({ query, page, pageSize, sortBy: 'newest', sortDir: 'desc' })
+    productApi.search({ query, page, pageSize, sortBy: 'newest', sortDir: 'desc', includeInactive: true })
       .then(r => { setProducts(r.data.items); setTotal(r.data.total) })
       .finally(() => setLoading(false))
   }
