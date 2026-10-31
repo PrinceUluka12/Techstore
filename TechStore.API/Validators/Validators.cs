@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using FluentValidation;
 using TechStore.API.DTOs.Pos;
 using TechStore.API.DTOs.Transfer;
+using TechStore.API.DTOs.BankAccount;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
@@ -124,6 +125,17 @@ public class CreateTransferRequestValidator : AbstractValidator<CreateTransferRe
             item.RuleFor(i => i.Quantity).InclusiveBetween(1, 999);
         });
         RuleFor(x => x.Notes).MaximumLength(500);
+    }
+}
+
+public class SaveBankAccountRequestValidator : AbstractValidator<SaveBankAccountRequest>
+{
+    public SaveBankAccountRequestValidator()
+    {
+        RuleFor(x => x.BankName).NotEmpty().WithMessage("Enter the bank's name.").MaximumLength(100);
+        RuleFor(x => x.AccountName).NotEmpty().WithMessage("Enter the account name.").MaximumLength(150);
+        // Nigerian account numbers (NUBAN) are 10 digits
+        RuleFor(x => x.AccountNumber).Matches(@"^\d{10}$").WithMessage("Enter the 10-digit account number.");
     }
 }
 

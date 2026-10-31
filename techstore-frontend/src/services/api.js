@@ -210,4 +210,14 @@ export const roleApi = {
   delete:         (id)      => api.delete(`/roles/${id}`),
 }
 
+// ── Bank accounts (where customers pay for online orders) ────────────────────
+export const bankAccountApi = {
+  list:    ()         => api.get('/bank-accounts'),          // shown at checkout
+  all:     ()         => api.get('/bank-accounts/all'),      // admin
+  create:  (data)     => api.post('/bank-accounts', data),
+  update:  (id, data) => api.put(`/bank-accounts/${id}`, data),
+  delete:  (id)       => api.delete(`/bank-accounts/${id}`),
+  history: (params)   => api.get('/bank-accounts/history', { params }),
+}
+
 export default api

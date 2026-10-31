@@ -72,6 +72,11 @@ public class OrderService : IOrderService
         if (cart == null || !cart.Items.Any())
             throw new InvalidOperationException("Cart is empty.");
 
+        // Bank transfer is how online orders are paid, so there has to be an account to pay into
+        if (req.PaymentMethod is null or "BankTransfer" && !await _db.BankAccounts.AnyAsync(b => b.IsActive))
+            throw new InvalidOperationException(
+                "Online orders are paused: there's no bank account to pay into yet. Please call or visit one of our shops.");
+
         // Online orders sell from the shop that sends online orders
         var store = await _stores.GetOnlineAsync();
 

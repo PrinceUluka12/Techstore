@@ -10,6 +10,7 @@ import { authApi, cartApi, orderApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
 import { Input, Spinner } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
+import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
 import {
   emailRules, nameRules, passwordRules, phoneRules, postalCodeRules,
   requiredText, maxText, normalizePhone, showApiError,
@@ -161,51 +162,32 @@ export function RegisterPage() {
 }
 
 // ── Bank transfer details ─────────────────────────────────────────────────────
-function BankTransferDetails({ orderTotal }) {
-  const [copied, setCopied] = useState(null)
+// accounts: from useBankAccounts (null while loading)
+function BankTransferDetails({ orderTotal, accounts }) {
+  if (accounts === null)
+    return <div className="mt-4 pt-4 border-t border-surface-100 flex justify-center py-6"><Spinner /></div>
 
-  const bankDetails = [
-    { label: 'Bank',           value: 'First Bank Nigeria' },
-    { label: 'Account Name',   value: 'Hytel Phones Nigeria Ltd' },
-    { label: 'Account Number', value: '3012345678', copyable: true },
-    { label: 'Sort Code',      value: '011', copyable: false },
-  ]
-
-  const copy = (val, key) => {
-    navigator.clipboard.writeText(val)
-    setCopied(key)
-    toast.success('Copied!')
-    setTimeout(() => setCopied(null), 2000)
-  }
+  if (accounts.length === 0) return (
+    <div className="mt-4 pt-4 border-t border-surface-100">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <p className="font-semibold mb-1">Online orders are paused</p>
+        <p className="text-xs text-amber-700">We can't take payment online right now. Please call or visit one of our shops to buy.</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-4 mt-4 pt-4 border-t border-surface-100">
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
         <p className="text-sm font-semibold text-amber-800 mb-1">How it works</p>
         <ol className="text-xs text-amber-700 space-y-1 list-decimal list-inside">
-          <li>Transfer <strong>₦{orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</strong> to the account below</li>
+          <li>Transfer <strong>₦{orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</strong> to {accounts.length > 1 ? 'one of the accounts' : 'the account'} below</li>
           <li>Use your name as the payment reference</li>
           <li>Your order will be confirmed within 1–2 business hours</li>
         </ol>
       </div>
 
-      <div className="rounded-xl border border-surface-200 overflow-hidden">
-        {bankDetails.map((row, i) => (
-          <div key={row.label}
-            className={`flex items-center justify-between px-4 py-3 text-sm ${i % 2 === 0 ? 'bg-surface-50' : 'bg-white'} ${i > 0 ? 'border-t border-surface-100' : ''}`}>
-            <span className="text-surface-500 flex-shrink-0 w-28 sm:w-36">{row.label}</span>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-surface-900">{row.value}</span>
-              {row.copyable && (
-                <button type="button" onClick={() => copy(row.value, row.label)}
-                  className={`text-xs px-2 py-0.5 rounded-md transition-colors ${copied === row.label ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-100 text-surface-600 hover:bg-brand-50 hover:text-brand-600'}`}>
-                  {copied === row.label ? '✓ Copied' : 'Copy'}
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <BankAccountList accounts={accounts} />
 
       <Input
         label="Transfer Reference / Sender Name"
@@ -273,6 +255,7 @@ const CHECKOUT_FIELDS = {
 export function CheckoutPage() {
   const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]               = useState(false)
+  const accounts = useBankAccounts()            // nothing to pay into = online orders paused
   const { items, total, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
   const navigate = useNavigate()
 
@@ -390,7 +373,7 @@ export function CheckoutPage() {
                 <h2 className="font-semibold text-surface-900">Payment: Bank Transfer</h2>
               </div>
 
-              <BankTransferDetails orderTotal={orderTotal} />
+              <BankTransferDetails orderTotal={orderTotal} accounts={accounts} />
             </div>
 
             {/* Notes */}
@@ -402,7 +385,7 @@ export function CheckoutPage() {
             </div>
 
             {/* Place order */}
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || !accounts?.length}
               className="btn-primary w-full btn-lg text-base font-bold gap-3">
               {loading
                 ? <><Spinner size="sm" /> Processing…</>

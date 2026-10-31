@@ -29,6 +29,8 @@ public class AppDbContext : DbContext
     public DbSet<OrderItemSerial> OrderItemSerials => Set<OrderItemSerial>();
     public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
     public DbSet<StockTransferItem> StockTransferItems => Set<StockTransferItem>();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+    public DbSet<BankAccountLog> BankAccountLogs => Set<BankAccountLog>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -136,6 +138,22 @@ public class AppDbContext : DbContext
                 .HasForeignKey(i => i.StockTransferId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(i => i.Product).WithMany()
                 .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // BankAccount — where customers pay for online orders; BankAccountLog — its history
+        builder.Entity<BankAccount>(e =>
+        {
+            e.Property(b => b.BankName).HasMaxLength(100);
+            e.Property(b => b.AccountName).HasMaxLength(150);
+            e.Property(b => b.AccountNumber).HasMaxLength(10);
+        });
+        builder.Entity<BankAccountLog>(e =>
+        {
+            e.Property(l => l.Action).HasMaxLength(20);
+            e.Property(l => l.Details).HasMaxLength(1000);
+            e.Property(l => l.ChangedByName).HasMaxLength(200);
+            e.Property(l => l.ChangedByEmail).HasMaxLength(256);
+            e.HasIndex(l => l.ChangedAt);
         });
 
         // OrderItemSerial — IMEI / serial number per unit sold
