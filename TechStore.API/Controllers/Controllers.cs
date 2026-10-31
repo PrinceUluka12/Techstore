@@ -170,10 +170,11 @@ public class ProductsController : ControllerBase
     private readonly IProductService _products;
     public ProductsController(IProductService products) => _products = products;
 
-    /// <summary>Search and filter products</summary>
+    /// <summary>Search and filter products. Deactivated ones are left out unless staff who manage
+    /// products ask for them (includeInactive=true, for the admin Products page).</summary>
     [HttpGet]
     public async Task<IActionResult> Search([FromQuery] ProductSearchParams p) =>
-        Ok(await _products.SearchAsync(p));
+        Ok(await _products.SearchAsync(p with { IncludeInactive = p.IncludeInactive && User.HasPermission(Perms.ProductsManage) }));
 
     /// <summary>Get featured products</summary>
     [HttpGet("featured")]
@@ -195,7 +196,10 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var product = await _products.GetByIdAsync(id);
-        return product == null ? NotFound() : Ok(product);
+        // A deactivated product is gone as far as shoppers are concerned
+        if (product == null || (!product.IsActive && !User.HasPermission(Perms.ProductsManage)))
+            return NotFound();
+        return Ok(product);
     }
 
     /// <summary>Create a new product</summary>

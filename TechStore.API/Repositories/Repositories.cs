@@ -104,6 +104,9 @@ public class ProductRepository : IProductRepository
     {
         var q = _db.Products.Include(p => p.Category).IncludeOnlineStock().AsQueryable();
 
+        // Deactivating is how products are removed, so the shop never lists them
+        if (!s.IncludeInactive) q = q.Where(p => p.IsActive);
+
         if (!string.IsNullOrWhiteSpace(s.Query))
             q = q.Where(p => p.Name.Contains(s.Query) || (p.Description != null && p.Description.Contains(s.Query))
                 || (p.Brand != null && p.Brand.Contains(s.Query)) || p.SKU.Contains(s.Query));

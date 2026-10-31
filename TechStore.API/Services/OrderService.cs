@@ -77,6 +77,11 @@ public class OrderService : IOrderService
 
         foreach (var item in cart.Items)
         {
+            // It may have been deactivated after it went into the cart
+            if (item.Product is not { IsActive: true })
+                throw new InvalidOperationException(
+                    $"'{item.Product?.Name}' is no longer available. Remove it from your cart to continue.");
+
             var available = item.Product?.OnlineInventory?.QuantityAvailable ?? 0;
             if (available < item.Quantity)
                 throw new InvalidOperationException(

@@ -71,7 +71,8 @@ public record ProductSearchParams(
     string SortBy = "name",
     string SortDir = "asc",
     int Page = 1,
-    int PageSize = 20
+    int PageSize = 20,
+    bool IncludeInactive = false // deactivated products too; only honoured for staff who manage products
 );
 
 public record CategoryDto(int Id, string Name, string? Description, string? ImageUrl, bool IsActive, int ProductCount);
