@@ -8,7 +8,7 @@ import {
 import toast from 'react-hot-toast'
 import { authApi, cartApi, orderApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
-import { Input, Spinner } from '../../components/ui'
+import { Input, Spinner, ProductImage } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
 import {
@@ -412,7 +412,7 @@ export function CheckoutPage() {
                   <div key={item.id} className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-lg bg-white border border-surface-100 flex-shrink-0 overflow-hidden">
                       {item.productImageUrl
-                        ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
+                        ? <ProductImage src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
                         : <div className="w-full h-full flex items-center justify-center text-surface-300 text-xs">IMG</div>}
                     </div>
                     <div className="flex-1 min-w-0">

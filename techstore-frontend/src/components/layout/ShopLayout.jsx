@@ -8,7 +8,7 @@ import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useAuthStore, useCartStore, useUIStore } from '../../store'
 import { authApi, cartApi } from '../../services/api'
-import { Spinner } from '../ui'
+import { Spinner, ProductImage } from '../ui'
 
 // Pages a staff member can access, in sidebar order (keep in step with AdminLayout's navSections)
 const STAFF_PAGES = [
@@ -238,7 +238,7 @@ export function CartDrawer() {
             <div key={item.id} className="flex gap-3">
               <div className="w-16 h-16 rounded-xl bg-white border border-surface-100 flex-shrink-0 overflow-hidden">
                 {item.productImageUrl
-                  ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
+                  ? <ProductImage src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
                   : <div className="w-full h-full flex items-center justify-center text-surface-300"><Package className="w-6 h-6" /></div>}
               </div>
               <div className="flex-1 min-w-0">

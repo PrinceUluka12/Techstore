@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { useState } from 'react'
 import { cartApi } from '../../services/api'
 import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '../../store'
-import { Spinner, Price } from '../ui'
+import { Spinner, Price, ProductImage } from '../ui'
 
 export function ProductCard({ product }) {
   const { isAuthenticated } = useAuthStore()
@@ -48,7 +48,7 @@ export function ProductCard({ product }) {
       {/* Image */}
       <div className="relative aspect-square bg-white overflow-hidden">
         {product.imageUrl
-          ? <img src={product.imageUrl} alt={product.name}
+          ? <ProductImage src={product.imageUrl} alt={product.name}
               className="w-full h-full object-contain p-3 group-hover:scale-105 transition-transform duration-500" />
           : <div className="w-full h-full flex items-center justify-center">
               <Package className="w-16 h-16 text-surface-200" />
