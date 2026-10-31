@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { couponApi, wishlistApi } from '../services/api'
+import { cartApi, couponApi, wishlistApi } from '../services/api'
 
 
 // ── Auth Store ────────────────────────────────────────────────────────────────
@@ -54,11 +54,14 @@ export const useAuthStore = create(
 )
 
 // ── Cart Store ────────────────────────────────────────────────────────────────
+// The cart itself is kept on the server; this is the page's copy of it. After a page
+// reload it's empty until loadCart has fetched it (loaded = true once it has).
 export const useCartStore = create((set, get) => ({
   items: [],
   total: 0,
   itemCount: 0,
   cartId: null,
+  loaded: false,
   couponCode: null,
   discountAmount: 0,
   couponLoading: false,
@@ -69,10 +72,17 @@ export const useCartStore = create((set, get) => ({
     total: cart.subTotal,
     itemCount: cart.totalItems,
     cartId: cart.id,
+    loaded: true,
   }),
 
+  loadCart: async () => {
+    try { const { data } = await cartApi.get(); get().setCart(data) }
+    catch { set({ loaded: true }) } // signed out or offline: treat as empty
+  },
+
+  // After an order or on sign-out the cart is known to be empty
   clearLocal: () => set({
-    items: [], total: 0, itemCount: 0, cartId: null,
+    items: [], total: 0, itemCount: 0, cartId: null, loaded: true,
     couponCode: null, discountAmount: 0, couponError: null,
   }),
 

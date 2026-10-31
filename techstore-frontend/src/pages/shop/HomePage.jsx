@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { ArrowRight, Star, ChevronRight } from 'lucide-react'
-import { productApi, cartApi } from '../../services/api'
+import { productApi } from '../../services/api'
 import { ProductGrid } from '../../components/shop/ProductCard'
 import { Navbar, CartDrawer, Footer } from '../../components/layout/ShopLayout'
-import { useCartStore, useAuthStore } from '../../store'
 import { ProductImage } from '../../components/ui'
 
 const perks = [
@@ -102,18 +101,14 @@ export default function HomePage() {
   const [featured, setFeatured]   = useState([])
   const [hotItems, setHotItems]   = useState([])
   const [loading, setLoading]     = useState(true)
-  const { setCart }               = useCartStore()
-  const { isAuthenticated }       = useAuthStore()
 
+  // (The cart is loaded by the Navbar on every shop page)
   useEffect(() => {
     productApi.featured().then(r => setFeatured(r.data)).finally(() => setLoading(false))
     productApi.search({ page: 1, pageSize: 4, sortBy: 'newest', sortDir: 'desc' })
       .then(r => setHotItems((r.data.items ?? []).filter(p => p.imageUrl).slice(0, 3)))
       .catch(() => {})
-    if (isAuthenticated) {
-      cartApi.get().then(r => setCart(r.data)).catch(() => {})
-    }
-  }, [isAuthenticated])
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
