@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Eye, Clock, User, ArrowRight, CheckCircle, XCircle, Package, Search } from 'lucide-react'
 import { orderApi, storeApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
-import { Modal, StatusBadge, Spinner, Pagination } from '../../components/ui'
+import { Modal, StatusBadge, Spinner, Pagination, ProductImage } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { Link } from 'react-router-dom'
@@ -253,7 +253,7 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                       className={`flex items-center gap-3 p-3 ${i > 0 ? 'border-t border-surface-100' : ''}`}>
                       <div className="w-10 h-10 rounded-lg bg-white border border-surface-100 flex-shrink-0 overflow-hidden">
                         {item.productImageUrl
-                          ? <img src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
+                          ? <ProductImage src={item.productImageUrl} alt={item.productName} className="w-full h-full object-contain p-1" />
                           : <div className="w-full h-full flex items-center justify-center text-surface-300 text-xs">IMG</div>}
                       </div>
                       <div className="flex-1 min-w-0">

@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { authApi, posApi, storeApi } from '../../services/api'
 import { useAuthStore } from '../../store'
 import { AdminLayout } from '../../components/layout/AdminLayout'
-import { Modal, Spinner } from '../../components/ui'
+import { Modal, Spinner, ProductImage } from '../../components/ui'
 import { isValidImei, EMAIL_RE, NG_PHONE_RE, PIN_RE, normalizePhone, showApiError } from '../../utils/validation'
 
 const VAT_RATE = 0.075 // same as PosService / online checkout
@@ -74,7 +74,7 @@ function ProductSearch({ storeId, onAdd }) {
             disabled={p.quantityAvailable <= 0}
             className="w-full flex items-center gap-3 px-1 py-2 text-left hover:bg-surface-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
             <div className="w-9 h-9 rounded-lg bg-surface-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {p.imageUrl ? <img src={p.imageUrl} alt="" className="w-full h-full object-contain" /> : <Package className="w-4 h-4 text-surface-300" />}
+              {p.imageUrl ? <ProductImage src={p.imageUrl} alt="" className="w-full h-full object-contain" /> : <Package className="w-4 h-4 text-surface-300" />}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-surface-900 truncate">{p.name}</p>

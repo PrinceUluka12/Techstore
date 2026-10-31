@@ -6,6 +6,7 @@ import { productApi, cartApi } from '../../services/api'
 import { ProductGrid } from '../../components/shop/ProductCard'
 import { Navbar, CartDrawer, Footer } from '../../components/layout/ShopLayout'
 import { useCartStore, useAuthStore } from '../../store'
+import { ProductImage } from '../../components/ui'
 
 const perks = [
   {
@@ -207,7 +208,7 @@ export default function HomePage() {
                     <Link key={item.id} to={`/products/${item.id}`}
                       className="flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 rounded-xl p-3 transition-all duration-200 group">
                       <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/8">
-                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                        <ProductImage src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white/80 text-sm font-medium truncate group-hover:text-white transition-colors">
