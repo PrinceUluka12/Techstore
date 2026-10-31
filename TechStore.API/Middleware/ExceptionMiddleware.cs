@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using TechStore.API.Helpers;
 
 namespace TechStore.API.Middleware;
 
@@ -22,6 +23,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
         var (status, message, isExpected) = ex switch
         {
             UnauthorizedAccessException  => (HttpStatusCode.Unauthorized,          ex.Message,                       true),
+            ForbiddenException           => (HttpStatusCode.Forbidden,              ex.Message,                       true),
             KeyNotFoundException         => (HttpStatusCode.NotFound,               ex.Message,                       true),
             InvalidOperationException    => (HttpStatusCode.BadRequest,             ex.Message,                       true),
             ArgumentException            => (HttpStatusCode.BadRequest,             ex.Message,                       true),

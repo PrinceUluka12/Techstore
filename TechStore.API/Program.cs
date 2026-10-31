@@ -189,12 +189,21 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseForwardedHeaders(); // before the rate limiter, which counts per visitor IP
 app.UseRateLimiter();
 
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+// Swagger lists every endpoint, so it's only served when running locally. On live, the root
+// address just says the API is up (Azure's Always On and any uptime checks ping it).
+if (app.Environment.IsDevelopment())
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Hytel Phones API v1");
-    c.RoutePrefix = string.Empty;
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Hytel Phones API v1");
+        c.RoutePrefix = string.Empty;
+    });
+}
+else
+{
+    app.MapGet("/", () => "Hytel Phones API is running.");
+}
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");

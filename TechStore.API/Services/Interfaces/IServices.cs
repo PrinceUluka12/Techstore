@@ -23,14 +23,14 @@ public interface IAuthService
     Task LogoutAsync(int userId, string? refreshToken = null);
     Task LogoutEverywhereAsync(int userId);
     Task ChangePasswordAsync(int userId, string currentPassword, string newPassword);
-    Task PromoteToAdminAsync(int targetUserId);
     Task<UserProfileDto?> GetProfileAsync(int userId);
     Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateProfileRequest request);
     Task ForgotPasswordAsync(string email);
     Task ResetPasswordAsync(string token, string newPassword);
-    Task<UserProfileDto> CreateStaffAccountAsync(CreateStaffRequest request);
-    Task AssignRoleAsync(int targetUserId, string role);
-    Task AssignStoreAsync(int targetUserId, int? storeId);
+    // actorId is the signed-in member of staff making the change
+    Task<UserProfileDto> CreateStaffAccountAsync(int actorId, CreateStaffRequest request);
+    Task AssignRoleAsync(int actorId, int targetUserId, string role);
+    Task AssignStoreAsync(int actorId, int targetUserId, int? storeId);
 }
 
 public interface IEmailService
@@ -138,18 +138,21 @@ public interface IAdminService
     Task<DashboardStatsDto> GetDashboardStatsAsync();
     Task<SalesReportDto> GetSalesReportAsync(DateTime from, DateTime to);
     Task<PagedResult<UserAdminDto>> GetUsersAsync(int page, int pageSize, bool? staff = null);
-    Task<bool> ToggleUserStatusAsync(int userId);
+    Task<bool> ToggleUserStatusAsync(int actorId, int userId);
 }
 
 public interface IRoleService
 {
     Task<IEnumerable<RoleDto>> GetAllAsync();
     Task<RoleDto?> GetByIdAsync(int id);
-    Task<RoleDto> CreateAsync(CreateRoleRequest request);
-    Task<RoleDto> UpdateAsync(int id, UpdateRoleRequest request);
-    Task DeleteAsync(int id);
+    Task<RoleDto> CreateAsync(int actorId, CreateRoleRequest request);
+    Task<RoleDto> UpdateAsync(int actorId, int id, UpdateRoleRequest request);
+    Task DeleteAsync(int actorId, int id);
     Task<IEnumerable<PermissionInfoDto>> GetAvailablePermissionsAsync();
     Task<IEnumerable<string>> GetPermissionsForRoleAsync(string roleName);
+    // Throw a ForbiddenException when the actor isn't allowed (see RoleService)
+    Task EnsureCanManageUserAsync(int actorId, User target);
+    Task EnsureCanGiveRoleAsync(int actorId, string role);
 }
 
 public record PagedResult<T>(IEnumerable<T> Items, int Total, int Page, int PageSize)

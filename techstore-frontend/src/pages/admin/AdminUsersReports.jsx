@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { UserCheck, UserX, TrendingUp, Calendar, UserPlus, X, Shield } from 'lucide-react'
 import { adminApi, roleApi, storeApi } from '../../services/api'
+import { useAuthStore } from '../../store'
 import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Spinner, Pagination } from '../../components/ui'
 import { Input } from '../../components/ui'
@@ -10,14 +11,29 @@ import toast from 'react-hot-toast'
 import { format, subDays } from 'date-fns'
 import { emailRules, nameRules, passwordRules, showApiError } from '../../utils/validation'
 
-function useRoles() {
+// What the signed-in person may do to staff accounts (the API checks the same rules):
+// an Admin can change anyone but can't change their own role or switch themselves off.
+// Anyone else with "Manage users" only gives out roles within their own permissions, and
+// can't change their own account, an Admin's, or someone with permissions they don't have.
+function useStaffRules() {
   const [roles, setRoles] = useState([])
+  const { user: me, isAdmin } = useAuthStore()
   useEffect(() => {
-    roleApi.getAll()
-      .then(r => setRoles(r.data.map(role => role.name)))
-      .catch(() => setRoles(['Customer', 'Admin']))
+    roleApi.getAll().then(r => setRoles(r.data)).catch(() => setRoles([]))
   }, [])
-  return roles
+
+  const admin = isAdmin()
+  const mine = new Set(me?.permissions ?? [])
+  const withinMine = name => name !== 'Admin' &&
+    (roles.find(r => r.name === name)?.permissions ?? []).every(p => mine.has(p))
+  const canManage = u => admin || (mine.has('users.manage') && u.id !== me?.id && withinMine(u.role))
+
+  return {
+    assignable: roles.map(r => r.name).filter(name => admin || withinMine(name)),
+    canManage,
+    canChangeRole: u => u.id !== me?.id && canManage(u),
+    canToggle:     u => u.id !== me?.id && canManage(u),
+  }
 }
 
 function useStores() {
@@ -34,7 +50,7 @@ function CreateStaffModal({ onClose, onCreated }) {
     mode: 'onTouched', defaultValues: { role: '' },
   })
   const [saving, setSaving] = useState(false)
-  const roles = useRoles()
+  const { assignable } = useStaffRules()
   const stores = useStores()
 
   const onSubmit = async (data) => {
@@ -82,7 +98,7 @@ function CreateStaffModal({ onClose, onCreated }) {
               {...register('lastName', nameRules('Last name'))} />
           </div>
 
-          <Input label="Email Address" type="email" placeholder="staff@pgusolutions.com"
+          <Input label="Email Address" type="email" placeholder="staff@example.com"
             autoComplete="off"
             error={errors.email?.message}
             {...register('email', emailRules)} />
@@ -96,7 +112,7 @@ function CreateStaffModal({ onClose, onCreated }) {
             <label className="label">Role</label>
             <select className="input text-sm" {...register('role', { required: 'Select a role' })}>
               <option value="">Choose a role…</option>
-              {roles.filter(r => r !== 'Customer').map(r => <option key={r} value={r}>{r}</option>)}
+              {assignable.filter(r => r !== 'Customer').map(r => <option key={r} value={r}>{r}</option>)}
             </select>
             {errors.role && <p className="text-xs text-red-500 mt-1">{errors.role.message}</p>}
             <p className="text-xs text-surface-400 mt-1.5">
@@ -126,8 +142,11 @@ function CreateStaffModal({ onClose, onCreated }) {
 }
 
 // ── Role selector cell ────────────────────────────────────────────────────────
-function RoleCell({ user, allRoles, onChanged }) {
+function RoleCell({ user, options, editable, onChanged }) {
   const [loading, setLoading] = useState(false)
+  const colours = user.role === 'Admin'
+    ? 'bg-brand-50 text-brand-700 border-brand-200'
+    : 'bg-surface-100 text-surface-600 border-surface-200'
 
   const handleChange = async (e) => {
     const newRole = e.target.value
@@ -145,15 +164,14 @@ function RoleCell({ user, allRoles, onChanged }) {
 
   return (
     <div className="flex items-center gap-2">
-      {loading ? <Spinner size="sm" /> : (
+      {loading ? <Spinner size="sm" /> : !editable ? (
+        <span className={`text-xs font-medium rounded-lg px-2 py-1 border ${colours}`}>{user.role}</span>
+      ) : (
         <select
           value={user.role}
           onChange={handleChange}
-          className={`text-xs font-medium rounded-lg px-2 py-1 border focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer
-            ${user.role === 'Admin'
-              ? 'bg-brand-50 text-brand-700 border-brand-200'
-              : 'bg-surface-100 text-surface-600 border-surface-200'}`}>
-          {allRoles.map(r => <option key={r} value={r}>{r}</option>)}
+          className={`text-xs font-medium rounded-lg px-2 py-1 border focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer ${colours}`}>
+          {[...new Set([user.role, ...options])].map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       )}
       {user.role === 'Admin' && <Shield className="w-3 h-3 text-brand-500" />}
@@ -162,9 +180,12 @@ function RoleCell({ user, allRoles, onChanged }) {
 }
 
 // ── Home shop cell (staff only) ───────────────────────────────────────────────
-function StoreCell({ user, stores, onChanged }) {
+function StoreCell({ user, stores, editable, onChanged }) {
   const [loading, setLoading] = useState(false)
   if (user.role === 'Customer') return <span className="text-xs text-surface-300">—</span>
+  if (!editable) return (
+    <span className="text-xs text-surface-600">{stores.find(s => s.id === user.storeId)?.name ?? 'No shop'}</span>
+  )
 
   const handleChange = async (e) => {
     const storeId = e.target.value ? Number(e.target.value) : null
@@ -196,7 +217,7 @@ export function AdminUsers({ staff = false }) {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [showCreate, setShowCreate] = useState(false)
-  const allRoles = useRoles()
+  const rules = useStaffRules()
   const stores = useStores()
   const pageSize = 20
   const totalPages = Math.ceil(total / pageSize)
@@ -217,7 +238,7 @@ export function AdminUsers({ staff = false }) {
       await adminApi.toggleUser(userId)
       toast.success(`User ${isActive ? 'deactivated' : 'activated'}`)
       load()
-    } catch { toast.error('Action failed') }
+    } catch (err) { toast.error(err.response?.data?.message || 'Action failed') }
   }
 
   return (
@@ -275,9 +296,9 @@ export function AdminUsers({ staff = false }) {
                   </td>
                   <td><span className="text-sm text-surface-600">{u.email}</span></td>
                   <td><span className="text-sm text-surface-500">{u.phone || '—'}</span></td>
-                  <td><RoleCell user={u} allRoles={allRoles} onChanged={load} /></td>
+                  <td><RoleCell user={u} options={rules.assignable} editable={rules.canChangeRole(u)} onChanged={load} /></td>
                   {staff ? (
-                    <td><StoreCell user={u} stores={stores} onChanged={load} /></td>
+                    <td><StoreCell user={u} stores={stores} editable={rules.canManage(u)} onChanged={load} /></td>
                   ) : <>
                     <td><span className="text-sm font-medium">{u.totalOrders}</span></td>
                     <td><span className="text-sm font-semibold text-surface-900">₦{u.totalSpent.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></td>
@@ -289,11 +310,13 @@ export function AdminUsers({ staff = false }) {
                   </td>
                   <td><span className="text-xs text-surface-400">{format(new Date(u.createdAt), 'MMM d, yyyy')}</span></td>
                   <td>
-                    <button onClick={() => toggleUser(u.id, `${u.firstName} ${u.lastName}`, u.isActive)}
-                      className={`btn-icon ${u.isActive ? 'text-red-400 hover:bg-red-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
-                      title={u.isActive ? 'Deactivate' : 'Activate'}>
-                      {u.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
-                    </button>
+                    {rules.canToggle(u) ? (
+                      <button onClick={() => toggleUser(u.id, `${u.firstName} ${u.lastName}`, u.isActive)}
+                        className={`btn-icon ${u.isActive ? 'text-red-400 hover:bg-red-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                        title={u.isActive ? 'Deactivate' : 'Activate'}>
+                        {u.isActive ? <UserX className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                      </button>
+                    ) : <span className="text-xs text-surface-300">—</span>}
                   </td>
                 </tr>
               ))}

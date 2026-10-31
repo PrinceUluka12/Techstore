@@ -9,13 +9,15 @@ public class EmailService : IEmailService
     private readonly string _connectionString;
     private readonly string _from;
     private readonly string _fromName;
+    private readonly string _siteUrl;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(IConfiguration config, ILogger<EmailService> logger)
     {
         _connectionString = config["Email:ConnectionString"] ?? "";
-        _from             = config["Email:From"] ?? "admin@pgusolutions.com";
+        _from             = config["Email:From"] ?? "";
         _fromName         = config["Email:FromName"] ?? "Hytel Phones";
+        _siteUrl          = (config["Email:SiteUrl"] ?? "").TrimEnd('/'); // the shop, for links in emails
         _logger           = logger;
     }
 
@@ -23,7 +25,7 @@ public class EmailService : IEmailService
         Send(toEmail, $"Welcome to Hytel Phones, {firstName}!", $"""
             <h2>Welcome, {firstName}!</h2>
             <p>Thank you for creating your Hytel Phones account. You can now shop our full range of smartphones, tablets, laptops and more.</p>
-            <p><a href="https://www.pgusolutions.com/products" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">Start Shopping</a></p>
+            <p><a href="{_siteUrl}/products" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">Start Shopping</a></p>
             <p style="color:#6b7280;font-size:13px;margin-top:24px">If you didn't create this account, you can safely ignore this email.</p>
             """);
 
@@ -37,7 +39,7 @@ public class EmailService : IEmailService
               <tr><td style="padding:8px 0;color:#6b7280">Status</td><td><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:999px;font-size:13px">Pending</span></td></tr>
             </table>
             <p>We'll send you another email when your order ships. You can track your order in your account.</p>
-            <p><a href="https://www.pgusolutions.com/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">View Order</a></p>
+            <p><a href="{_siteUrl}/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">View Order</a></p>
             """);
 
     public Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus) =>
@@ -45,7 +47,7 @@ public class EmailService : IEmailService
             <h2>Order Status Updated</h2>
             <p>Hi {firstName}, your order <strong>{orderNumber}</strong> has been updated.</p>
             <p>New status: <strong>{newStatus}</strong></p>
-            <p><a href="https://www.pgusolutions.com/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Track Order</a></p>
+            <p><a href="{_siteUrl}/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Track Order</a></p>
             """);
 
     public Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink) =>
@@ -58,6 +60,12 @@ public class EmailService : IEmailService
 
     private async Task Send(string toEmail, string subject, string htmlBody)
     {
+        if (string.IsNullOrEmpty(_from))
+        {
+            _logger.LogWarning("Email not sent — no sender address (Email:From) configured. To: {Email}, Subject: {Subject}", toEmail, subject);
+            return;
+        }
+
         if (string.IsNullOrEmpty(_connectionString))
         {
             _logger.LogWarning("Email not sent — ACS connection string not configured. To: {Email}, Subject: {Subject}", toEmail, subject);
