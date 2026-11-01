@@ -69,6 +69,7 @@ const PERMISSION_TO_ROUTE = [
   { perm: 'stores.manage',    route: '/admin/shops' },
   { perm: 'pos.sell',         route: '/admin/pos' },
   { perm: 'transfers.manage', route: '/admin/transfers' },
+  { perm: 'pages.manage',     route: '/admin/policies' },
 ]
 
 function RequireAdmin({ children }) {

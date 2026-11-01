@@ -12,7 +12,7 @@ using TechStore.API.Data;
 namespace TechStore.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261101212737_AddPolicyVersions")]
+    [Migration("20261101233009_AddPolicyVersions")]
     partial class AddPolicyVersions
     {
         /// <inheritdoc />
@@ -822,7 +822,11 @@ namespace TechStore.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Slug");
+                    b.HasIndex(new[] { "Slug" }, "IX_PolicyVersions_Slug");
+
+                    b.HasIndex(new[] { "Slug" }, "IX_PolicyVersions_StartingText")
+                        .IsUnique()
+                        .HasFilter("[CreatedById] IS NULL");
 
                     b.ToTable("PolicyVersions");
                 });

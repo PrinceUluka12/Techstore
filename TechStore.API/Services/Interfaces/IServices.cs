@@ -69,6 +69,7 @@ public interface IPolicyService
     Task<IEnumerable<PolicyPageDto>> ListAsync();
     Task<PolicyPageDto?> SaveAsync(string slug, string body, int userId);
     Task<IEnumerable<PolicyVersionDto>?> HistoryAsync(string slug);
+    Task EnsureStartingVersionsAsync();
 }
 
 public interface IStockAlertService

@@ -196,6 +196,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
+    // The policy pages' starting text becomes their first version, so their history is complete
+    await scope.ServiceProvider.GetRequiredService<IPolicyService>().EnsureStartingVersionsAsync();
 }
 
 app.UseMiddleware<ExceptionMiddleware>();

@@ -281,7 +281,9 @@ public class AppDbContext : DbContext
         {
             e.Property(v => v.Slug).HasMaxLength(20);
             e.Property(v => v.CreatedByName).HasMaxLength(101);
-            e.HasIndex(v => v.Slug);
+            e.HasIndex(v => v.Slug, "IX_PolicyVersions_Slug");
+            // One starting-text version per page (the only versions with no author)
+            e.HasIndex(v => v.Slug, "IX_PolicyVersions_StartingText").IsUnique().HasFilter("[CreatedById] IS NULL");
         });
 
         // Seed system roles

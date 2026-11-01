@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TechStore.API.Data;
 using TechStore.API.DTOs.Policy;
@@ -18,10 +19,12 @@ public class PolicyService : IPolicyService
         ["disclaimer"] = "Disclaimer",
     };
 
-    // When the starting text was written: the "Last updated" date until a page is first saved
+    // When the starting text was written, which is its version's date
     private static readonly DateTime DefaultsWritten = new(2026, 11, 1, 12, 0, 0, DateTimeKind.Utc); // midday UTC: 1 November in Nigeria and nearly everywhere else
+    public const string StartingTextBy = "Starting text";
 
-    // The starting text, built into the API from Content/Policies/{slug}.md
+    // The starting text, built into the API from Content/Policies/{slug}.md. It becomes each
+    // page's first version at startup (EnsureStartingVersionsAsync).
     private static readonly Lazy<Dictionary<string, string>> Defaults = new(() => Pages.Keys.ToDictionary(slug => slug, slug =>
     {
         using var stream = typeof(PolicyService).Assembly.GetManifestResourceStream($"TechStore.API.Content.Policies.{slug}.md")
@@ -32,13 +35,30 @@ public class PolicyService : IPolicyService
     private readonly AppDbContext _db;
     public PolicyService(AppDbContext db) => _db = db;
 
+    // IsDefault: the newest version is still the starting text (no one has saved the page)
     public async Task<PolicyPageDto?> GetAsync(string slug)
     {
         if (!Pages.TryGetValue(slug, out var title)) return null;
         var latest = await Versions(slug).FirstOrDefaultAsync();
-        return latest == null
+        return latest == null // only before startup has added the starting text
             ? new PolicyPageDto(slug, title, Defaults.Value[slug], DefaultsWritten, null, true)
-            : new PolicyPageDto(slug, title, latest.Body, latest.CreatedAt, latest.CreatedByName, false);
+            : new PolicyPageDto(slug, title, latest.Body, latest.CreatedAt, latest.CreatedByName, latest.CreatedById == null);
+    }
+
+    // Each page's starting text is stored as its first version, so the history shows what the
+    // shop said before anyone edited it (what applied to orders from then). Runs at startup and
+    // does nothing once each page has a version. If two copies of the app start together, the
+    // unique index on starting versions lets only one save it.
+    public async Task EnsureStartingVersionsAsync()
+    {
+        var have = await _db.PolicyVersions.Select(v => v.Slug).Distinct().ToListAsync();
+        foreach (var slug in Pages.Keys.Except(have))
+            _db.PolicyVersions.Add(new PolicyVersion
+            {
+                Slug = slug, Body = Defaults.Value[slug].Trim(), CreatedAt = DefaultsWritten, CreatedByName = StartingTextBy,
+            });
+        try { await _db.SaveChangesAsync(); }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 }) { }
     }
 
     public async Task<IEnumerable<PolicyPageDto>> ListAsync()

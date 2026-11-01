@@ -34,12 +34,18 @@ export default function AdminPolicies() {
   }
   useEffect(load, [])
 
-  // The chosen page's current text and history; again after a save
+  // The chosen page's current text and history; again after a save. An answer that arrives
+  // after switching to another page is ignored: its "Load into the editor" would otherwise put
+  // one page's text into another's editor.
   useEffect(() => {
     if (!page) return
+    let current = true
     setDraft(page.body)
     setHistory(null)
-    policyApi.history(slug).then(r => setHistory(r.data)).catch(() => setHistory([]))
+    policyApi.history(slug)
+      .then(r => { if (current) setHistory(r.data) })
+      .catch(() => { if (current) setHistory([]) })
+    return () => { current = false }
   }, [slug, page?.updatedAt, !!pages])
 
   const choose = (next) => {

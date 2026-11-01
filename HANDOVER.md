@@ -610,7 +610,7 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 | PUT | `/{slug}` | Edit Policy Pages | Save new text: adds a version, which the shop then shows |
 | GET | `/{slug}/history` | Edit Policy Pages | Every saved version, newest first |
 
-**How it's stored:** saving never changes a version; it adds one to `PolicyVersions`, and the newest is shown. The Terms say the version shown when an order was placed is the one that applies, so the history matters. Until a page is first saved, it shows its starting text, built into the API from `TechStore.API/Content/Policies/{slug}.md`. The text is Markdown, displayed with `react-markdown` (`components/shop/PolicyText.jsx`): HTML typed into it is shown as text, and `javascript:` links are dropped.
+**How it's stored:** saving never changes a version; it adds one to `PolicyVersions`, and the newest is shown. The Terms say the version shown when an order was placed is the one that applies, so the history matters. Each page's starting text, built into the API from `TechStore.API/Content/Policies/{slug}.md`, is saved as its first version when the API starts ("Starting text", dated 1 November 2026), so the history is complete and the original wording can be brought back. A unique index allows one starting version per page, so several copies of the API starting at once can't save it twice. The text is Markdown, displayed with `react-markdown` (`components/shop/PolicyText.jsx`): HTML typed into it is shown as text, and `javascript:` links are dropped.
 
 ### Other endpoints
 

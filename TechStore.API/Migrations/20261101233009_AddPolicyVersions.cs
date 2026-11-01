@@ -39,6 +39,13 @@ namespace TechStore.API.Migrations
                 name: "IX_PolicyVersions_Slug",
                 table: "PolicyVersions",
                 column: "Slug");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PolicyVersions_StartingText",
+                table: "PolicyVersions",
+                column: "Slug",
+                unique: true,
+                filter: "[CreatedById] IS NULL");
         }
 
         /// <inheritdoc />

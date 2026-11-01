@@ -1,4 +1,6 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
+using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Tests;
 
@@ -16,6 +18,28 @@ public class PolicyTests(ApiFactory api)
         Assert.Contains("## Who can buy", r.Str("body"));
         Assert.True(r["isDefault"]!.GetValue<bool>());
         Assert.Equal(HttpStatusCode.NotFound, (await api.Call(HttpMethod.Get, "/policies/about-us")).Status);
+
+        // The starting text is the first version in the history, so it can be read (and brought back) later
+        var history = (await api.Call(HttpMethod.Get, "/policies/terms/history", api.AdminToken)).Data!.AsArray();
+        var first = Assert.Single(history)!;
+        Assert.Equal("Starting text", first["createdByName"]!.GetValue<string>());
+        Assert.Equal(r.Str("body"), first["body"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task The_starting_text_is_stored_once_however_often_the_app_starts()
+    {
+        Task ensure() => api.Service<IPolicyService, int>(async s => { await s.EnsureStartingVersionsAsync(); return 0; });
+
+        await ensure(); // started again: nothing new
+        // Three copies of the app starting at once, with the privacy page not stored yet (no other
+        // test edits that page): the unique index lets one save it and the others carry on
+        await api.Db(db => db.PolicyVersions.Where(v => v.Slug == "privacy").ExecuteDeleteAsync());
+        await Task.WhenAll(ensure(), ensure(), ensure());
+
+        var starting = await api.Db(db => db.PolicyVersions.Where(v => v.CreatedById == null)
+            .GroupBy(v => v.Slug).Select(g => g.Count()).ToListAsync());
+        Assert.Equal([1, 1, 1, 1], starting);
     }
 
     [Fact]
@@ -51,9 +75,10 @@ public class PolicyTests(ApiFactory api)
         Assert.Contains("Second wording.", shown.Str("body"));
 
         var history = (await api.Call(HttpMethod.Get, "/policies/disclaimer/history", editor.Token)).Data!.AsArray();
-        Assert.Equal(2, history.Count);
+        Assert.Equal(3, history.Count);
         Assert.Contains("Second wording.", history[0]!["body"]!.GetValue<string>()); // newest first
         Assert.Equal("Ed Test", history[1]!["createdByName"]!.GetValue<string>());
+        Assert.Equal("Starting text", history[2]!["createdByName"]!.GetValue<string>()); // still there to go back to
 
         Assert.Equal(HttpStatusCode.BadRequest, (await save("   ")).Status);
         Assert.Equal(HttpStatusCode.BadRequest, (await save(new string('x', 30001))).Status);

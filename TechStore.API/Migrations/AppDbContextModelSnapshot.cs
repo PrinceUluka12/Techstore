@@ -819,7 +819,11 @@ namespace TechStore.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Slug");
+                    b.HasIndex(new[] { "Slug" }, "IX_PolicyVersions_Slug");
+
+                    b.HasIndex(new[] { "Slug" }, "IX_PolicyVersions_StartingText")
+                        .IsUnique()
+                        .HasFilter("[CreatedById] IS NULL");
 
                     b.ToTable("PolicyVersions");
                 });
