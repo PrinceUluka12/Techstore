@@ -150,6 +150,27 @@ public class OrderFlowTests(ApiFactory api)
     }
 
     [Fact]
+    public async Task My_orders_are_paged_newest_first()
+    {
+        var buyer = await api.NewCustomer("Bayo");
+        var phone = await api.NewProduct(20000, stock: 10);
+        var ids = new List<int>();
+        for (var i = 0; i < 6; i++) ids.Add((await api.Checkout(buyer.Token, [(phone, 1)])).Int("id"));
+
+        var first = await api.Call(HttpMethod.Get, "/orders/my?page=1&pageSize=5", buyer.Token);
+        Assert.Equal(6, first.Int("total"));
+        Assert.Equal(2, first.Int("totalPages"));
+        Assert.Equal(ids[5], first["items"]!.AsArray()[0]!["id"]!.GetValue<int>());
+        Assert.Equal(5, first["items"]!.AsArray().Count);
+
+        var second = await api.Call(HttpMethod.Get, "/orders/my?page=2&pageSize=5", buyer.Token);
+        Assert.Equal(ids[0], Assert.Single(second["items"]!.AsArray())!["id"]!.GetValue<int>());
+
+        var huge = await api.Call(HttpMethod.Get, "/orders/my?page=1&pageSize=100000", buyer.Token);
+        Assert.Equal(50, huge.Int("pageSize"));
+    }
+
+    [Fact]
     public async Task Only_the_customer_and_staff_who_can_view_orders_can_open_an_order()
     {
         var buyer = await api.NewCustomer("Bayo");

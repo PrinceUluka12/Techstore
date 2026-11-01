@@ -187,11 +187,15 @@ public class OrderRepository : IOrderRepository
         _db.Orders.Include(o => o.User).Include(o => o.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(o => o.OrderNumber == num);
 
-    public async Task<IEnumerable<Order>> GetByUserIdAsync(int userId, int page, int pageSize) =>
-        await _db.Orders.Include(o => o.Items)
-            .Where(o => o.UserId == userId)
+    public async Task<(IEnumerable<Order> Items, int Total)> GetByUserIdAsync(int userId, int page, int pageSize)
+    {
+        var q = _db.Orders.Where(o => o.UserId == userId);
+        var total = await q.CountAsync();
+        var items = await q.Include(o => o.Items)
             .OrderByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        return (items, total);
+    }
 
     public async Task<(IEnumerable<Order> Items, int Total)> GetAllAsync(
         int page, int pageSize, string? status, SalesChannel? channel = null, int? storeId = null, string? search = null)

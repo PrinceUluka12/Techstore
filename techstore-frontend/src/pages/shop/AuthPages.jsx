@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   Package, Building2, Lock,
-  ChevronDown, ChevronUp, CheckCircle, Truck, Shield, Tag, X, Store
+  ChevronDown, ChevronUp, CheckCircle, Truck, Tag, X, Store
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authApi, cartApi, orderApi, deliveryApi } from '../../services/api'
@@ -16,6 +16,11 @@ import {
   requiredText, maxText, normalizePhone, showApiError,
 } from '../../utils/validation'
 import { finishSignIn } from '../../utils/signIn'
+import { INFO_PAGES } from './infoLinks'
+
+const InfoLink = ({ page }) => (
+  <Link to={INFO_PAGES[page].path} target="_blank" className="text-brand-600 hover:underline">{INFO_PAGES[page].label}</Link>
+)
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
@@ -154,6 +159,9 @@ export function RegisterPage() {
               <button type="submit" disabled={loading} className="btn-primary w-full btn-lg">
                 {loading ? <Spinner size="sm" /> : 'Create Account'}
               </button>
+              <p className="text-center text-xs text-surface-400">
+                By creating an account you agree to our <InfoLink page="terms" /> and <InfoLink page="privacy" />.
+              </p>
             </form>
           </div>
           <p className="text-center text-sm text-surface-500 mt-4">
@@ -490,9 +498,10 @@ export function CheckoutPage() {
               </p>
             )}
 
-            <p className="text-center text-xs text-surface-400 flex items-center justify-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-emerald-500" />
-              Your order is protected by Hytel Phones' buyer guarantee
+            <p className="text-center text-xs text-surface-400 leading-relaxed">
+              By placing this order you agree to our <InfoLink page="terms" />.
+              We don't accept returns, so please check your order before you accept it
+              (<InfoLink page="returns" />).
             </p>
           </form>
 

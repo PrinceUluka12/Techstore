@@ -55,7 +55,7 @@ function brandFields(brand, categoryId) {
 // fields, "Add Product" after an edit kept displaying the previous product
 const EMPTY_PRODUCT = {
   name: '', categoryId: '', sku: '', brandOption: '', brandOther: '', price: '', compareAtPrice: '',
-  initialStock: 0, lowStockThreshold: 10, imageUrl: '', description: '',
+  initialStock: 0, lowStockThreshold: 10, imageUrl: '', description: '', warranty: '',
 }
 
 // The brand to save; '' rather than null so clearing it on edit actually clears it
@@ -174,6 +174,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
           price: parseFloat(data.price),
           compareAtPrice: data.compareAtPrice ? parseFloat(data.compareAtPrice) : null,
           brand: brandValue(data), imageUrl: data.imageUrl?.trim(),
+          warranty: data.warranty?.trim() ?? '', // '' clears it
           categoryId: parseInt(data.categoryId),
           isActive:   data.isActive   === 'true' || data.isActive   === true,
           isFeatured: data.isFeatured === 'true' || data.isFeatured === true,
@@ -185,6 +186,7 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
           price: parseFloat(data.price),
           compareAtPrice: data.compareAtPrice ? parseFloat(data.compareAtPrice) : null,
           brand: brandValue(data), imageUrl: data.imageUrl?.trim(),
+          warranty: data.warranty?.trim() || null,
           categoryId: parseInt(data.categoryId),
           initialStock: parseInt(data.initialStock || 0),
           lowStockThreshold: parseInt(data.lowStockThreshold || 10),
@@ -315,6 +317,12 @@ function ProductFormModal({ open, onClose, product, categories, onSaved }) {
             <label className="label">Description</label>
             <textarea className="input min-h-[80px] resize-y" {...register('description', maxText(4000))} />
             {errors.description && <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>}
+          </div>
+
+          <div>
+            <Input label="Warranty" placeholder="e.g. 1-year Samsung warranty" error={errors.warranty?.message}
+              {...register('warranty', maxText(100))} />
+            <p className="text-xs text-surface-400 mt-1">Shown on the product page. Leave empty if there's no warranty to mention.</p>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

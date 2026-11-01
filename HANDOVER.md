@@ -465,6 +465,11 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 | `/register` | RegisterPage | Creates account, sends welcome email |
 | `/forgot-password` | ForgotPasswordPage | Triggers reset email |
 | `/reset-password?token=` | ResetPasswordPage | Validates token, sets new password |
+| `/terms-of-service-compliance` | TermsPage | Policies and help: `pages/shop/InfoPages.jsx`, paths in `infoLinks.js`. The paths match the old WordPress site's, so its links still work. Linked from the footer, sign-up and checkout. The text is in the code; change it there. |
+| `/refund-returns-policy` | ReturnsPage | No returns or exchanges; check before accepting |
+| `/disclaimer` | DisclaimerPage | |
+| `/privacy-policy` | PrivacyPage | What's collected and why; rights under the Nigeria Data Protection Act 2023 |
+| `/help-support` | HelpPage | Contact details and common questions |
 
 ### Customer account (requires login)
 

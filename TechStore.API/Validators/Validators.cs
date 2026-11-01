@@ -172,6 +172,15 @@ public class CreateProductRequestValidator : AbstractValidator<CreateProductRequ
         RuleFor(x => x.CategoryId).GreaterThan(0);
         RuleFor(x => x.InitialStock).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(1);
+        RuleFor(x => x.Warranty).MaximumLength(100);
+    }
+}
+
+public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequest>
+{
+    public UpdateProductRequestValidator()
+    {
+        RuleFor(x => x.Warranty).MaximumLength(100);
     }
 }
 
