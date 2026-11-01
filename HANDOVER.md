@@ -31,9 +31,9 @@
 
 | Item | Detail |
 |---|---|
-| Live site | https://icy-pebble-07872b30f.3.azurestaticapps.net |
-| Admin panel | https://icy-pebble-07872b30f.3.azurestaticapps.net/admin |
-| API | https://hytel-api-fjhha9chhjgxecct.canadacentral-01.azurewebsites.net/api (Swagger is only served when running locally) |
+| Live site | https://www.hytelphones.ng (Azure address: https://icy-pebble-07872b30f.3.azurestaticapps.net) |
+| Admin panel | https://www.hytelphones.ng/admin |
+| API | https://api.hytelphones.ng/api (Azure address: https://hytel-api-fjhha9chhjgxecct.canadacentral-01.azurewebsites.net/api; Swagger is only served when running locally) |
 | Support email | support@hytelphones.ng |
 | Sender email | Set in Key Vault as `Email--From` (see section 9) |
 
@@ -639,10 +639,48 @@ When deploying to a new domain, add it to `appsettings.json` → `Cors:AllowedOr
   "AllowedOrigins": [
     "http://localhost:3000",
     "http://localhost:5173",
-    "https://icy-pebble-07872b30f.3.azurestaticapps.net"
+    "https://icy-pebble-07872b30f.3.azurestaticapps.net",
+    "https://www.hytelphones.ng",
+    "https://hytelphones.ng"
   ]
 }
 ```
+
+The shop's Content-Security-Policy (`techstore-frontend/public/staticwebapp.config.json`, `connect-src`) must list the API's address too.
+
+### Moving to hytelphones.ng
+
+**Why:** the shop and the API must be on the same site for Safari, and the other iPhone browsers built on it, to send the cookie that keeps people signed in. On the two Azure addresses it's a third-party cookie, which Safari blocks, so iPhone users are signed out when their 15-minute access token runs out. `www.hytelphones.ng` and `api.hytelphones.ng` count as one site.
+
+**The plan:**
+
+| Address | Serves |
+|---|---|
+| `www.hytelphones.ng` | the shop |
+| `api.hytelphones.ng` | the API |
+| `hytelphones.ng` | redirects to www |
+
+hytelphones.ng's DNS is run by the Namecheap hosting account (nameservers `dns1/dns2.namecheaphosting.com`, edited in cPanel → Zone Editor). cPanel can't point the bare domain at Azure, so www is the main address. Leave the email (MX) records alone throughout.
+
+**Steps, in order:**
+
+1. **API address.**
+   - In Azure, open App Service → Custom domains → Add custom domain → `api.hytelphones.ng`. Azure shows a verification ID.
+   - In cPanel Zone Editor, add a CNAME `api` → `hytel-api-fjhha9chhjgxecct.canadacentral-01.azurewebsites.net` and a TXT `asuid.api` → the verification ID.
+   - Back in Azure, validate and add the domain, then Add binding → App Service Managed Certificate (free).
+   - Check that https://api.hytelphones.ng/ says "Hytel Phones API is running."
+2. **Shop address.**
+   - In Azure, open Static Web App → Custom domains → Add → Custom domain on other DNS → `www.hytelphones.ng`.
+   - In cPanel, replace the existing `www` record with a CNAME `www` → `icy-pebble-07872b30f.3.azurestaticapps.net`.
+   - Wait for Azure to validate it and issue the certificate.
+   - Then set `www.hytelphones.ng` as the default domain, so the azurestaticapps.net address redirects to it.
+3. **Bare domain.** In cPanel → Domains → Redirects, add a permanent (301) redirect from `hytelphones.ng` to `https://www.hytelphones.ng`. The old WordPress site stops being reachable. Its certificate expired in June 2026, so first make sure cPanel's AutoSSL renews it, or visitors to the bare domain get a warning before the redirect.
+4. **Point the shop at the new API address.**
+   - In GitHub → Settings → Secrets → Actions, set `VITE_API_URL` to `https://api.hytelphones.ng/api`.
+   - Merge the "Move to hytelphones.ng" PR. Its deploy rebuilds the shop with the new address, adds the domains to CORS and the CSP, and makes email links use www.hytelphones.ng.
+5. **Check on an iPhone.** Sign in, wait 20 minutes, then open My Orders. You should still be signed in.
+
+Old WordPress links such as `/product/...`, `/product-category/...` and `/my-account/` lead to a product search or My Orders (`OldProductLink` and `OldCategoryLink` in `App.jsx`). The policy pages use the old paths, so those links still work.
 
 ---
 
