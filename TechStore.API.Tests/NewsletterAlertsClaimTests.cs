@@ -49,6 +49,18 @@ public class NewsletterAlertsClaimTests(ApiFactory api)
         Assert.Equal(HttpStatusCode.BadRequest, (await Subscribe("not-an-email")).Status);
     }
 
+    [Fact]
+    public async Task The_same_email_signing_up_several_times_at_once_is_one_entry()
+    {
+        var email = ApiFactory.Unique("eager");
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => Subscribe(email)));
+
+        Assert.All(results, r => Assert.Equal(HttpStatusCode.OK, r.Status)); // the duplicates get the same friendly answer
+        Assert.Equal(1, await api.Db(db => db.NewsletterSubscribers.CountAsync(s => s.Email == email)));
+        Assert.Single(api.Emails.To(email), e => e.Kind == "NewsletterWelcome");
+    }
+
     private async Task<string> Csv()
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, "/api/newsletter/export");

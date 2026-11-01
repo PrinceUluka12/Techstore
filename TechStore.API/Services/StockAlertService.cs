@@ -31,22 +31,23 @@ public class StockAlertService : IStockAlertService
         var nigeria = nowUtc.AddHours(1); // UTC+1 all year
         if (nigeria.Hour < _hour) return 0;
         var today = DateOnly.FromDateTime(nigeria);
+        if (await _db.JobRuns.AnyAsync(j => j.Name == JobRun.LowStockAlert && j.LastRunOn >= today)) return 0;
 
-        // Claimed with a conditional update, so a restart or a second copy of the app can't send it twice
-        var claimed = await _db.JobRuns
-            .Where(j => j.Name == JobRun.LowStockAlert && j.LastRunOn < today)
-            .ExecuteUpdateAsync(s => s.SetProperty(j => j.LastRunOn, today)) == 1;
-        if (!claimed) return 0;
-
+        // Everything is looked up before the day is marked done, so if a lookup fails the next
+        // check (15 minutes later) tries again rather than finding the day already used up
         var low = (await _inventory.GetLowStockAsync()).ToList();
-        if (low.Count == 0) return 0;
-
         var stockRoles = (await _db.AppRoles.AsNoTracking().ToListAsync())
             .Where(r => r.Permissions.Contains(Perms.InventoryManage))
             .Select(r => r.Name).ToList();
         var staff = await _db.Users.AsNoTracking()
             .Where(u => u.IsActive && (u.Role == "Admin" || stockRoles.Contains(u.Role)))
             .ToListAsync();
+
+        // Claimed with a conditional update, so a restart or a second copy of the app can't send it twice
+        var claimed = await _db.JobRuns
+            .Where(j => j.Name == JobRun.LowStockAlert && j.LastRunOn < today)
+            .ExecuteUpdateAsync(s => s.SetProperty(j => j.LastRunOn, today)) == 1;
+        if (!claimed || low.Count == 0) return 0;
 
         var emailed = 0;
         foreach (var person in staff)

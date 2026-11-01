@@ -1,6 +1,7 @@
 using System.Buffers.Text;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using TechStore.API.Data;
 using TechStore.API.DTOs.Newsletter;
@@ -42,8 +43,10 @@ public class NewsletterService : INewsletterService
         subscriber.SubscribedAt = DateTime.UtcNow;
         subscriber.UnsubscribedAt = null;
 
+        // The same email twice at once: the unique index stops the second, and the first saved it.
+        // Any other failure is a real error, not a sign-up, so it isn't caught.
         try { await _db.SaveChangesAsync(); }
-        catch (DbUpdateException) { return; } // the same email twice at once: the other one saved it
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 }) { return; }
 
         _ = _email.SendNewsletterWelcomeAsync(email, UnsubscribeLink(subscriber));
     }

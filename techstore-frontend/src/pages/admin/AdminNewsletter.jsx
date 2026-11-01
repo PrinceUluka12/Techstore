@@ -14,12 +14,15 @@ export default function AdminNewsletter() {
   const [search, setSearch]   = useState('')
   const [query, setQuery]     = useState('')
   const [downloading, setDownloading] = useState(false)
+  const [failed, setFailed]   = useState(false) // the last load didn't work: offer to try again
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    setFailed(false)
     newsletterApi.list({ page, pageSize: 20, search: query || undefined })
       .then(r => setData(r.data))
-      .catch(err => showApiError(err, null, 'Failed to load sign-ups'))
-  }, [page, query])
+      .catch(err => { setFailed(true); showApiError(err, null, 'Failed to load sign-ups') })
+  }, [page, query, attempt])
 
   const download = async () => {
     setDownloading(true)
@@ -57,7 +60,12 @@ export default function AdminNewsletter() {
           <input className="input pl-9" placeholder="Search by email" value={search} onChange={e => setSearch(e.target.value)} />
         </form>
 
-        {!data ? <div className="flex justify-center py-16"><Spinner /></div>
+        {failed && !data ? (
+          <div className="card p-8 text-center">
+            <p className="text-surface-600">The sign-ups couldn't be loaded.</p>
+            <button onClick={() => setAttempt(a => a + 1)} className="btn-secondary mt-4">Try again</button>
+          </div>
+        ) : !data ? <div className="flex justify-center py-16"><Spinner /></div>
         : data.items.length === 0 ? (
           <EmptyState icon={Mail} title={query ? 'No matches' : 'No sign-ups yet'}
             description={query ? 'No email contains that.' : 'Emails entered in the shop footer will appear here.'} />
