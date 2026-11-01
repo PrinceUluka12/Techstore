@@ -86,6 +86,8 @@ public class AppDbContext : DbContext
         builder.Entity<Order>(e =>
         {
             e.HasIndex(o => o.OrderNumber).IsUnique();
+            e.Property(o => o.GuestToken).HasMaxLength(64);
+            e.HasIndex(o => o.GuestToken).IsUnique().HasFilter("[GuestToken] IS NOT NULL");
             e.Property(o => o.SubTotal).HasColumnType("decimal(18,2)");
             e.Property(o => o.DiscountAmount).HasColumnType("decimal(18,2)");
             e.Property(o => o.Tax).HasColumnType("decimal(18,2)");

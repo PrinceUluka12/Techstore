@@ -41,9 +41,11 @@ public class Order
     public int Id { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
     public SalesChannel Channel { get; set; } = SalesChannel.Online;
-    // Null for walk-in sales without an account; CustomerName/Phone/Email hold their details
+    // Null for walk-in sales and guest checkouts (no account); CustomerName/Phone/Email hold their details
     public int? UserId { get; set; }
     public User? User { get; set; }
+    // Guest checkouts: the secret in the customer's link to their order (/orders/track/{token})
+    public string? GuestToken { get; set; }
     // Shop whose stock this order reserved (online) or sold from (in store)
     public int? StoreId { get; set; }
     public Store? Store { get; set; }

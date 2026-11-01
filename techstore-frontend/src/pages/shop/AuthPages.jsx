@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, CheckCircle, Truck, Tag, X, Store
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { authApi, cartApi, orderApi, deliveryApi } from '../../services/api'
+import { authApi, orderApi, deliveryApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
 import { Input, Spinner, ProductImage, LoadingPage, PageTitle } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
@@ -35,7 +35,7 @@ export function LoginPage() {
   const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading] = useState(false)
   const { login } = useAuthStore()
-  const { setCart } = useCartStore()
+  const { mergeGuestCart } = useCartStore()
   const navigate = useNavigate()
   const { state } = useLocation() // where they came from and what they were doing (utils/signIn)
 
@@ -44,7 +44,7 @@ export function LoginPage() {
     try {
       const { data: auth } = await authApi.login({ email: data.email.trim(), password: data.password })
       login(auth)
-      try { const { data: cart } = await cartApi.get(); setCart(cart) } catch {}
+      await mergeGuestCart() // a cart filled before signing in joins the account's
       toast.success(`Welcome back, ${auth.firstName}!`)
       await finishSignIn(state, navigate, auth.role === 'Admin' ? '/admin' : '/')
     } catch (err) {
@@ -112,6 +112,7 @@ export function RegisterPage() {
         phone: normalizePhone(data.phone) || null,
       })
       login(auth)
+      await useCartStore.getState().mergeGuestCart()
       toast.success(`Welcome, ${auth.firstName}!`)
       await finishSignIn(state, navigate, '/')
     } catch (err) {
@@ -267,6 +268,11 @@ const CHECKOUT_FIELDS = {
   shippingcity: 'city', shippingprovince: 'province', shippingpostalcode: 'postalCode',
   shippingphone: 'phone', transactionid: 'transferRef',
 }
+// A guest checkout sends the same details under "order"
+const GUEST_FIELDS = {
+  email: 'email',
+  ...Object.fromEntries(Object.entries(CHECKOUT_FIELDS).map(([key, field]) => [`order.${key}`, field])),
+}
 
 export function CheckoutPage() {
   const { register, handleSubmit, setError, watch, formState: { errors } } = useForm({ mode: 'onTouched' })
@@ -276,7 +282,8 @@ export function CheckoutPage() {
   const [shops, setShops]   = useState(null)        // shops to collect from: [{ id, name, ..., hasStock }]
   const [shopId, setShopId] = useState(null)
   const accounts = useBankAccounts()            // nothing to pay into = online orders paused
-  const { items, total, loaded, loadCart, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
+  const { items, total, loaded, loadCart, clearLocal, guestLines, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
+  const guest = !useAuthStore().isAuthenticated // checking out without an account
   const navigate = useNavigate()
   const placed = useRef(false) // the cart empties when the order goes through; don't treat that as "nothing to buy"
 
@@ -289,8 +296,10 @@ export function CheckoutPage() {
   useEffect(() => { deliveryApi.list().then(r => setRates(r.data)).catch(() => setRates([])) }, [])
   // Which shops have everything in the cart; asked again when the cart changes
   useEffect(() => {
-    if (loaded && items.length) orderApi.pickupShops().then(r => setShops(r.data)).catch(() => setShops([]))
-  }, [loaded, items.length, total])
+    if (loaded && items.length)
+      (guest ? orderApi.guestPickupShops(guestLines()) : orderApi.pickupShops())
+        .then(r => setShops(r.data)).catch(() => setShops([]))
+  }, [loaded, items.length, total, guest])
 
   // Delivery is priced per state (same as OrderService); pickup is free. No VAT is charged.
   const pickup     = method === 'Pickup'
@@ -329,13 +338,18 @@ export function CheckoutPage() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      const { data: order } = await orderApi.checkout(buildOrderPayload(data))
+      const { data: order } = guest
+        ? await orderApi.guestCheckout({ email: data.email.trim(), items: guestLines(), order: buildOrderPayload(data) })
+        : await orderApi.checkout(buildOrderPayload(data))
       placed.current = true
       clearLocal()
       toast.success('Order placed! Please complete your bank transfer.')
-      navigate(`/account/orders/${order.id}`)
+      // A guest follows their order through its private link
+      navigate(guest ? `/orders/track/${order.guestToken}` : `/account/orders/${order.id}`)
     } catch (err) {
-      showApiError(err, setError, 'Checkout failed', CHECKOUT_FIELDS)
+      showApiError(err, setError, 'Checkout failed', guest ? GUEST_FIELDS : CHECKOUT_FIELDS)
+      const message = err.response?.data?.message ?? ''
+      if (guest && /already an account/.test(message)) setError('email', { type: 'server', message })
       setLoading(false)
     }
   }
@@ -371,6 +385,22 @@ export function CheckoutPage() {
           {/* ── Left — form ── */}
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="lg:col-span-2 space-y-5">
 
+            {/* Without an account: an email for the order's updates and its link */}
+            {guest && (
+              <div className="card p-6">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+                  <h2 className="font-semibold text-surface-900">Your email</h2>
+                  <p className="text-sm text-surface-500">
+                    Have an account?{' '}
+                    <Link to="/login" state={{ from: '/checkout' }} className="text-brand-600 font-medium hover:underline">Sign in</Link>
+                  </p>
+                </div>
+                <Input label="Email" type="email" autoComplete="email" placeholder="you@example.com"
+                  error={errors.email?.message} {...register('email', emailRules)} />
+                <p className="text-xs text-surface-400 mt-2">No account needed. We'll email your order details and a link to follow it.</p>
+              </div>
+            )}
+
             {/* Delivery or pickup */}
             <div className="card p-6">
               <div className="flex items-center gap-2 mb-5">
@@ -398,8 +428,9 @@ export function CheckoutPage() {
                   {...register('lastName', nameRules('Last name'))} />
                 <Input label="Phone Number" className="col-span-2" type="tel" autoComplete="tel"
                   placeholder="08012345678" error={errors.phone?.message}
-                  {...register('phone', pickup
-                    ? { validate: v => normalizePhone(v) === '' ? 'Enter a phone number so the shop can reach you' : phoneRules.validate(v) }
+                  {...register('phone', pickup || guest
+                    ? { validate: v => normalizePhone(v) !== '' ? phoneRules.validate(v)
+                        : pickup ? 'Enter a phone number so the shop can reach you' : 'Enter a phone number so we can reach you about your order' }
                     : phoneRules)} />
 
                 {!pickup && (noDelivery ? (

@@ -3,7 +3,6 @@ import { ShoppingCart, Star, Package, Heart } from 'lucide-react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useState } from 'react'
-import { cartApi } from '../../services/api'
 import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '../../store'
 import { Spinner, Price, ProductImage } from '../ui'
 import { useSignInFirst } from '../../utils/signIn'
@@ -11,7 +10,7 @@ import { useSignInFirst } from '../../utils/signIn'
 export function ProductCard({ product }) {
   const { isAuthenticated } = useAuthStore()
   const signInFirst = useSignInFirst()
-  const { setCart, isInCart } = useCartStore()
+  const { addItem, isInCart } = useCartStore()
   const { toggleCart } = useUIStore()
   const { toggle: toggleWishlist, isInWishlist } = useWishlistStore()
   const [loading, setLoading] = useState(false)
@@ -21,15 +20,10 @@ export function ProductCard({ product }) {
 
   const addToCart = async (e) => {
     e.preventDefault()
-    if (!isAuthenticated) {
-      signInFirst({ then: { addToCart: { productId: product.id, quantity: 1 } }, message: `Sign in to add ${product.name} to your cart.` })
-      return
-    }
     if (inCart) { toggleCart(); return }
     setLoading(true)
     try {
-      const { data } = await cartApi.addItem({ productId: product.id, quantity: 1 })
-      setCart(data)
+      await addItem(product.id, 1)
       toast.success('Added to cart!')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not add to cart')

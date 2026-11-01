@@ -93,6 +93,23 @@ public class CartService : ICartService
 
     public Task ClearCartAsync(int userId) => _carts.ClearAsync(userId);
 
+    // A signed-out shopper's cart, priced from the catalogue in the order it was filled.
+    // Products that have gone or been switched off are left out; the browser drops them too.
+    public async Task<CartDto> PreviewAsync(IEnumerable<CartLine> lines)
+    {
+        var wanted = lines.Where(l => l.Quantity > 0).GroupBy(l => l.ProductId)
+            .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+        var products = (await _products.GetByIdsAsync(wanted.Keys))
+            .Where(p => p.IsActive).ToDictionary(p => p.Id);
+        var items = wanted.Where(w => products.ContainsKey(w.Key)).Select(w =>
+        {
+            var p = products[w.Key];
+            return new CartItemDto(p.Id, p.Id, p.Name, p.ImageUrl, p.Price, w.Value, p.Price * w.Value,
+                p.OnlineInventory?.QuantityAvailable);
+        }).ToList();
+        return new CartDto(0, 0, items, items.Sum(i => i.LineTotal), items.Sum(i => i.Quantity), DateTime.UtcNow);
+    }
+
     private static CartDto MapToDto(Cart cart)
     {
         var items = cart.Items.Select(i => new CartItemDto(

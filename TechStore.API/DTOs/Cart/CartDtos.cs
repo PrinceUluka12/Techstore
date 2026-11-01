@@ -21,4 +21,9 @@ public record CartItemDto(
 );
 
 public record AddToCartRequest(int ProductId, int Quantity = 1);
+
+// A signed-out shopper's cart lives in their browser; the API prices it (cart/preview) and
+// checks it out (orders/guest/checkout)
+public record CartLine(int ProductId, int Quantity);
+public record GuestCartRequest(List<CartLine> Items);
 public record UpdateCartItemRequest(int Quantity);

@@ -184,6 +184,49 @@ public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequ
     }
 }
 
+public class GuestCartRequestValidator : AbstractValidator<GuestCartRequest>
+{
+    public GuestCartRequestValidator()
+    {
+        RuleFor(x => x.Items).NotNull().Must(i => i == null || i.Count <= 50).WithMessage("Too many items in one cart.");
+        RuleForEach(x => x.Items).ChildRules(line =>
+        {
+            line.RuleFor(l => l.ProductId).GreaterThan(0);
+            line.RuleFor(l => l.Quantity).InclusiveBetween(1, AddToCartRequestValidator.MaxQuantity);
+        });
+    }
+}
+
+// Same order details as a signed-in checkout, plus an email, and a phone number either way:
+// there's no account to look them up in
+public class GuestCheckoutRequestValidator : AbstractValidator<GuestCheckoutRequest>
+{
+    public GuestCheckoutRequestValidator(IConfiguration config)
+    {
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
+        RuleFor(x => x.Items).NotEmpty().WithMessage("Your cart is empty.")
+            .Must(i => i == null || i.Count <= 50).WithMessage("Too many items in one order.");
+        RuleForEach(x => x.Items).ChildRules(line =>
+        {
+            line.RuleFor(l => l.ProductId).GreaterThan(0);
+            line.RuleFor(l => l.Quantity).InclusiveBetween(1, AddToCartRequestValidator.MaxQuantity);
+        });
+        RuleFor(x => x.Order).NotNull().SetValidator(new CreateOrderRequestValidator(config));
+        RuleFor(x => x.Order.ShippingPhone).NotEmpty()
+            .WithMessage("Enter a phone number so we can reach you about your order.")
+            .When(x => x.Order != null);
+    }
+}
+
+public class FindGuestOrderRequestValidator : AbstractValidator<FindGuestOrderRequest>
+{
+    public FindGuestOrderRequestValidator()
+    {
+        RuleFor(x => x.OrderNumber).NotEmpty().MaximumLength(40);
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(256);
+    }
+}
+
 public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 {
     public CreateOrderRequestValidator(IConfiguration config)
@@ -193,8 +236,11 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
             ? ["Card", "BankTransfer"]
             : ["BankTransfer"];
 
-        RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50);
+        // Letters, spaces, apostrophes, dots and hyphens, as the checkout form allows (NAME_RE in
+        // utils/validation.js). The name goes into emails, and a guest can choose who gets them.
+        const string name = @"^\p{L}[\p{L}\p{M}\s'.-]*$";
+        RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50).Matches(name).WithMessage("Use letters only.");
+        RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50).Matches(name).WithMessage("Use letters only.");
         RuleFor(x => x.Fulfilment).IsInEnum();
 
         // Pickup orders need a shop and a phone number to call when it's ready, not an address
@@ -233,10 +279,14 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 
 public class AddToCartRequestValidator : AbstractValidator<AddToCartRequest>
 {
+    // Of one product in a cart. A signed-out cart has the same limit, so all of it can move into
+    // the account's cart at sign-in.
+    public const int MaxQuantity = 99;
+
     public AddToCartRequestValidator()
     {
         RuleFor(x => x.ProductId).GreaterThan(0);
-        RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(99);
+        RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(MaxQuantity);
     }
 }
 

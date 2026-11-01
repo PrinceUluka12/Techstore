@@ -6,7 +6,7 @@ import {
   CheckCircle, Heart, Share2, ChevronRight, Minus, Plus,
   AlertTriangle, ThumbsUp, MessageSquare, ZoomIn
 } from 'lucide-react'
-import { productApi, cartApi, reviewApi } from '../../services/api'
+import { productApi, reviewApi } from '../../services/api'
 import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '../../store'
 import { Navbar, CartDrawer, Footer } from '../../components/layout/ShopLayout'
 import { LoadingPage, Spinner } from '../../components/ui'
@@ -210,7 +210,7 @@ export default function ProductDetailPage() {
   const [related, setRelated]       = useState([])
 
   const { isAuthenticated } = useAuthStore()
-  const { setCart, isInCart } = useCartStore()
+  const { addItem, isInCart } = useCartStore()
   const { toggleCart } = useUIStore()
   const { toggle: toggleWishlist, isInWishlist } = useWishlistStore()
 
@@ -268,15 +268,10 @@ export default function ProductDetailPage() {
   const savingsPct = savings ? Math.round((savings / product.compareAtPrice) * 100) : null
 
   const addToCart = async () => {
-    if (!isAuthenticated) {
-      signInFirst({ then: { addToCart: { productId: product.id, quantity: qty } }, message: `Sign in to add ${product.name} to your cart.` })
-      return
-    }
     if (inCart) { toggleCart(); return }
     setAdding(true)
     try {
-      const { data } = await cartApi.addItem({ productId: product.id, quantity: qty })
-      setCart(data)
+      await addItem(product.id, qty)
       toast.success(`${qty}× ${product.name} added!`)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not add to cart')
@@ -284,14 +279,9 @@ export default function ProductDetailPage() {
   }
 
   const buyNow = async () => {
-    if (!isAuthenticated) {
-      signInFirst({ then: { addToCart: { productId: product.id, quantity: qty } }, to: '/checkout', message: `Sign in to buy ${product.name}.` })
-      return
-    }
     setAdding(true)
     try {
-      const { data } = await cartApi.addItem({ productId: product.id, quantity: qty })
-      setCart(data)
+      await addItem(product.id, qty)
       navigate('/checkout')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not proceed')

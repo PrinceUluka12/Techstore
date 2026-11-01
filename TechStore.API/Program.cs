@@ -112,6 +112,15 @@ builder.Services.AddRateLimiter(opts =>
             QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
             QueueLimit           = 0,
         }));
+    // Checking out without an account holds stock for a day, so it's limited per visitor too
+    opts.AddPolicy("guest-checkout", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window      = TimeSpan.FromMinutes(10),
+            QueueLimit  = 0,
+        }));
     opts.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 });
 

@@ -92,11 +92,12 @@ public class CouponsController : ControllerBase
     // ── Public — coupon validation ────────────────────────────────────────────
 
     [HttpPost("validate")]
-    [Authorize]
+    [AllowAnonymous] // guests can apply coupons too; their per-customer limit is checked at checkout
     public async Task<IActionResult> Validate([FromBody] ValidateCouponRequest req)
     {
         var coupon = await _coupons.GetByCodeAsync(req.Code.ToUpper());
-        var uses = coupon == null ? 0 : await _coupons.CountUsesByCustomerAsync(coupon.Code, GetUserId());
+        var uses = coupon == null || User.Identity?.IsAuthenticated != true ? 0
+            : await _coupons.CountUsesByCustomerAsync(coupon.Code, GetUserId());
 
         var problem = CouponRules.Problem(coupon, req.SubTotal, uses, DateTime.UtcNow);
         if (problem != null)

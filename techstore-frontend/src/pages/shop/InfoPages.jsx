@@ -48,8 +48,9 @@ export function TermsPage() {
         <p>You need to be 18 or over to create an account and place orders.</p>
       </Section>
 
-      <Section title="Your account">
+      <Section title="Ordering, with or without an account">
         <List>
+          <li>You can order as a guest, without an account. We use the email and phone number you give at checkout to keep you updated, and you follow the order through the link we give you.</li>
           <li>Give your real name, a working email address and a phone number we can reach you on.</li>
           <li>Keep your password to yourself. You're responsible for orders placed from your account.</li>
           <li>We may suspend an account that's used for fraud, abuse or to break these terms.</li>
@@ -218,7 +219,8 @@ export function PrivacyPage() {
       intro="This policy explains what personal information Hytel Phones Ltd collects through this website, why, and your rights under the Nigeria Data Protection Act 2023.">
       <Section title="What we collect">
         <List>
-          <li><strong>Your account:</strong> name, email address and password. The password is stored scrambled (hashed), so no one can read it, including us.</li>
+          <li><strong>Your account, if you make one:</strong> name, email address and password. The password is stored scrambled (hashed), so no one can read it, including us.</li>
+          <li><strong>Ordering without an account:</strong> your name, email address and phone number, kept with the order.</li>
           <li><strong>Your orders:</strong> phone number, delivery address or chosen pickup shop, what you bought, coupons used and payment references.</li>
           <li><strong>What you add:</strong> reviews, your wishlist and your cart.</li>
           <li><strong>Security:</strong> your IP address, used to limit repeated sign-in attempts.</li>
@@ -289,6 +291,8 @@ export function PrivacyPage() {
 }
 
 const FAQ = [
+  ['Do I need an account?',
+    <>No. You can check out as a guest with your email and phone number, and follow your order through the link we give you. An account keeps your details and all your orders in one place.</>],
   ['How do I pay?',
     <>Pay by bank transfer to the account shown on your order (My Orders, then open the order). Use your order number or your name as the reference. We confirm the order once the money arrives, usually within 1–2 business hours.</>],
   ['How long do I have to pay?',
@@ -296,7 +300,7 @@ const FAQ = [
   ['How much is delivery?',
     <>It depends on your state, and checkout shows the fee before you order. If your state isn't listed, choose pickup from one of our shops. Pickup is free.</>],
   ['Where is my order?',
-    <>Sign in and open <Link to="/account/orders" className="text-brand-600 hover:underline">My Orders</Link> to see each step: awaiting payment, payment received, being prepared, then on its way or ready for pickup. We also email you when it changes.</>],
+    <>Sign in and open <Link to="/account/orders" className="text-brand-600 hover:underline">My Orders</Link> to see each step: awaiting payment, payment received, being prepared, then on its way or ready for pickup. Ordered without an account? Open the link from your order, or use <Link to="/track-order" className="text-brand-600 hover:underline">Track an order</Link> with your order number and email. We also email you when it changes.</>],
   ['Can I cancel my order?',
     <>Contact us as soon as possible, before it's sent out or ready for pickup. If you haven't paid, you can also just not pay: the order is cancelled after 24 hours.</>],
   ['Can I return or exchange a phone?',

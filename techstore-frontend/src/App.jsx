@@ -12,7 +12,7 @@ import HomePage from './pages/shop/HomePage'
 import ProductsPage from './pages/shop/ProductsPage'
 import ProductDetailPage from './pages/shop/ProductDetailPage'
 import { LoginPage, RegisterPage, CheckoutPage } from './pages/shop/AuthPages'
-import { MyOrdersPage, OrderDetailPage } from './pages/shop/OrdersPage'
+import { MyOrdersPage, OrderDetailPage, GuestOrderPage, TrackOrderPage } from './pages/shop/OrdersPage'
 import ForgotPasswordPage from './pages/shop/ForgotPasswordPage'
 import ResetPasswordPage from './pages/shop/ResetPasswordPage'
 import AccountProfilePage from './pages/shop/AccountProfilePage'
@@ -117,6 +117,10 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/:id" element={<ProductDetailPage />} />
+            {/* No account needed: guests check out with an email and follow the order by its private link */}
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/orders/track/:token" element={<GuestOrderPage />} />
+            <Route path="/track-order" element={<TrackOrderPage />} />
             {Object.entries(InfoRoutes).map(([key, Page]) =>
               <Route key={key} path={INFO_PAGES[key].path} element={<Page />} />)}
 
@@ -127,7 +131,6 @@ export default function App() {
             <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
             {/* ── Customer account ── */}
-            <Route path="/checkout"              element={<RequireAuth><CheckoutPage /></RequireAuth>} />
             <Route path="/account/orders"        element={<RequireAuth><MyOrdersPage /></RequireAuth>} />
             <Route path="/account/orders/:id"    element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
             <Route path="/account/profile"       element={<RequireAuth><AccountProfilePage /></RequireAuth>} />

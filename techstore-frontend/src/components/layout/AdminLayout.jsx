@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { useAuthStore } from '../../store'
+import { useAuthStore, useCartStore } from '../../store'
 import { authApi } from '../../services/api'
 import toast from 'react-hot-toast'
 
@@ -78,6 +78,7 @@ export function AdminLayout({ children }) {
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* cookie cleared on client regardless */ }
     logout()
+    useCartStore.getState().clearLocal() // as the shop's sign-out: the next person here doesn't get this cart
     toast.success('Logged out')
     navigate('/login')
   }
