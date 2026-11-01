@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { HelmetProvider } from 'react-helmet-async'
 import { useAuthStore } from './store'
@@ -89,6 +89,22 @@ function GuestOnly({ children }) {
   return !isAuthenticated ? children : <Navigate to="/" replace />
 }
 
+// Search engines and bookmarks still have the old WordPress shop's links, e.g.
+// /product/apple-iphone-14-pro-max/ and /product-category/phones/samsung/. Send them to a search here.
+const OLD_BRANDS = ['apple', 'infinix', 'itel', 'lg', 'nokia', 'oppo', 'samsung', 'tecno', 'vivo', 'xiaomi']
+
+function OldProductLink() {
+  const words = (useParams().slug ?? '').toLowerCase().split('-').filter(Boolean)
+  // Search matches the whole phrase, and names here may not start with the brand
+  if (words.length > 1 && OLD_BRANDS.includes(words[0])) words.shift()
+  return <Navigate to={`/products?query=${encodeURIComponent(words.join(' '))}`} replace />
+}
+
+function OldCategoryLink() {
+  const last = (useParams()['*'] ?? '').toLowerCase().split('/').filter(Boolean).pop()
+  return <Navigate to={OLD_BRANDS.includes(last) ? `/products?query=${last}` : '/products'} replace />
+}
+
 // ── App ────────────────────────────────────────────────────────────────────────
 export default function App() {
   return (
@@ -152,6 +168,13 @@ export default function App() {
             <Route path="/admin/transfers"  element={<RequireAdmin><AdminTransfers /></RequireAdmin>} />
             <Route path="/admin/bank-accounts" element={<RequireAdmin><AdminBankAccounts /></RequireAdmin>} />
             <Route path="/admin/delivery-fees" element={<RequireAdmin><AdminDeliveryFees /></RequireAdmin>} />
+
+            {/* ── Old WordPress shop addresses (hytelphones.ng before the move) ── */}
+            <Route path="/product/:slug"      element={<OldProductLink />} />
+            <Route path="/product-category/*" element={<OldCategoryLink />} />
+            <Route path="/my-account/*"       element={<Navigate to="/account/orders" replace />} />
+            <Route path="/shop"               element={<Navigate to="/products" replace />} />
+            <Route path="/cart"               element={<Navigate to="/products" replace />} />
 
             {/* ── 404 ── */}
             <Route path="*" element={
