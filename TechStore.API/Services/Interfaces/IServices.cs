@@ -69,7 +69,7 @@ public interface IProductService
 public interface IOrderService
 {
     Task<OrderDto?> GetByIdAsync(int id);
-    Task<IEnumerable<OrderSummaryDto>> GetMyOrdersAsync(int userId, int page, int pageSize);
+    Task<PagedResult<OrderSummaryDto>> GetMyOrdersAsync(int userId, int page, int pageSize);
     Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status,
         SalesChannel? channel = null, int? storeId = null, string? search = null);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);

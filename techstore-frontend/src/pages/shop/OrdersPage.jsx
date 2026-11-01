@@ -90,14 +90,16 @@ export function MyOrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const pageSize = 10
 
   useEffect(() => {
     setLoading(true)
     orderApi.myOrders({ page, pageSize }).then(r => {
-      setOrders(r.data)
-      setTotal(r.data.length) // simplified - API returns array for "my orders"
+      // { items, totalPages }; the API sent a bare list before paging was added
+      const data = Array.isArray(r.data) ? { items: r.data, totalPages: 1 } : r.data
+      setOrders(data.items)
+      setTotalPages(data.totalPages)
     }).finally(() => setLoading(false))
   }, [page])
 
@@ -132,6 +134,7 @@ export function MyOrdersPage() {
                 </div>
               </Link>
             ))}
+            <Pagination page={page} totalPages={totalPages} onChange={p => { setPage(p); window.scrollTo(0, 0) }} />
           </div>
         )}
       </main>

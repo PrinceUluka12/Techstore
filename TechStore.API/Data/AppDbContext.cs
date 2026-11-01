@@ -75,6 +75,7 @@ public class AppDbContext : DbContext
             e.HasIndex(p => p.SKU).IsUnique();
             e.Property(p => p.Price).HasColumnType("decimal(18,2)");
             e.Property(p => p.CompareAtPrice).HasColumnType("decimal(18,2)");
+            e.Property(p => p.Warranty).HasMaxLength(100);
             e.HasOne(p => p.Category).WithMany(c => c.Products)
                 .HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Restrict);
             e.HasMany(p => p.Inventories).WithOne(i => i.Product)

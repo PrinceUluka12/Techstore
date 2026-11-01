@@ -53,10 +53,12 @@ public class OrderService : IOrderService
         return order == null ? null : MapToDto(order);
     }
 
-    public async Task<IEnumerable<OrderSummaryDto>> GetMyOrdersAsync(int userId, int page, int pageSize)
+    public async Task<PagedResult<OrderSummaryDto>> GetMyOrdersAsync(int userId, int page, int pageSize)
     {
-        var orders = await _orders.GetByUserIdAsync(userId, page, pageSize);
-        return orders.Select(MapToSummaryDto);
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 50);
+        var (orders, total) = await _orders.GetByUserIdAsync(userId, page, pageSize);
+        return new PagedResult<OrderSummaryDto>(orders.Select(MapToSummaryDto), total, page, pageSize);
     }
 
     public async Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(

@@ -59,8 +59,13 @@ api.interceptors.response.use(
         return api(original)
       } catch (refreshErr) {
         processQueue(refreshErr, null)
+        // The session has ended (the refresh cookie expired or never arrived). Forget the
+        // saved user as well: when only the token went, the reloaded page still thought it
+        // was signed in, called the API, got a 401 and reloaded again, endlessly.
         localStorage.removeItem('access_token')
-        window.location.href = '/login'
+        localStorage.removeItem('auth-store')
+        // Reload where they are: account pages then ask them to sign in and bring them back
+        window.location.reload()
         return Promise.reject(refreshErr)
       } finally {
         isRefreshing = false

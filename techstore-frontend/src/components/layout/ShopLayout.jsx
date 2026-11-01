@@ -11,6 +11,7 @@ import { authApi, cartApi } from '../../services/api'
 import { Spinner, ProductImage } from '../ui'
 import { returnHere } from '../../utils/signIn'
 import { whatsAppLink, WhatsAppIcon } from '../shop/WhatsApp'
+import { INFO_PAGES } from '../../pages/shop/infoLinks'
 
 // Pages a staff member can access, in sidebar order (keep in step with AdminLayout's navSections)
 const STAFF_PAGES = [
@@ -318,11 +319,8 @@ export function Footer() {
               {[
                 { label: 'My account',                to: '/account/orders' },
                 { label: 'Shop',                      to: '/products' },
-                { label: 'Terms of Service & Compliance', to: '#' },
-                { label: 'Refund and Returns Policy', to: '#' },
-                { label: 'Disclaimer',                to: '#' },
-                { label: 'Privacy Policy',            to: '#' },
-                { label: 'Help & Support',            to: '#' },
+                ...['terms', 'returns', 'disclaimer', 'privacy', 'help']
+                  .map(p => ({ label: INFO_PAGES[p].label, to: INFO_PAGES[p].path })),
               ].map(l => (
                 <li key={l.label}>
                   <Link to={l.to}

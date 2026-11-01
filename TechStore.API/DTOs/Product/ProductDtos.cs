@@ -16,7 +16,8 @@ public record ProductDto(
     int CategoryId,
     string CategoryName,
     int? QuantityAvailable,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? Warranty
 );
 
 public record ProductListDto(
@@ -46,7 +47,8 @@ public record CreateProductRequest(
     bool IsActive = true,
     bool IsFeatured = false,
     int InitialStock = 0,
-    int LowStockThreshold = 10
+    int LowStockThreshold = 10,
+    string? Warranty = null
 );
 
 public record UpdateProductRequest(
@@ -58,7 +60,8 @@ public record UpdateProductRequest(
     string? ImageUrl,
     int? CategoryId,
     bool? IsActive,
-    bool? IsFeatured
+    bool? IsFeatured,
+    string? Warranty = null // "" clears it
 );
 
 public record ProductSearchParams(

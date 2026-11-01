@@ -22,6 +22,7 @@ public class Product
     public decimal Price { get; set; }
     public decimal? CompareAtPrice { get; set; }
     public string? Brand { get; set; }
+    public string? Warranty { get; set; } // e.g. "1-year Samsung warranty"; not shown when empty
     public string? ImageUrl { get; set; }
     public string? AdditionalImages { get; set; } // JSON array of URLs
     public bool IsActive { get; set; } = true;

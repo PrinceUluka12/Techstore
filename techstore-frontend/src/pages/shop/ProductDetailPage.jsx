@@ -440,13 +440,16 @@ export default function ProductDetailPage() {
                     <p className="text-surface-400 text-xs mt-0.5">Delivery fee depends on your state; or collect free from one of our shops</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2.5 text-sm">
-                  <Shield className="w-4 h-4 text-brand-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-medium text-surface-900">2-Year Warranty</span>
-                    <p className="text-surface-400 text-xs mt-0.5">Manufacturer warranty included</p>
+                {/* Set per product in the admin; nothing is promised when it's empty */}
+                {product.warranty && (
+                  <div className="flex items-start gap-2.5 text-sm">
+                    <Shield className="w-4 h-4 text-brand-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <span className="font-medium text-surface-900">{product.warranty}</span>
+                      <p className="text-surface-400 text-xs mt-0.5">Warranty</p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Quantity + Buttons */}

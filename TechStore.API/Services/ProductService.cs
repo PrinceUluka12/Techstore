@@ -52,6 +52,7 @@ public class ProductService : IProductService
             Price = req.Price,
             CompareAtPrice = req.CompareAtPrice,
             Brand = req.Brand,
+            Warranty = string.IsNullOrWhiteSpace(req.Warranty) ? null : req.Warranty.Trim(),
             ImageUrl = req.ImageUrl,
             CategoryId = req.CategoryId,
             IsActive = req.IsActive,
@@ -83,6 +84,7 @@ public class ProductService : IProductService
         if (req.Price.HasValue) product.Price = req.Price.Value;
         if (req.CompareAtPrice.HasValue) product.CompareAtPrice = req.CompareAtPrice;
         if (req.Brand != null) product.Brand = req.Brand;
+        if (req.Warranty != null) product.Warranty = string.IsNullOrWhiteSpace(req.Warranty) ? null : req.Warranty.Trim();
         if (req.ImageUrl != null) product.ImageUrl = req.ImageUrl;
         if (req.CategoryId.HasValue) product.CategoryId = req.CategoryId.Value;
         if (req.IsActive.HasValue) product.IsActive = req.IsActive.Value;
@@ -103,7 +105,8 @@ public class ProductService : IProductService
     private static ProductDto MapToDto(Product p) => new(
         p.Id, p.Name, p.Description, p.SKU, p.Price, p.CompareAtPrice,
         p.Brand, p.ImageUrl, p.IsActive, p.IsFeatured, p.Rating, p.ReviewCount,
-        p.CategoryId, p.Category?.Name ?? "", p.OnlineInventory?.QuantityAvailable, p.CreatedAt
+        p.CategoryId, p.Category?.Name ?? "", p.OnlineInventory?.QuantityAvailable, p.CreatedAt,
+        p.Warranty
     );
 
     private static ProductListDto MapToListDto(Product p) => new(

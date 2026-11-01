@@ -17,6 +17,7 @@ import ForgotPasswordPage from './pages/shop/ForgotPasswordPage'
 import ResetPasswordPage from './pages/shop/ResetPasswordPage'
 import AccountProfilePage from './pages/shop/AccountProfilePage'
 import WishlistPage from './pages/shop/WishlistPage'
+import { INFO_PAGES } from './pages/shop/infoLinks'
 
 // Admin pages are loaded only when someone opens one, so shoppers don't download the back
 // office (the till, reports, charts) with the shop
@@ -36,6 +37,13 @@ const AdminCashUp       = lazy(() => import('./pages/admin/AdminCashUp'))
 const AdminTransfers    = lazy(() => import('./pages/admin/AdminTransfers'))
 const AdminBankAccounts = lazy(() => import('./pages/admin/AdminBankAccounts'))
 const AdminDeliveryFees = lazy(() => import('./pages/admin/AdminDeliveryFees'))
+
+// Policies and help are rarely opened, so they load on demand too
+const infoPage = name => lazy(() => import('./pages/shop/InfoPages').then(m => ({ default: m[name] })))
+const InfoRoutes = {
+  terms: infoPage('TermsPage'), returns: infoPage('ReturnsPage'), disclaimer: infoPage('DisclaimerPage'),
+  privacy: infoPage('PrivacyPage'), help: infoPage('HelpPage'),
+}
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 // Signed-out visitors go to sign in, then come back here (utils/signIn)
@@ -109,6 +117,8 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/:id" element={<ProductDetailPage />} />
+            {Object.entries(InfoRoutes).map(([key, Page]) =>
+              <Route key={key} path={INFO_PAGES[key].path} element={<Page />} />)}
 
             {/* ── Auth ── */}
             <Route path="/login"           element={<GuestOnly><LoginPage /></GuestOnly>} />
