@@ -238,6 +238,12 @@ public class CartController : ControllerBase
     private readonly ICartService _cart;
     public CartController(ICartService cart) => _cart = cart;
 
+    /// <summary>Price a signed-out shopper's cart, which is kept in their browser</summary>
+    [HttpPost("preview")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Preview([FromBody] GuestCartRequest req) =>
+        Ok(await _cart.PreviewAsync(req.Items));
+
     /// <summary>Get current user's cart</summary>
     [HttpGet]
     public async Task<IActionResult> GetCart() =>
@@ -324,6 +330,58 @@ public class OrdersController : ControllerBase
         }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ── Without an account ──
+
+    /// <summary>Check out without an account; the cart comes from the browser</summary>
+    [HttpPost("guest/checkout")]
+    [AllowAnonymous]
+    [EnableRateLimiting("guest-checkout")]
+    public async Task<IActionResult> GuestCheckout([FromBody] GuestCheckoutRequest req)
+    {
+        try
+        {
+            var order = await _orders.CreateGuestOrderAsync(req);
+            return Created($"/api/orders/guest/{order.GuestToken}", order);
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Shops that can supply a signed-out shopper's cart for pickup</summary>
+    [HttpPost("guest/pickup-shops")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GuestPickupShops([FromBody] GuestCartRequest req) =>
+        Ok(await _orders.GetPickupShopsForAsync(req.Items));
+
+    /// <summary>A guest's order, by the private token in its link</summary>
+    [HttpGet("guest/{token}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GuestOrder(string token)
+    {
+        var order = await _orders.GetGuestOrderAsync(token);
+        return order == null ? NotFound(new { message = "We couldn't find that order." }) : Ok(order);
+    }
+
+    /// <summary>A guest's order's status history, by the private token in its link</summary>
+    [HttpGet("guest/{token}/history")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GuestOrderHistory(string token)
+    {
+        var order = await _orders.GetGuestOrderAsync(token);
+        return order == null ? NotFound() : Ok(await _orders.GetStatusHistoryAsync(order.Id));
+    }
+
+    /// <summary>A guest's order link, from the order number and the email it was placed with</summary>
+    [HttpPost("guest/find")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> FindGuestOrder([FromBody] FindGuestOrderRequest req)
+    {
+        var token = await _orders.FindGuestOrderAsync(req.OrderNumber, req.Email);
+        return token == null
+            ? NotFound(new { message = "We couldn't find an order with that number and email. Check both and try again." })
+            : Ok(new { token });
     }
 
     /// <summary>Get all orders; search matches order number, customer, phone, email or IMEI</summary>

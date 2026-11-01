@@ -81,5 +81,10 @@ public class CouponRepository : ICouponRepository
         _db.Orders.CountAsync(o => o.UserId == userId && o.CouponCode == code.ToUpper()
             && o.Status != OrderStatus.Cancelled);
 
+    // Guest checkouts count by the email they were placed with
+    public Task<int> CountGuestUsesAsync(string code, string email) =>
+        _db.Orders.CountAsync(o => o.UserId == null && o.GuestToken != null && o.CustomerEmail == email
+            && o.CouponCode == code.ToUpper() && o.Status != OrderStatus.Cancelled);
+
     public Task<int> CountAsync() => _db.Coupons.CountAsync();
 }

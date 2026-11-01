@@ -29,9 +29,12 @@ api.interceptors.response.use(
   async err => {
     const original = err.config
 
-    // Only attempt refresh on 401, once, and not on the refresh call itself
+    // Only attempt refresh on 401, once, and not on the refresh call itself. A signed-out
+    // visitor (a guest checking out, say) has no session to renew: just report the 401.
+    const hadSession = localStorage.getItem('access_token') || localStorage.getItem('auth-store')?.includes('"isAuthenticated":true')
     if (
       err.response?.status === 401 &&
+      hadSession &&
       !original._retry &&
       !original.url?.includes('/auth/refresh') &&
       !original.url?.includes('/auth/login')
@@ -109,6 +112,7 @@ export const cartApi = {
   updateItem: (id, data) => api.put(`/cart/items/${id}`, data),
   removeItem: (id)       => api.delete(`/cart/items/${id}`),
   clear:      ()         => api.delete('/cart'),
+  preview:    (items)    => api.post('/cart/preview', { items }), // a signed-out shopper's cart, kept in the browser
 }
 
 // ── Orders ────────────────────────────────────────────────────────────────────
@@ -121,6 +125,12 @@ export const orderApi = {
   markPaid:     (id, data) => api.post(`/orders/${id}/mark-paid`, data),
   getHistory:   (id)       => api.get(`/orders/${id}/history`),
   pickupShops:  ()         => api.get('/orders/pickup-shops'), // for the signed-in customer's cart
+  // Without an account
+  guestCheckout:    (data)  => api.post('/orders/guest/checkout', data),
+  guestPickupShops: (items) => api.post('/orders/guest/pickup-shops', { items }),
+  guestOrder:       (token) => api.get(`/orders/guest/${token}`),
+  guestHistory:     (token) => api.get(`/orders/guest/${token}/history`),
+  findGuestOrder:   (data)  => api.post('/orders/guest/find', data),
 }
 
 // ── Delivery fees (per state) ─────────────────────────────────────────────────

@@ -275,7 +275,11 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                 {/* Customer + address */}
                 <div>
                   <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Customer</p>
-                  <p className="font-medium text-surface-900">{order.customerName}</p>
+                  <p className="font-medium text-surface-900">
+                    {order.customerName}
+                    {/* Ordered without an account: they follow it from the link in their emails, not My Orders */}
+                    {order.channel === 'Online' && !order.userId && <span className="badge-gray ml-2 align-middle">Guest, no account</span>}
+                  </p>
                   <p className="text-sm text-surface-500">{order.customerEmail}</p>
                   {order.shippingPhone && <p className="text-sm text-surface-500">{order.shippingPhone}</p>}
 

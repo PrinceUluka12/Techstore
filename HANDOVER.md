@@ -470,12 +470,14 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 | `/disclaimer` | DisclaimerPage | |
 | `/privacy-policy` | PrivacyPage | What's collected and why; rights under the Nigeria Data Protection Act 2023 |
 | `/help-support` | HelpPage | Contact details and common questions |
+| `/checkout` | CheckoutPage | Signed in, or as a guest with an email and phone (no account needed) |
+| `/orders/track/:token` | GuestOrderPage | A guest's order, by the private link it ends on and that its emails use |
+| `/track-order` | TrackOrderPage | A guest finds that link from the order number and email |
 
 ### Customer account (requires login)
 
 | Route | Page |
 |---|---|
-| `/checkout` | CheckoutPage — shipping form, Paystack payment, coupon code |
 | `/account/orders` | MyOrdersPage |
 | `/account/orders/:id` | OrderDetailPage — status timeline, items, totals |
 | `/account/profile` | AccountProfilePage — edit name/phone/address, change password |
@@ -544,6 +546,13 @@ Base path: `/api`
 | GET | `/` | View Orders | All orders |
 | POST | `/{id}/mark-paid` | Manage Orders | Record that the payment arrived |
 | PUT | `/{id}/status` | Manage Orders | Move an online order to its next step |
+| POST | `/guest/checkout` | Anyone (10 per 10 min per visitor) | Order without an account: email, the browser's cart lines, and the checkout details under `order` |
+| POST | `/guest/pickup-shops` | Anyone | Pickup shops for a browser's cart |
+| GET | `/guest/{token}` | Anyone with the link | A guest's order |
+| GET | `/guest/{token}/history` | Anyone with the link | Its status timeline |
+| POST | `/guest/find` | Anyone (sign-in limit) | The link's token, from the order number and email |
+
+**Guest checkout:** a guest order has no `UserId`. The customer's name, email and phone go in `CustomerName/Email/Phone`, as for till sales, plus a random `GuestToken` (32 bytes). The token is only returned once, at checkout, and in the order's emails, as `/orders/track/{token}`. An email that already belongs to an account is asked to sign in instead. A coupon's per-customer limit counts a guest by email. Signed-out shoppers' carts are kept in the browser (`guest-cart` in localStorage) and priced by `POST /api/cart/preview`. Signing in moves them into the account's cart (`useCartStore.mergeGuestCart`).
 
 **Online order path:** Pending (waiting for payment) → Confirmed (marked paid) → Processing → Shipped (delivery) or Ready for pickup → Delivered/Collected. An order can be cancelled until it's handed over; nothing changes after that (no returns). In-store sales are final.
 
@@ -588,6 +597,7 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 ### Other endpoints
 
 - `GET /api/cart`, `POST /api/cart/items`, `PUT /api/cart/items/{id}`, `DELETE /api/cart/items/{id}` — Cart management
+- `POST /api/cart/preview` (anyone) — prices a signed-out shopper's cart from the catalogue
 - `GET /api/inventory`, `PUT /api/inventory/{id}` — Inventory (Admin)
 - `POST /api/images/upload`, `DELETE /api/images` — Image management (Admin)
 - `GET /api/admin/dashboard`, `GET /api/admin/reports` — Dashboard stats (Admin)

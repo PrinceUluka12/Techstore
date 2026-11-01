@@ -1,4 +1,6 @@
-﻿using System.Security.Claims;
+﻿using System.Buffers.Text;
+using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using TechStore.API.Data;
@@ -7,6 +9,7 @@ using TechStore.API.Models;
 using TechStore.API.Repositories.Interfaces;
 using TechStore.API.Services.Interfaces;
 using TechStore.API.DTOs.Coupon;
+using TechStore.API.DTOs.Cart;
 
 namespace TechStore.API.Services;
 
@@ -68,6 +71,12 @@ public class OrderService : IOrderService
         return new PagedResult<OrderSummaryDto>(items.Select(MapToSummaryDto), total, page, pageSize);
     }
 
+    // A cart line as checkout sees it: from the signed-in customer's cart, or a guest's browser
+    private record Line(int ProductId, Product? Product, int Quantity);
+
+    // Who an order is for: an account, or a guest's email (their name and phone go on the order)
+    private record Buyer(int? UserId, string Email, string FirstName, string? GuestName = null, string? GuestPhone = null);
+
     public async Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest req)
     {
         var user = await _users.GetByIdAsync(userId)
@@ -77,6 +86,34 @@ public class OrderService : IOrderService
         if (cart == null || !cart.Items.Any())
             throw new InvalidOperationException("Cart is empty.");
 
+        return await PlaceOrderAsync(cart.Items.Select(i => new Line(i.ProductId, i.Product, i.Quantity)).ToList(),
+            req, new Buyer(userId, user.Email, user.FirstName));
+    }
+
+    // Checking out without an account. The browser sends the cart; prices and stock are ours.
+    public async Task<OrderDto> CreateGuestOrderAsync(GuestCheckoutRequest req)
+    {
+        var email = req.Email.Trim();
+        // Someone with an account should order from it, so the order shows up there
+        if (await _db.Users.AnyAsync(u => u.Email == email))
+            throw new InvalidOperationException(
+                "There's already an account with this email. Sign in to place your order, or use a different email.");
+
+        var wanted = req.Items.GroupBy(i => i.ProductId)
+            .Select(g => (Id: g.Key, Quantity: g.Sum(i => i.Quantity))).ToList();
+        var ids = wanted.Select(w => w.Id).ToList();
+        var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        if (products.Count < ids.Count)
+            throw new InvalidOperationException("Something in your cart is no longer available. Remove it to continue.");
+
+        var o = req.Order;
+        return await PlaceOrderAsync(wanted.Select(w => new Line(w.Id, products[w.Id], w.Quantity)).ToList(),
+            o, new Buyer(null, email, o.ShippingFirstName.Trim(),
+                $"{o.ShippingFirstName.Trim()} {o.ShippingLastName.Trim()}", o.ShippingPhone));
+    }
+
+    private async Task<OrderDto> PlaceOrderAsync(List<Line> lines, CreateOrderRequest req, Buyer buyer)
+    {
         // Bank transfer is how online orders are paid, so there has to be an account to pay into
         var byTransfer = req.PaymentMethod is null or "BankTransfer";
         if (byTransfer && !await _db.BankAccounts.AnyAsync(b => b.IsActive))
@@ -95,12 +132,12 @@ public class OrderService : IOrderService
         }
         else store = await _stores.GetOnlineAsync();
 
-        var productIds = cart.Items.Select(i => i.ProductId).ToList();
+        var productIds = lines.Select(i => i.ProductId).ToList();
         var available = await _db.Inventories
             .Where(i => i.StoreId == store.Id && productIds.Contains(i.ProductId))
             .ToDictionaryAsync(i => i.ProductId, i => i.QuantityOnHand - i.QuantityReserved);
 
-        foreach (var item in cart.Items)
+        foreach (var item in lines)
         {
             // It may have been deactivated after it went into the cart
             if (item.Product is not { IsActive: true })
@@ -124,7 +161,7 @@ public class OrderService : IOrderService
             shipping = rate.Fee;
         }
 
-        var orderItems = cart.Items.Select(i => new OrderItem
+        var orderItems = lines.Select(i => new OrderItem
         {
             ProductId   = i.ProductId,
             ProductName = i.Product?.Name ?? "",
@@ -142,7 +179,9 @@ public class OrderService : IOrderService
         if (!string.IsNullOrWhiteSpace(req.CouponCode))
         {
             appliedCoupon = await _coupons.GetByCodeAsync(req.CouponCode.Trim());
-            var uses = appliedCoupon == null ? 0 : await _coupons.CountUsesByCustomerAsync(appliedCoupon.Code, userId);
+            var uses = appliedCoupon == null ? 0
+                : buyer.UserId is int uid ? await _coupons.CountUsesByCustomerAsync(appliedCoupon.Code, uid)
+                : await _coupons.CountGuestUsesAsync(appliedCoupon.Code, buyer.Email);
             var problem = CouponRules.Problem(appliedCoupon, subTotal, uses, DateTime.UtcNow);
             if (problem != null)
                 throw new InvalidOperationException($"{problem} Remove the coupon to continue.");
@@ -157,7 +196,11 @@ public class OrderService : IOrderService
         var order = new Order
         {
             OrderNumber        = GenerateOrderNumber(),
-            UserId             = userId,
+            UserId             = buyer.UserId,
+            GuestToken         = buyer.UserId == null ? NewGuestToken() : null,
+            CustomerName       = buyer.GuestName,
+            CustomerEmail      = buyer.UserId == null ? buyer.Email : null,
+            CustomerPhone      = buyer.GuestPhone,
             StoreId            = store.Id,
             Fulfilment         = req.Fulfilment,
             Status             = OrderStatus.Pending,
@@ -195,7 +238,7 @@ public class OrderService : IOrderService
 
             var saved = await _orders.CreateAsync(order);
 
-            foreach (var item in cart.Items)
+            foreach (var item in lines)
                 if (!await _inventory.TryReserveAsync(store.Id, item.ProductId, item.Quantity))
                     throw new InvalidOperationException(
                         $"'{item.Product?.Name}' has just sold out. Please update your cart and try again.");
@@ -205,26 +248,32 @@ public class OrderService : IOrderService
                     $"Coupon {appliedCoupon.Code} has just run out. Remove it to continue.");
 
             await WriteLogAsync(saved.Id, null, OrderStatus.Pending, OrderStatus.Pending,
-                pickup ? $"Order placed by customer, to collect from {store.Name}" : "Order placed by customer",
+                (buyer.UserId == null ? "Order placed without an account" : "Order placed by customer")
+                    + (pickup ? $", to collect from {store.Name}" : ""),
                 isSystem: true);
 
-            await _carts.ClearAsync(userId);
+            if (buyer.UserId is int owner) await _carts.ClearAsync(owner);
 
             await tx.CommitAsync();
             return saved;
         });
 
         var result = MapToDto(await _orders.GetByIdAsync(created.Id) ?? created);
-        _ = _email.SendOrderConfirmationAsync(user.Email, user.FirstName, result.OrderNumber, result.Total,
-            order.PaymentDueAt, pickup ? store.Name : null);
-        return result;
+        _ = _email.SendOrderConfirmationAsync(buyer.Email, buyer.FirstName, result.OrderNumber, result.Total,
+            order.PaymentDueAt, pickup ? store.Name : null, OrderPath(created));
+        return result with { GuestToken = created.GuestToken };
     }
 
-    // Shops the customer can collect from, and whether each has everything in their cart
     public async Task<IEnumerable<PickupShopDto>> GetPickupShopsAsync(int userId)
     {
         var cart = await _carts.GetByUserIdAsync(userId);
-        var wanted = (cart?.Items ?? [])
+        return await GetPickupShopsForAsync((cart?.Items ?? []).Select(i => new CartLine(i.ProductId, i.Quantity)));
+    }
+
+    // Shops the customer can collect from, and whether each has everything in their cart
+    public async Task<IEnumerable<PickupShopDto>> GetPickupShopsForAsync(IEnumerable<CartLine> lines)
+    {
+        var wanted = lines
             .GroupBy(i => i.ProductId)
             .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
         var ids = wanted.Keys.ToList();
@@ -240,6 +289,20 @@ public class OrderService : IOrderService
             .Select(s => new PickupShopDto(s.Id, s.Name, s.Address, s.City, s.Phone,
                 wanted.Count > 0 && wanted.All(w =>
                     stock.Any(r => r.StoreId == s.Id && r.ProductId == w.Key && r.Available >= w.Value))));
+    }
+
+    public async Task<OrderDto?> GetGuestOrderAsync(string token)
+    {
+        var order = await _orders.GetByGuestTokenAsync(token);
+        return order == null ? null : MapToDto(order);
+    }
+
+    // "Track an order": the order number and the email it was placed with lead to its link
+    public Task<string?> FindGuestOrderAsync(string orderNumber, string email)
+    {
+        var (number, address) = (orderNumber.Trim(), email.Trim());
+        return _db.Orders.Where(o => o.GuestToken != null && o.OrderNumber == number && o.CustomerEmail == address)
+            .Select(o => o.GuestToken).FirstOrDefaultAsync();
     }
 
     public async Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest req)
@@ -319,8 +382,9 @@ public class OrderService : IOrderService
             var claimed = await _db.Orders
                 .Where(x => x.Id == o.Id && x.PaymentReminderSentAt == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.PaymentReminderSentAt, now)) == 1;
-            if (claimed && o.User != null)
-                await _email.SendPaymentReminderAsync(o.User.Email, o.User.FirstName, o.OrderNumber, o.Total, o.PaymentDueAt!.Value);
+            var (to, firstName) = RecipientOf(o);
+            if (claimed && to != null)
+                await _email.SendPaymentReminderAsync(to, firstName, o.OrderNumber, o.Total, o.PaymentDueAt!.Value, OrderPath(o));
         }
 
         var dueIds = await _db.Orders
@@ -444,7 +508,8 @@ public class OrderService : IOrderService
     // Tells the customer what's happened, in words rather than status names
     private void EmailStatus(Order order)
     {
-        if (order.User?.Email == null) return;
+        var (to, firstName) = RecipientOf(order);
+        if (to == null) return;
         var shop = order.Store?.Name ?? "our shop";
         var (title, detail) = order.Status switch
         {
@@ -462,7 +527,7 @@ public class OrderService : IOrderService
                                                 : "Your order has been cancelled."),
             _                          => (order.Status.ToString(), null),
         };
-        _ = _email.SendOrderStatusUpdateAsync(order.User.Email, order.User.FirstName ?? "", order.OrderNumber, title, detail);
+        _ = _email.SendOrderStatusUpdateAsync(to, firstName, order.OrderNumber, title, detail, OrderPath(order));
     }
 
     // For messages: "An order that's waiting for payment can't be moved to shipped."
@@ -535,6 +600,16 @@ public class OrderService : IOrderService
             return $"Transfer ref: {o.TransactionId}";
         return null;
     }
+
+    // Who gets an online order's emails: the account holder, or the email a guest checked out with
+    private static (string? Email, string FirstName) RecipientOf(Order o) =>
+        o.User != null ? (o.User.Email, o.User.FirstName) : (o.CustomerEmail, o.ShippingFirstName);
+
+    // Where an email's button goes. A guest has no account to sign in to, so it's their private link.
+    private static string OrderPath(Order o) =>
+        o.GuestToken != null ? $"/orders/track/{o.GuestToken}" : $"/account/orders/{o.Id}";
+
+    private static string NewGuestToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
 
     // Walk-in sales may have no account, only the name the cashier typed (or nothing)
     private static string CustomerNameOf(Order o) =>

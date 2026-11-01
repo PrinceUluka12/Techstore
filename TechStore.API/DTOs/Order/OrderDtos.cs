@@ -1,3 +1,4 @@
+using TechStore.API.DTOs.Cart;
 using TechStore.API.Models;
 
 namespace TechStore.API.DTOs.Order;
@@ -37,8 +38,14 @@ public record OrderDto(
     DateTime? PaymentDueAt = null,     // unpaid online orders are cancelled then
     DateTime? PaidAt = null,
     List<OrderStatus>? NextStatuses = null, // what staff can move the order to now
-    bool CanMarkPaid = false
+    bool CanMarkPaid = false,
+    string? GuestToken = null // only in the guest checkout's reply: the key to the order's private link
 );
+
+// Checking out without an account: the cart comes from the browser (prices and stock are the
+// API's), an email to send the order to, and the same details as a signed-in checkout
+public record GuestCheckoutRequest(string Email, List<CartLine> Items, CreateOrderRequest Order);
+public record FindGuestOrderRequest(string OrderNumber, string Email);
 
 public record OrderItemDto(
     int Id,

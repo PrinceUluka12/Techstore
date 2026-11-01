@@ -96,6 +96,13 @@ public class ProductRepository : IProductRepository
         _db.Products.Include(p => p.Category).IncludeOnlineStock()
             .FirstOrDefaultAsync(p => p.Id == id);
 
+    public Task<List<Product>> GetByIdsAsync(IEnumerable<int> ids)
+    {
+        var list = ids.ToList();
+        return _db.Products.Include(p => p.Category).IncludeOnlineStock()
+            .Where(p => list.Contains(p.Id)).ToListAsync();
+    }
+
     public Task<Product?> GetBySkuAsync(string sku) =>
         _db.Products.Include(p => p.Category).IncludeOnlineStock()
             .FirstOrDefaultAsync(p => p.SKU == sku);
@@ -182,6 +189,10 @@ public class OrderRepository : IOrderRepository
     public Task<Order?> GetByIdAsync(int id) =>
         _db.Orders.Include(o => o.User).Include(o => o.Store).Include(o => o.Items).ThenInclude(i => i.Product)
             .FirstOrDefaultAsync(o => o.Id == id);
+
+    public Task<Order?> GetByGuestTokenAsync(string token) =>
+        _db.Orders.Include(o => o.Store).Include(o => o.Items).ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync(o => o.GuestToken == token);
 
     public Task<Order?> GetByOrderNumberAsync(string num) =>
         _db.Orders.Include(o => o.User).Include(o => o.Items).ThenInclude(i => i.Product)

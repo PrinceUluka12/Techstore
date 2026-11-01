@@ -469,6 +469,10 @@ namespace TechStore.API.Migrations
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("Delivery");
 
+                    b.Property<string>("GuestToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
@@ -560,6 +564,10 @@ namespace TechStore.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DiscountApprovedByUserId");
+
+                    b.HasIndex("GuestToken")
+                        .IsUnique()
+                        .HasFilter("[GuestToken] IS NOT NULL");
 
                     b.HasIndex("OrderNumber")
                         .IsUnique();

@@ -54,8 +54,22 @@ export const useAuthStore = create(
 )
 
 // ── Cart Store ────────────────────────────────────────────────────────────────
-// The cart itself is kept on the server; this is the page's copy of it. After a page
-// reload it's empty until loadCart has fetched it (loaded = true once it has).
+// Signed in, the cart is kept on the server and this is the page's copy of it. Signed out, it's
+// kept in this browser (GUEST_CART: [{ productId, quantity }]) and priced by the API's
+// cart/preview, so it shows what checkout will charge; signing in moves it into the account.
+// After a page reload the cart is empty until loadCart has fetched it (loaded = true once it has).
+const GUEST_CART = 'guest-cart'
+const readGuestCart = () => { try { return JSON.parse(localStorage.getItem(GUEST_CART)) ?? [] } catch { return [] } }
+const writeGuestCart = (lines) => {
+  try { lines.length ? localStorage.setItem(GUEST_CART, JSON.stringify(lines)) : localStorage.removeItem(GUEST_CART) }
+  catch { /* storage blocked: nothing to keep it in */ }
+}
+const keepGuestCart = (cart) => writeGuestCart(cart.items.map(i => ({ productId: i.productId, quantity: i.quantity })))
+const signedIn = () => useAuthStore.getState().isAuthenticated
+// Shaped like an API error, so callers show the message the same way
+const cartError = (message) => Object.assign(new Error(message), { response: { data: { message } } })
+const EMPTY_CART = { items: [], subTotal: 0, totalItems: 0, id: null }
+
 export const useCartStore = create((set, get) => ({
   items: [],
   total: 0,
@@ -76,15 +90,67 @@ export const useCartStore = create((set, get) => ({
   }),
 
   loadCart: async () => {
-    try { const { data } = await cartApi.get(); get().setCart(data) }
-    catch { set({ loaded: true }) } // signed out or offline: treat as empty
+    try {
+      if (signedIn()) { const { data } = await cartApi.get(); get().setCart(data) }
+      else await get().priceGuestCart(readGuestCart())
+    }
+    catch { set({ loaded: true }) } // offline: treat as empty
   },
 
+  // Prices the browser's cart, keeping only what can still be bought
+  priceGuestCart: async (lines) => {
+    const cart = lines.length ? (await cartApi.preview(lines)).data : EMPTY_CART
+    keepGuestCart(cart)
+    get().setCart(cart)
+  },
+
+  // Into the account's cart, or the browser's. Throws an API-style error, e.g. when there isn't enough stock.
+  addItem: async (productId, quantity = 1) => {
+    if (signedIn()) {
+      const { data } = await cartApi.addItem({ productId, quantity })
+      get().setCart(data)
+      return
+    }
+    const lines = readGuestCart()
+    const wanted = (lines.find(l => l.productId === productId)?.quantity ?? 0) + quantity
+    const next = lines.some(l => l.productId === productId)
+      ? lines.map(l => l.productId === productId ? { productId, quantity: wanted } : l)
+      : [...lines, { productId, quantity }]
+    const { data } = await cartApi.preview(next)
+    const line = data.items.find(i => i.productId === productId)
+    if (!line) throw cartError('This product is no longer available.')
+    const available = Math.max(line.availableStock ?? 0, 0)
+    if (available < wanted) throw cartError(`Only ${available} units available.`)
+    keepGuestCart(data)
+    get().setCart(data)
+  },
+
+  removeItem: async (item) => {
+    if (signedIn()) { const { data } = await cartApi.removeItem(item.id); get().setCart(data); return }
+    await get().priceGuestCart(readGuestCart().filter(l => l.productId !== item.productId))
+  },
+
+  // After signing in: what was put in the cart before joins the account's cart
+  // (anything that's sold out or been switched off since is left out)
+  mergeGuestCart: async () => {
+    for (const line of readGuestCart()) {
+      try { await cartApi.addItem(line) } catch { /* left out */ }
+    }
+    writeGuestCart([])
+    await get().loadCart()
+  },
+
+  // The browser's cart, for a guest's checkout
+  guestLines: () => readGuestCart(),
+
   // After an order or on sign-out the cart is known to be empty
-  clearLocal: () => set({
-    items: [], total: 0, itemCount: 0, cartId: null, loaded: true,
-    couponCode: null, discountAmount: 0, couponError: null,
-  }),
+  clearLocal: () => {
+    writeGuestCart([])
+    set({
+      items: [], total: 0, itemCount: 0, cartId: null, loaded: true,
+      couponCode: null, discountAmount: 0, couponError: null,
+    })
+  },
 
   applyCoupon: async (code) => {
     const subTotal = get().total

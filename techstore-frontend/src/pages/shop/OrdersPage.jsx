@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
 import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw, Store } from 'lucide-react'
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
-import { StatusBadge, STATUS_LABELS, LoadingPage, EmptyState, Pagination, ProductImage, PageTitle } from '../../components/ui'
+import { StatusBadge, STATUS_LABELS, LoadingPage, EmptyState, Pagination, ProductImage, PageTitle, Input, Spinner } from '../../components/ui'
+import { emailRules, requiredText, showApiError } from '../../utils/validation'
 import { format } from 'date-fns'
 
 const STATUS_ICONS = {
@@ -40,15 +42,17 @@ const STATUS_COLORS = {
   Refunded:   'text-surface-400 bg-surface-50',
 }
 
-function OrderTimeline({ orderId, fulfilment }) {
+// guestToken: an order placed without an account, read through its private link
+function OrderTimeline({ orderId, guestToken, fulfilment }) {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    orderApi.getHistory(orderId)
+    (guestToken ? orderApi.guestHistory(guestToken) : orderApi.getHistory(orderId))
       .then(r => setLogs(r.data))
+      .catch(() => {})
       .finally(() => setLoading(false))
-  }, [orderId])
+  }, [orderId, guestToken])
 
   if (loading) return null
   if (!logs.length) return null
@@ -178,13 +182,100 @@ export function OrderDetailPage() {
   if (!order) return <><Navbar /><div className="page-container py-16 text-center text-surface-400">Order not found</div></>
 
   return (
+    <OrderView order={order} top={
+      <Link to="/account/orders" className="inline-flex items-center gap-2 text-sm text-surface-500 hover:text-surface-900 mb-6">
+        <ArrowLeft className="w-4 h-4" /> Back to orders
+      </Link>
+    } />
+  )
+}
+
+// An order placed without an account, opened from its private link (/orders/track/:token)
+export function GuestOrderPage() {
+  const { token } = useParams()
+  const [order, setOrder] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    orderApi.guestOrder(token).then(r => setOrder(r.data)).catch(() => setOrder(null)).finally(() => setLoading(false))
+  }, [token])
+
+  if (loading) return <><Navbar /><LoadingPage /></>
+  if (!order) return (
+    <>
+      <Navbar />
+      <div className="page-container py-16 text-center">
+        <p className="text-surface-500 mb-4">We couldn't find that order.</p>
+        <Link to="/track-order" className="btn-primary">Find your order</Link>
+      </div>
+    </>
+  )
+
+  return (
+    <OrderView order={order} guestToken={token} top={
+      <p className="card p-4 mb-6 bg-brand-50/40 text-sm text-surface-700">
+        <strong>Keep this page's link:</strong> it's how you check this order without an account. You can
+        also find it with <Link to="/track-order" className="text-brand-600 hover:underline">Track an order</Link>,
+        using your order number and email.
+      </p>
+    } />
+  )
+}
+
+// Ordered without an account: the order number and the email used find the order's link
+export function TrackOrderPage() {
+  const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+
+  const onSubmit = async (data) => {
+    setLoading(true)
+    try {
+      const { data: found } = await orderApi.findGuestOrder({ orderNumber: data.orderNumber.trim(), email: data.email.trim() })
+      navigate(`/orders/track/${found.token}`)
+    } catch (err) {
+      showApiError(err, setError, "We couldn't find that order")
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <PageTitle>Track an Order</PageTitle>
+      <main className="flex-1 page-container py-10">
+        <div className="max-w-md">
+          <h1 className="font-display text-2xl font-semibold">Track an order</h1>
+          <p className="text-surface-500 text-sm mt-1">Ordered without an account? Enter your order number and the email you used.</p>
+          <form onSubmit={handleSubmit(onSubmit)} noValidate className="card p-6 mt-6 space-y-4">
+            <Input label="Order number" placeholder="TS-20261101-A1B2C3" error={errors.orderNumber?.message}
+              {...register('orderNumber', requiredText('Order number', 40))} />
+            <Input label="Email" type="email" autoComplete="email" placeholder="you@example.com" error={errors.email?.message}
+              {...register('email', emailRules)} />
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? <Spinner size="sm" /> : 'Find my order'}
+            </button>
+          </form>
+          <p className="text-sm text-surface-500 mt-4">
+            Have an account?{' '}
+            <Link to="/login" state={{ from: '/account/orders' }} className="text-brand-600 hover:underline">Sign in</Link>{' '}
+            to see all your orders.
+          </p>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  )
+}
+
+// The order itself: items, timeline, how to pay, totals and where it's going
+function OrderView({ order, guestToken, top }) {
+  return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <PageTitle>{`Order ${order.orderNumber}`}</PageTitle>
       <main className="flex-1 page-container py-10">
-        <Link to="/account/orders" className="inline-flex items-center gap-2 text-sm text-surface-500 hover:text-surface-900 mb-6">
-          <ArrowLeft className="w-4 h-4" /> Back to orders
-        </Link>
+        {top}
 
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
           <div>
@@ -216,7 +307,7 @@ export function OrderDetailPage() {
                 ))}
               </div>
             </div>
-            <OrderTimeline orderId={order.id} fulfilment={order.fulfilment} />
+            <OrderTimeline orderId={order.id} guestToken={guestToken} fulfilment={order.fulfilment} />
           </div>
 
           <div className="space-y-4">

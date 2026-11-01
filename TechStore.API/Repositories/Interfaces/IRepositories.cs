@@ -39,6 +39,7 @@ public interface IWishlistRepository
 public interface IProductRepository
 {
     Task<Product?> GetByIdAsync(int id);
+    Task<List<Product>> GetByIdsAsync(IEnumerable<int> ids);
     Task<Product?> GetBySkuAsync(string sku);
     Task<(IEnumerable<Product> Items, int Total)> SearchAsync(ProductSearchParams p);
     Task<IEnumerable<Product>> GetFeaturedAsync(int count = 8);
@@ -55,6 +56,7 @@ public interface IOrderRepository
 {
     Task<Order?> GetByIdAsync(int id);
     Task<Order?> GetByOrderNumberAsync(string orderNumber);
+    Task<Order?> GetByGuestTokenAsync(string token);
     Task<(IEnumerable<Order> Items, int Total)> GetByUserIdAsync(int userId, int page = 1, int pageSize = 10);
     Task<(IEnumerable<Order> Items, int Total)> GetAllAsync(int page = 1, int pageSize = 20, string? status = null,
         SalesChannel? channel = null, int? storeId = null, string? search = null);
@@ -125,6 +127,7 @@ public interface ICouponRepository
     Task<bool> TryUseAsync(int couponId);
     Task ReleaseUseAsync(string code);
     Task<int> CountUsesByCustomerAsync(string code, int userId);
+    Task<int> CountGuestUsesAsync(string code, string email);
     Task<int> CountAsync();
 }
 

@@ -37,10 +37,13 @@ public interface IEmailService
 {
     Task SendWelcomeAsync(string toEmail, string firstName);
     // payBy: when an unpaid bank-transfer order is cancelled; pickupShop: null for delivery
+    // orderPath: where the email's button goes, e.g. /account/orders/12 or a guest's /orders/track/{token}
     Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total,
-        DateTime? payBy = null, string? pickupShop = null);
-    Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus, string? detail = null);
-    Task SendPaymentReminderAsync(string toEmail, string firstName, string orderNumber, decimal total, DateTime payBy);
+        DateTime? payBy = null, string? pickupShop = null, string orderPath = "/account/orders");
+    Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus, string? detail = null,
+        string orderPath = "/account/orders");
+    Task SendPaymentReminderAsync(string toEmail, string firstName, string orderNumber, decimal total, DateTime payBy,
+        string orderPath = "/account/orders");
     Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink);
 }
 
@@ -73,9 +76,13 @@ public interface IOrderService
     Task<PagedResult<OrderSummaryDto>> GetAllOrdersAsync(int page, int pageSize, string? status,
         SalesChannel? channel = null, int? storeId = null, string? search = null);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);
+    Task<OrderDto> CreateGuestOrderAsync(GuestCheckoutRequest request);
+    Task<OrderDto?> GetGuestOrderAsync(string token);
+    Task<string?> FindGuestOrderAsync(string orderNumber, string email);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
     Task<OrderDto?> MarkPaidAsync(int id, string? reference);
     Task<IEnumerable<PickupShopDto>> GetPickupShopsAsync(int userId);
+    Task<IEnumerable<PickupShopDto>> GetPickupShopsForAsync(IEnumerable<CartLine> lines);
     Task<int> ProcessUnpaidOrdersAsync();
     Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId);
 }
@@ -94,6 +101,7 @@ public interface ICartService
     Task<CartDto> UpdateItemAsync(int userId, int cartItemId, UpdateCartItemRequest request);
     Task<CartDto> RemoveItemAsync(int userId, int cartItemId);
     Task ClearCartAsync(int userId);
+    Task<CartDto> PreviewAsync(IEnumerable<CartLine> lines);
 }
 
 public interface IInventoryService

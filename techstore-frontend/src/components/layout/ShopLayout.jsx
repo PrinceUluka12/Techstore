@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useAuthStore, useCartStore, useUIStore } from '../../store'
-import { authApi, cartApi } from '../../services/api'
+import { authApi } from '../../services/api'
 import { Spinner, ProductImage } from '../ui'
 import { returnHere } from '../../utils/signIn'
 import { whatsAppLink, WhatsAppIcon } from '../shop/WhatsApp'
@@ -41,7 +41,8 @@ export function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   // Every shop page has the navbar, so this brings the cart back after a page reload
-  useEffect(() => { if (isAuthenticated && !loaded) loadCart() }, [isAuthenticated, loaded])
+  // (the account's, or the one a signed-out shopper filled in this browser)
+  useEffect(() => { if (!loaded) loadCart() }, [isAuthenticated, loaded])
 
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* cookie cleared on client regardless */ }
@@ -200,23 +201,20 @@ export function Navbar() {
 // ── Cart Drawer ────────────────────────────────────────────────────────────────
 export function CartDrawer() {
   const { cartOpen, closeCart } = useUIStore()
-  const { items, total, setCart } = useCartStore()
-  const { isAuthenticated } = useAuthStore()
+  const { items, total, removeItem } = useCartStore()
   const navigate = useNavigate()
   const [loadingItem, setLoadingItem] = useState(null)
 
-  const handleRemove = async (itemId) => {
-    setLoadingItem(itemId)
-    try {
-      const { data } = await cartApi.removeItem(itemId)
-      setCart(data)
-    } catch { toast.error('Could not remove item') }
+  const handleRemove = async (item) => {
+    setLoadingItem(item.id)
+    try { await removeItem(item) }
+    catch { toast.error('Could not remove item') }
     finally { setLoadingItem(null) }
   }
 
+  // No account needed: checkout asks signed-out shoppers for an email instead
   const handleCheckout = () => {
     closeCart()
-    if (!isAuthenticated) { navigate('/login', { state: { from: '/checkout' } }); return }
     navigate('/checkout')
   }
 
@@ -253,7 +251,7 @@ export function CartDrawer() {
                 <p className="text-xs text-surface-400">₦{item.unitPrice.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} × {item.quantity}</p>
                 <p className="text-sm font-semibold text-brand-600">₦{item.lineTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
-              <button onClick={() => handleRemove(item.id)} disabled={loadingItem === item.id}
+              <button onClick={() => handleRemove(item)} disabled={loadingItem === item.id}
                 className="btn-icon text-surface-400 hover:text-red-500 self-start">
                 {loadingItem === item.id ? <Spinner size="sm" /> : <X className="w-3.5 h-3.5" />}
               </button>
@@ -319,6 +317,7 @@ export function Footer() {
               {[
                 { label: 'My account',                to: '/account/orders' },
                 { label: 'Shop',                      to: '/products' },
+                { label: 'Track an order',            to: '/track-order' },
                 ...['terms', 'returns', 'disclaimer', 'privacy', 'help']
                   .map(p => ({ label: INFO_PAGES[p].label, to: INFO_PAGES[p].path })),
               ].map(l => (
