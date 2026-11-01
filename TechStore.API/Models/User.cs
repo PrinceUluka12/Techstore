@@ -15,6 +15,9 @@ public class User
     public DateTime? LockoutUntil { get; set; }
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpiry { get; set; }
+    // Adding orders placed without an account to this one: a hash of the token in the emailed link
+    public string? OrdersClaimTokenHash { get; set; }
+    public DateTime? OrdersClaimTokenExpiry { get; set; }
     public int? StoreId { get; set; } // Staff home shop; null for customers
     public Store? Store { get; set; }
 

@@ -46,6 +46,7 @@ public record OrderDto(
 // API's), an email to send the order to, and the same details as a signed-in checkout
 public record GuestCheckoutRequest(string Email, List<CartLine> Items, CreateOrderRequest Order);
 public record FindGuestOrderRequest(string OrderNumber, string Email);
+public record ClaimOrdersRequest(string Token);
 
 public record OrderItemDto(
     int Id,

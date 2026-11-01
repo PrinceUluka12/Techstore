@@ -7,8 +7,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using TechStore.API.Data;
+using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Tests;
 
@@ -42,15 +44,21 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("ConnectionStrings:DefaultConnection", _connStr);
         builder.UseSetting("AzureStorage:ConnectionString", "UseDevelopmentStorage=true");
         builder.UseSetting("Jwt:Secret", "test-only-secret-test-only-secret-test-only-secret");
-        builder.UseSetting("Email:From", ""); // emails are skipped
+        builder.UseSetting("Email:From", "");
+        builder.UseSetting("Email:SiteUrl", "https://shop.test");
         builder.ConfigureTestServices(services =>
         {
-            // Tests run the unpaid-order sweep themselves, when they're ready for it
+            // Tests run the background jobs themselves, when they're ready for them
             foreach (var d in services.Where(d => d.ServiceType == typeof(IHostedService)
-                         && d.ImplementationType?.Name is "UnpaidOrderService" or "TokenCleanupService").ToList())
+                         && d.ImplementationType?.Name is "UnpaidOrderService" or "TokenCleanupService" or "LowStockAlertJob").ToList())
                 services.Remove(d);
+            // Emails are recorded rather than sent
+            services.RemoveAll<IEmailService>();
+            services.AddSingleton<IEmailService>(Emails);
         });
     }
+
+    public FakeEmails Emails { get; } = new();
 
     public async Task InitializeAsync()
     {

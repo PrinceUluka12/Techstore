@@ -94,11 +94,13 @@ export function LoginPage() {
 
 // ── Register ──────────────────────────────────────────────────────────────────
 export function RegisterPage() {
-  const { register, handleSubmit, getValues, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
+  // Passed on from the sign-in page (utils/signIn), or from a guest's order page with their email
+  const { state } = useLocation()
+  const { register, handleSubmit, getValues, setError, formState: { errors } } =
+    useForm({ mode: 'onTouched', defaultValues: { email: state?.email ?? '' } })
   const [loading, setLoading] = useState(false)
   const { login } = useAuthStore()
   const navigate = useNavigate()
-  const { state } = useLocation() // passed on from the sign-in page (utils/signIn)
 
   const onSubmit = async (data) => {
     setLoading(true)

@@ -375,6 +375,9 @@ Sign in as an Admin, open **Staff**, and change their role to Admin. Only an Adm
 | Order placed | Order Confirmed — {orderNumber} |
 | Order status updated (admin) | Order Update — {orderNumber} |
 | Forgot password | Reset Your Password |
+| Newsletter sign-up (footer) | You're on the Hytel Phones list (with their unsubscribe link) |
+| Every morning from `Alerts:LowStockHour` (8, Nigeria time) | Low stock: {n} items. Goes to Admins and staff with Manage Inventory; staff with a home shop get only that shop's items. `StockAlertService` and `LowStockAlertJob`; the `JobRuns` table makes sure it goes once a day. |
+| Customer asks to add orders placed without an account (My Orders banner) | Add your earlier orders to your account. The link works once, for 24 hours. |
 
 ### Password reset flow
 
@@ -526,7 +529,7 @@ Base path: `/api`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/search` | — | Search/filter/sort with pagination |
+| GET | `/search` | — | Search/filter/sort with pagination. Every word must appear in the name, brand, category, description or SKU, in any order ("samsung a55" finds "Galaxy A55" by Samsung) |
 | GET | `/featured` | — | Featured product list |
 | GET | `/categories` | — | All categories |
 | GET | `/{id}` | — | Single product detail |
@@ -546,6 +549,9 @@ Base path: `/api`
 | GET | `/` | View Orders | All orders |
 | POST | `/{id}/mark-paid` | Manage Orders | Record that the payment arrived |
 | PUT | `/{id}/status` | Manage Orders | Move an online order to its next step |
+| GET | `/my/claimable` | User | How many guest orders have this account's email |
+| POST | `/my/claim/request` | User (sign-in limit) | Emails the account's address a link to add them, which proves the email is theirs |
+| POST | `/my/claim` | User | Adds them, with the link's token (a hash is stored on the user; one use, 24 hours) |
 | POST | `/guest/checkout` | Anyone (10 per 10 min per visitor) | Order without an account: email, the browser's cart lines, and the checkout details under `order` |
 | POST | `/guest/pickup-shops` | Anyone | Pickup shops for a browser's cart |
 | GET | `/guest/{token}` | Anyone with the link | A guest's order |
@@ -598,6 +604,8 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 
 - `GET /api/cart`, `POST /api/cart/items`, `PUT /api/cart/items/{id}`, `DELETE /api/cart/items/{id}` — Cart management
 - `POST /api/cart/preview` (anyone) — prices a signed-out shopper's cart from the catalogue
+- `POST /api/newsletter/subscribe` (anyone, sign-in limit), `POST /api/newsletter/unsubscribe` (with the subscriber's token) — the footer's newsletter box and the unsubscribe page (`/newsletter/unsubscribe?token=`)
+- `GET /api/newsletter`, `GET /api/newsletter/export` (View Users) — Admin → Newsletter. The CSV lists everyone still subscribed with their own unsubscribe link, for a mailing tool. Every newsletter must include that link.
 - `GET /api/inventory`, `PUT /api/inventory/{id}` — Inventory (Admin)
 - `POST /api/images/upload`, `DELETE /api/images` — Image management (Admin)
 - `GET /api/admin/dashboard`, `GET /api/admin/reports` — Dashboard stats (Admin)

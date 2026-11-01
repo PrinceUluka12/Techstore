@@ -223,6 +223,7 @@ export function PrivacyPage() {
           <li><strong>Ordering without an account:</strong> your name, email address and phone number, kept with the order.</li>
           <li><strong>Your orders:</strong> phone number, delivery address or chosen pickup shop, what you bought, coupons used and payment references.</li>
           <li><strong>What you add:</strong> reviews, your wishlist and your cart.</li>
+          <li><strong>Our newsletter, if you sign up:</strong> your email address.</li>
           <li><strong>Security:</strong> your IP address, used to limit repeated sign-in attempts.</li>
         </List>
         <p>We don't collect card details. Payments are made by bank transfer from your own bank.</p>
@@ -235,13 +236,14 @@ export function PrivacyPage() {
           <li>to keep the site and your account secure and prevent fraud;</li>
           <li>to keep the sales records the law requires.</li>
         </List>
-        <p>We don't sell your information, and we don't send marketing emails.</p>
+        <p>We don't sell your information. We only send our newsletter if you sign up for it, and every one has a link to unsubscribe.</p>
       </Section>
 
       <Section title="Who we share it with">
         <List>
           <li><strong>Delivery partners:</strong> your name, phone number and address, only to deliver your order.</li>
           <li><strong>Microsoft Azure:</strong> hosts this website, its database and the emails it sends. The servers are outside Nigeria. Microsoft protects the data under its own security and privacy commitments.</li>
+          <li><strong>A mailing service,</strong> if you sign up for the newsletter: your email address, only to send it.</li>
           <li><strong>Authorities:</strong> only when the law requires it.</li>
         </List>
       </Section>
@@ -257,7 +259,8 @@ export function PrivacyPage() {
       <Section title="How long we keep it">
         <p>
           We keep your account until you ask us to delete it. Order records are kept for as long as
-          the law requires for accounting and tax, even after an account is deleted.
+          the law requires for accounting and tax, even after an account is deleted. A newsletter
+          sign-up stays on the list until you unsubscribe.
         </p>
       </Section>
 

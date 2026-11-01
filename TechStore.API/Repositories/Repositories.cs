@@ -114,9 +114,13 @@ public class ProductRepository : IProductRepository
         // Deactivating is how products are removed, so the shop never lists them
         if (!s.IncludeInactive) q = q.Where(p => p.IsActive);
 
+        // Every word has to appear somewhere (name, brand, category, description or SKU), in any
+        // order: "samsung a55" finds "Galaxy A55" by Samsung
         if (!string.IsNullOrWhiteSpace(s.Query))
-            q = q.Where(p => p.Name.Contains(s.Query) || (p.Description != null && p.Description.Contains(s.Query))
-                || (p.Brand != null && p.Brand.Contains(s.Query)) || p.SKU.Contains(s.Query));
+            foreach (var word in s.Query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().Take(6))
+                q = q.Where(p => p.Name.Contains(word) || (p.Brand != null && p.Brand.Contains(word))
+                    || p.Category.Name.Contains(word) || (p.Description != null && p.Description.Contains(word))
+                    || p.SKU.Contains(word));
 
         if (s.CategoryId.HasValue) q = q.Where(p => p.CategoryId == s.CategoryId);
         if (s.MinPrice.HasValue) q = q.Where(p => p.Price >= s.MinPrice);

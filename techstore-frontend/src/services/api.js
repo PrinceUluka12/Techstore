@@ -131,6 +131,18 @@ export const orderApi = {
   guestOrder:       (token) => api.get(`/orders/guest/${token}`),
   guestHistory:     (token) => api.get(`/orders/guest/${token}/history`),
   findGuestOrder:   (data)  => api.post('/orders/guest/find', data),
+  // Orders placed without an account with the signed-in customer's email
+  claimable:        ()      => api.get('/orders/my/claimable'),
+  requestClaim:     ()      => api.post('/orders/my/claim/request'), // emails the link that adds them
+  claim:            (token) => api.post('/orders/my/claim', { token }),
+}
+
+// ── Newsletter ────────────────────────────────────────────────────────────────
+export const newsletterApi = {
+  subscribe:   (email) => api.post('/newsletter/subscribe', { email }),
+  unsubscribe: (token) => api.post('/newsletter/unsubscribe', { token }),
+  list:        (p)     => api.get('/newsletter', { params: p }),
+  exportCsv:   ()      => api.get('/newsletter/export', { responseType: 'blob' }),
 }
 
 // ── Delivery fees (per state) ─────────────────────────────────────────────────

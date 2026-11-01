@@ -422,6 +422,62 @@ namespace TechStore.API.Migrations
                     b.ToTable("Inventories");
                 });
 
+            modelBuilder.Entity("TechStore.API.Models.JobRun", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateOnly>("LastRunOn")
+                        .HasColumnType("date");
+
+                    b.HasKey("Name");
+
+                    b.ToTable("JobRuns");
+
+                    b.HasData(
+                        new
+                        {
+                            Name = "LowStockAlert",
+                            LastRunOn = new DateOnly(2026, 1, 1)
+                        });
+                });
+
+            modelBuilder.Entity("TechStore.API.Models.NewsletterSubscriber", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("SubscribedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UnsubscribeToken")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("UnsubscribedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("UnsubscribeToken")
+                        .IsUnique();
+
+                    b.ToTable("NewsletterSubscribers");
+                });
+
             modelBuilder.Entity("TechStore.API.Models.Order", b =>
                 {
                     b.Property<int>("Id")
@@ -1070,6 +1126,13 @@ namespace TechStore.API.Migrations
 
                     b.Property<DateTime?>("LockoutUntil")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("OrdersClaimTokenExpiry")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrdersClaimTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
