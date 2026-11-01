@@ -43,7 +43,7 @@
 
 ```
 ┌─────────────────────────┐      ┌──────────────────────────────┐
-│  React + Vite (SPA)     │ ───> │  .NET 8 ASP.NET Core Web API │
+│  React + Vite (SPA)     │ ───> │ .NET 10 ASP.NET Core Web API │
 │  Azure Static Web Apps  │      │  Azure App Service           │
 └─────────────────────────┘      └──────────┬───────────────────┘
                                             │
@@ -67,9 +67,9 @@
 | Layer | Technology |
 |---|---|
 | Frontend | React 18, Vite 5, Tailwind CSS 3, Zustand, React Router v6 |
-| Backend | .NET 8, ASP.NET Core Web API, Entity Framework Core 8 |
+| Backend | .NET 10, ASP.NET Core Web API, Entity Framework Core 10 |
 | Database | SQL Server (LocalDB for dev, Azure SQL for prod) |
-| ORM | EF Core 8 with code-first migrations |
+| ORM | EF Core 10 with code-first migrations |
 | Auth | JWT access tokens (15 min) + HTTP-only refresh tokens (7 days) |
 | Email | Azure Communication Services |
 | Payments | Paystack (inline popup + webhook) |
@@ -114,8 +114,8 @@ az keyvault set-policy \
 
 ### Prerequisites
 
-- .NET 8 SDK
-- Node.js 18+
+- .NET 10 SDK
+- Node.js 20.19+
 - SQL Server LocalDB (ships with Visual Studio) or SQL Server Express
 - Azure CLI (for Key Vault / storage access if needed)
 - Git
@@ -145,6 +145,16 @@ npm run dev
 ```
 
 The backend auto-migrates the database on startup. No manual migration step needed after pulling new code.
+
+### Automated tests
+
+`TechStore.API.Tests` runs the real API in memory against a throwaway SQL Server database (created for the run, deleted afterwards). It covers checkout (delivery and pickup), the order steps, cancelling and stock, coupon limits, the unpaid-order sweep, staff and role rules, reviews and the sign-in limit.
+
+```bash
+dotnet test TechStore.API.Tests
+```
+
+Locally it uses LocalDB. Set `TEST_SQL` to use another server, e.g. `Server=localhost,1433;User Id=sa;Password=...;TrustServerCertificate=True`. GitHub Actions runs the tests on every pull request against a SQL Server container (`.github/workflows/ci.yml`).
 
 ---
 
@@ -286,6 +296,8 @@ To add a new migration:
 ```bash
 dotnet ef migrations add <MigrationName>
 ```
+
+Seed data (`HasData` in `AppDbContext`) must use fixed values, never `DateTime.UtcNow` or `Guid.NewGuid()`. From EF Core 9 on, a model that differs from the last migration stops the app at startup, and a value that changes on every run always differs. Check with `dotnet ef migrations has-pending-model-changes` before deploying.
 
 ### Core Models
 
@@ -582,7 +594,7 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 
 ### Backend — Azure App Service
 
-1. Publish the .NET 8 project:
+1. Publish the .NET 10 project:
    ```bash
    cd TechStore.API
    dotnet publish -c Release -o ./publish
@@ -591,6 +603,7 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 3. Set `ASPNETCORE_ENVIRONMENT=Production` in the App Service → Configuration → Application settings
 4. Ensure Managed Identity is enabled and has Key Vault access (see section 3)
 5. Database migrations run automatically on startup
+6. The App Service's .NET version must match the project's (`TargetFramework`, now .NET 10). The deploy workflow sets it on every deploy (`az webapp config set --net-framework-version v10.0`). When moving to a newer .NET, change both.
 
 ### Frontend — Azure Static Web Apps
 

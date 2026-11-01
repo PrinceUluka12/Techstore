@@ -17,7 +17,7 @@ namespace TechStore.API.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.0")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -245,7 +245,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(623),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Latest smartphones and accessories",
                             IsActive = true,
                             Name = "Smartphones",
@@ -254,7 +254,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(625),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Tablets and e-readers",
                             IsActive = true,
                             Name = "Tablets",
@@ -263,7 +263,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(627),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Wearable technology",
                             IsActive = true,
                             Name = "Smart Watches",
@@ -272,7 +272,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(629),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Laptops and ultrabooks",
                             IsActive = true,
                             Name = "Laptops",
@@ -281,7 +281,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(631),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Cases, chargers, and more",
                             IsActive = true,
                             Name = "Accessories",

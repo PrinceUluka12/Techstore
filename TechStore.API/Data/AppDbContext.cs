@@ -267,13 +267,14 @@ public class AppDbContext : DbContext
                 CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), UpdatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
 
-        // Seed categories
+        // Seed categories. The date is fixed: seed data that changes on every run (DateTime.UtcNow)
+        // counts as an unmigrated model change, and EF Core 9+ refuses to migrate on startup.
         builder.Entity<Category>().HasData(
-            new Category { Id = 1, Name = "Smartphones", Description = "Latest smartphones and accessories", IsActive = true, RequiresImei = true, CreatedAt = DateTime.UtcNow },
-            new Category { Id = 2, Name = "Tablets", Description = "Tablets and e-readers", IsActive = true, CreatedAt = DateTime.UtcNow },
-            new Category { Id = 3, Name = "Smart Watches", Description = "Wearable technology", IsActive = true, CreatedAt = DateTime.UtcNow },
-            new Category { Id = 4, Name = "Laptops", Description = "Laptops and ultrabooks", IsActive = true, CreatedAt = DateTime.UtcNow },
-            new Category { Id = 5, Name = "Accessories", Description = "Cases, chargers, and more", IsActive = true, CreatedAt = DateTime.UtcNow }
+            new Category { Id = 1, Name = "Smartphones", Description = "Latest smartphones and accessories", IsActive = true, RequiresImei = true, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Category { Id = 2, Name = "Tablets", Description = "Tablets and e-readers", IsActive = true, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Category { Id = 3, Name = "Smart Watches", Description = "Wearable technology", IsActive = true, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Category { Id = 4, Name = "Laptops", Description = "Laptops and ultrabooks", IsActive = true, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Category { Id = 5, Name = "Accessories", Description = "Cases, chargers, and more", IsActive = true, CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
     }
 }

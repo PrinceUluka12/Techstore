@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using TechStore.API.Data;
 using TechStore.API.Helpers;
 using TechStore.API.Middleware;
@@ -122,7 +122,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(opts =>
 {
     opts.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     opts.ForwardLimit = 1;
-    opts.KnownNetworks.Clear(); // App Service's front ends don't have fixed addresses
+    opts.KnownIPNetworks.Clear(); // App Service's front ends don't have fixed addresses
     opts.KnownProxies.Clear();
 });
 
@@ -169,14 +169,10 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "bearer",
         BearerFormat = "JWT"
     });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {{
-        new OpenApiSecurityScheme
-        {
-            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
-        },
-        Array.Empty<string>()
-    }});
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+    });
 });
 
 var app = builder.Build();

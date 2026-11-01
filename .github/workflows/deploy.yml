@@ -13,7 +13,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Restore
         run: dotnet restore TechStore.API/TechStore.API.csproj
@@ -25,6 +25,12 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Keeps the App Service's .NET version in step with the API's (TargetFramework in the .csproj)
+      - name: Set App Service to .NET 10
+        run: |
+          id=$(az resource list --name "${{ secrets.AZURE_WEBAPP_NAME }}" --resource-type Microsoft.Web/sites --query "[0].id" -o tsv)
+          az webapp config set --ids "$id" --net-framework-version v10.0 --output none
 
       - name: Deploy to production
         uses: azure/webapps-deploy@v3
