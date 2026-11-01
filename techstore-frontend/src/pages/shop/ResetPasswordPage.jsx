@@ -3,7 +3,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Lock, CheckCircle } from 'lucide-react'
 import { authApi } from '../../services/api'
-import { Input, Spinner } from '../../components/ui'
+import { Input, Spinner, PageTitle } from '../../components/ui'
 import { Navbar } from '../../components/layout/ShopLayout'
 import { passwordRules, showApiError } from '../../utils/validation'
 
@@ -19,6 +19,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
+        <PageTitle>Reset Password</PageTitle>
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center space-y-3">
             <p className="text-surface-500">Invalid or missing reset link.</p>
@@ -43,6 +44,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>Reset Password</PageTitle>
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-sm animate-fade-up">
           {done ? (

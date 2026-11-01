@@ -13,6 +13,8 @@ import { LoadingPage, Spinner } from '../../components/ui'
 import { ProductGrid } from '../../components/shop/ProductCard'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
+import { useSignInFirst } from '../../utils/signIn'
+import { AskOnWhatsApp } from '../../components/shop/WhatsApp'
 
 // ── Star display ──────────────────────────────────────────────────────────────
 function Stars({ rating, size = 'sm', interactive = false, onRate }) {
@@ -193,6 +195,7 @@ function ImageGallery({ imageUrl, name }) {
 export default function ProductDetailPage() {
   const { id }       = useParams()
   const navigate     = useNavigate()
+  const signInFirst  = useSignInFirst()
   const reviewsRef   = useRef()
 
   const [product, setProduct]       = useState(null)
@@ -265,7 +268,10 @@ export default function ProductDetailPage() {
   const savingsPct = savings ? Math.round((savings / product.compareAtPrice) * 100) : null
 
   const addToCart = async () => {
-    if (!isAuthenticated) { toast.error('Please sign in to add to cart'); return }
+    if (!isAuthenticated) {
+      signInFirst({ then: { addToCart: { productId: product.id, quantity: qty } }, message: `Sign in to add ${product.name} to your cart.` })
+      return
+    }
     if (inCart) { toggleCart(); return }
     setAdding(true)
     try {
@@ -278,7 +284,10 @@ export default function ProductDetailPage() {
   }
 
   const buyNow = async () => {
-    if (!isAuthenticated) { navigate('/login'); return }
+    if (!isAuthenticated) {
+      signInFirst({ then: { addToCart: { productId: product.id, quantity: qty } }, to: '/checkout', message: `Sign in to buy ${product.name}.` })
+      return
+    }
     setAdding(true)
     try {
       const { data } = await cartApi.addItem({ productId: product.id, quantity: qty })
@@ -427,9 +436,8 @@ export default function ProductDetailPage() {
                 <div className="flex items-start gap-2.5 text-sm">
                   <Truck className="w-4 h-4 text-brand-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-medium text-surface-900">Free Delivery</span>
-                    <span className="text-surface-500"> on orders over ₦100</span>
-                    <p className="text-surface-400 text-xs mt-0.5">Usually ships in 1–2 business days</p>
+                    <span className="font-medium text-surface-900">Delivery or free pickup</span>
+                    <p className="text-surface-400 text-xs mt-0.5">Delivery fee depends on your state; or collect free from one of our shops</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2.5 text-sm">
@@ -481,11 +489,17 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
+              {/* Many customers would rather ask first */}
+              <AskOnWhatsApp product={product} />
+
               {/* Wishlist + Share */}
               <div className="flex items-center gap-3 pt-1">
                 <button
                   onClick={async () => {
-                    if (!isAuthenticated) { toast.error('Please sign in to save items'); return }
+                    if (!isAuthenticated) {
+                      signInFirst({ then: { wishlist: product.id }, message: `Sign in to save ${product.name}.` })
+                      return
+                    }
                     setWishLoading(true)
                     const inWish = isInWishlist(product.id)
                     await toggleWishlist(product.id)
@@ -599,7 +613,8 @@ export default function ProductDetailPage() {
                     <div className="bg-surface-50 rounded-2xl p-5 text-center">
                       <MessageSquare className="w-8 h-8 text-surface-300 mx-auto mb-2" />
                       <p className="text-surface-600 text-sm mb-3">Sign in to write a review</p>
-                      <Link to="/login" className="btn-primary btn-sm">Sign In</Link>
+                      <button type="button" onClick={() => signInFirst({ message: 'Sign in to write a review.' })}
+                        className="btn-primary btn-sm">Sign In</button>
                     </div>
                   )}
 

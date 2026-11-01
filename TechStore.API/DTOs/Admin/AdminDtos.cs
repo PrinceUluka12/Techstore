@@ -12,7 +12,19 @@ public record DashboardStatsDto(
     int NewCustomersThisMonth,
     List<RevenueByDayDto> RevenueChart,
     List<TopProductDto> TopProducts,
-    List<OrdersByStatusDto> OrdersByStatus
+    List<OrdersByStatusDto> OrdersByStatus,
+    NeedsAttentionDto? Attention = null
+);
+
+// What staff should act on, shown at the top of the dashboard
+public record NeedsAttentionDto(
+    int AwaitingPayment,    // online orders not paid yet
+    int PaymentDueSoon,     // ...of those, cancelled within the next 6 hours if still unpaid
+    int Paid,               // paid online orders nobody has started on (Confirmed)
+    int BeingPrepared,      // Processing
+    int ReadyForPickup,     // waiting for the customer to collect
+    int LowStock,           // products at or below their low-stock level, across shops
+    int TransfersInTransit  // stock sent between shops, not yet received
 );
 
 public record RevenueByDayDto(string Date, decimal Revenue, int Orders);

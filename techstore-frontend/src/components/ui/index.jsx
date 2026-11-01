@@ -1,6 +1,7 @@
 import { clsx } from 'clsx'
 import { X, Loader2 } from 'lucide-react'
 import { forwardRef } from 'react'
+import { Helmet } from 'react-helmet-async'
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 export function Spinner({ size = 'md', className }) {
@@ -95,6 +96,11 @@ const statusMap = {
   Refunded:   'badge-gray',
   Paid:       'badge-green',
   Failed:     'badge-red',
+}
+
+// The browser tab's title: "<children> — Hytel Phones"
+export function PageTitle({ children }) {
+  return <Helmet><title>{`${children} — Hytel Phones`}</title></Helmet>
 }
 
 // Order statuses as people read them

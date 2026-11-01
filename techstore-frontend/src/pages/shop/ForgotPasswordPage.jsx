@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Mail, ArrowLeft } from 'lucide-react'
 import { authApi } from '../../services/api'
-import { Input, Spinner } from '../../components/ui'
+import { Input, Spinner, PageTitle } from '../../components/ui'
 import { Navbar } from '../../components/layout/ShopLayout'
 import { emailRules, showApiError } from '../../utils/validation'
 
@@ -25,6 +25,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>Forgot Password</PageTitle>
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-sm animate-fade-up">
           <Link to="/login" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-900 mb-6">

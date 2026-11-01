@@ -91,8 +91,10 @@
   .badge-gray   { @apply badge bg-surface-100 text-surface-600; }
 
   /* ── Page layout ── */
+  /* w-full: inside a flex column, mx-auto would otherwise size the page to its widest
+     content (e.g. a scrolling row of category chips) and push it past a phone's screen */
   .page-container {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   /* ── Section headings ── */

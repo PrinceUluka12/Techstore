@@ -1,8 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { HelmetProvider } from 'react-helmet-async'
 import { useAuthStore } from './store'
 import ErrorBoundary from './components/ErrorBoundary'
+import { LoadingPage } from './components/ui'
+import { returnHere } from './utils/signIn'
 
 // Shop pages
 import HomePage from './pages/shop/HomePage'
@@ -15,27 +18,31 @@ import ResetPasswordPage from './pages/shop/ResetPasswordPage'
 import AccountProfilePage from './pages/shop/AccountProfilePage'
 import WishlistPage from './pages/shop/WishlistPage'
 
-// Admin pages
-import AdminDashboard from './pages/admin/AdminDashboard'
-import AdminProducts from './pages/admin/AdminProducts'
-import AdminOrders from './pages/admin/AdminOrders'
-import AdminInventory from './pages/admin/AdminInventory'
-import { AdminUsers, AdminReports } from './pages/admin/AdminUsersReports'
-import AdminImages from './pages/admin/AdminImages'
-import AdminCoupons from './pages/admin/AdminCoupons'
-import AdminRoles from './pages/admin/AdminRoles'
-import AdminStores from './pages/admin/AdminStores'
-import AdminPos from './pages/admin/AdminPos'
-import AdminPosReceipt from './pages/admin/AdminPosReceipt'
-import AdminCashUp from './pages/admin/AdminCashUp'
-import AdminTransfers from './pages/admin/AdminTransfers'
-import AdminBankAccounts from './pages/admin/AdminBankAccounts'
-import AdminDeliveryFees from './pages/admin/AdminDeliveryFees'
+// Admin pages are loaded only when someone opens one, so shoppers don't download the back
+// office (the till, reports, charts) with the shop
+const AdminDashboard    = lazy(() => import('./pages/admin/AdminDashboard'))
+const AdminProducts     = lazy(() => import('./pages/admin/AdminProducts'))
+const AdminOrders       = lazy(() => import('./pages/admin/AdminOrders'))
+const AdminInventory    = lazy(() => import('./pages/admin/AdminInventory'))
+const AdminUsers        = lazy(() => import('./pages/admin/AdminUsersReports').then(m => ({ default: m.AdminUsers })))
+const AdminReports      = lazy(() => import('./pages/admin/AdminUsersReports').then(m => ({ default: m.AdminReports })))
+const AdminImages       = lazy(() => import('./pages/admin/AdminImages'))
+const AdminCoupons      = lazy(() => import('./pages/admin/AdminCoupons'))
+const AdminRoles        = lazy(() => import('./pages/admin/AdminRoles'))
+const AdminStores       = lazy(() => import('./pages/admin/AdminStores'))
+const AdminPos          = lazy(() => import('./pages/admin/AdminPos'))
+const AdminPosReceipt   = lazy(() => import('./pages/admin/AdminPosReceipt'))
+const AdminCashUp       = lazy(() => import('./pages/admin/AdminCashUp'))
+const AdminTransfers    = lazy(() => import('./pages/admin/AdminTransfers'))
+const AdminBankAccounts = lazy(() => import('./pages/admin/AdminBankAccounts'))
+const AdminDeliveryFees = lazy(() => import('./pages/admin/AdminDeliveryFees'))
 
 // ── Route guards ──────────────────────────────────────────────────────────────
+// Signed-out visitors go to sign in, then come back here (utils/signIn)
 function RequireAuth({ children }) {
   const { isAuthenticated } = useAuthStore()
-  return isAuthenticated ? children : <Navigate to="/login" replace />
+  const location = useLocation()
+  return isAuthenticated ? children : <Navigate to="/login" replace state={returnHere(location)} />
 }
 
 const PERMISSION_TO_ROUTE = [
@@ -55,7 +62,8 @@ const PERMISSION_TO_ROUTE = [
 
 function RequireAdmin({ children }) {
   const { isAuthenticated, isAdmin, hasAnyAdminPermission } = useAuthStore()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  const location = useLocation()
+  if (!isAuthenticated) return <Navigate to="/login" replace state={returnHere(location)} />
   if (!isAdmin() && !hasAnyAdminPermission()) return <Navigate to="/" replace />
   return children
 }
@@ -95,6 +103,7 @@ export default function App() {
             }}
           />
 
+          <Suspense fallback={<LoadingPage />}>
           <Routes>
             {/* ── Storefront ── */}
             <Route path="/" element={<HomePage />} />
@@ -143,6 +152,7 @@ export default function App() {
               </div>
             } />
           </Routes>
+          </Suspense>
         </ErrorBoundary>
       </BrowserRouter>
     </HelmetProvider>

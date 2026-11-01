@@ -4,7 +4,7 @@ import { User, Lock, Heart, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { authApi, posApi } from '../../services/api'
 import { useAuthStore, useWishlistStore } from '../../store'
-import { Input, Spinner, LoadingPage } from '../../components/ui'
+import { Input, Spinner, LoadingPage, PageTitle } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { Link } from 'react-router-dom'
 import {
@@ -172,6 +172,7 @@ export default function AccountProfilePage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>My Account</PageTitle>
       <main className="flex-1 page-container py-10">
         <h1 className="font-display text-2xl font-semibold mb-1">My Account</h1>
         <p className="text-surface-400 text-sm mb-8">

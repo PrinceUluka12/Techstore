@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import {
   DollarSign, ShoppingBag, Users, AlertTriangle,
-  TrendingUp, Package, RefreshCw, Clock,
+  TrendingUp, Package, RefreshCw, Clock, Banknote, Store, ArrowLeftRight, Loader,
 } from 'lucide-react'
 import { adminApi, orderApi, inventoryApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
@@ -15,7 +15,53 @@ import { Link } from 'react-router-dom'
 
 const STATUS_COLORS = {
   Pending: '#f59e0b', Confirmed: '#3b82f6', Processing: '#8b5cf6',
-  Shipped: '#06b6d4', Delivered: '#10b981', Cancelled: '#ef4444', Refunded: '#a1a1aa',
+  Shipped: '#06b6d4', ReadyForPickup: '#06b6d4', Delivered: '#10b981', Cancelled: '#ef4444', Refunded: '#a1a1aa',
+}
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+// What needs doing now, each linked to the page where it's done
+function NeedsAttention({ a }) {
+  if (!a) return null
+  const items = [
+    { n: a.awaitingPayment, to: '/admin/orders?status=Pending', icon: Banknote,
+      text: `${plural(a.awaitingPayment, 'order')} awaiting payment`,
+      note: a.paymentDueSoon ? `${a.paymentDueSoon} will be cancelled within 6 hours if unpaid` : 'Mark them paid when the transfer arrives' },
+    { n: a.paid, to: '/admin/orders?status=Confirmed', icon: Package,
+      text: `${plural(a.paid, 'paid order')} to start on`, note: 'Prepare them, then ship or set ready for pickup' },
+    { n: a.beingPrepared, to: '/admin/orders?status=Processing', icon: Loader,
+      text: `${plural(a.beingPrepared, 'order')} being prepared` },
+    { n: a.readyForPickup, to: '/admin/orders?status=ReadyForPickup', icon: Store,
+      text: `${plural(a.readyForPickup, 'order')} ready for pickup`, note: 'Waiting for the customer to collect' },
+    { n: a.lowStock, to: '/admin/inventory', icon: AlertTriangle,
+      text: `${plural(a.lowStock, 'item')} low on stock`, note: 'Counted per shop' },
+    { n: a.transfersInTransit, to: '/admin/transfers', icon: ArrowLeftRight,
+      text: `${plural(a.transfersInTransit, 'transfer')} on the way`, note: 'Receive them when they arrive' },
+  ].filter(i => i.n > 0)
+
+  return (
+    <div className="card p-5">
+      <h2 className="font-semibold text-surface-900 mb-3">Needs Attention</h2>
+      {items.length === 0 ? (
+        <p className="text-sm text-emerald-600">All caught up ✓</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          {items.map(({ to, icon: Icon, text, note }) => (
+            <Link key={to} to={to}
+              className="flex items-start gap-3 rounded-xl border border-surface-100 p-3 hover:border-brand-200 hover:bg-brand-50/40 transition-colors">
+              <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+                <Icon className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-surface-900">{text}</p>
+                {note && <p className="text-xs text-surface-500 mt-0.5">{note}</p>}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const EMPTY_STATS = {
@@ -172,6 +218,8 @@ export default function AdminDashboard() {
             {error}
           </div>
         )}
+
+        <NeedsAttention a={s.attention} />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

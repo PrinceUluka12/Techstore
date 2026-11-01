@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { useWishlistStore, useCartStore, useAuthStore } from '../../store'
 import { cartApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
-import { Spinner, ProductImage } from '../../components/ui'
+import { Spinner, ProductImage, PageTitle } from '../../components/ui'
 
 export default function WishlistPage() {
   const { items, fetch, remove, loading } = useWishlistStore()
@@ -27,6 +27,7 @@ export default function WishlistPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>My Wishlist</PageTitle>
       <main className="flex-1 page-container py-10">
         <Link to="/account/profile" className="inline-flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-900 mb-6">
           <ArrowLeft className="w-4 h-4" /> My Account
