@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import toast from 'react-hot-toast'
 import { cartApi, couponApi, wishlistApi } from '../services/api'
 
 
@@ -70,6 +71,16 @@ const signedIn = () => useAuthStore.getState().isAuthenticated
 const cartError = (message) => Object.assign(new Error(message), { response: { data: { message } } })
 const EMPTY_CART = { items: [], subTotal: 0, totalItems: 0, id: null }
 
+// Changes to the browser's cart run one at a time, each reading the cart the last one saved.
+// Otherwise two quick taps on "Add" (each waiting for its price check) would each save a cart
+// without the other's item.
+let guestCartQueue = Promise.resolve()
+const oneAtATime = (change) => {
+  const run = guestCartQueue.then(change, change)
+  guestCartQueue = run.catch(() => {})
+  return run
+}
+
 export const useCartStore = create((set, get) => ({
   items: [],
   total: 0,
@@ -91,8 +102,9 @@ export const useCartStore = create((set, get) => ({
 
   loadCart: async () => {
     try {
-      if (signedIn()) { const { data } = await cartApi.get(); get().setCart(data) }
-      else await get().priceGuestCart(readGuestCart())
+      if (!signedIn()) await oneAtATime(() => get().priceGuestCart(readGuestCart()))
+      else if (readGuestCart().length) await get().mergeGuestCart() // left from a sign-in that couldn't move it all
+      else { const { data } = await cartApi.get(); get().setCart(data) }
     }
     catch { set({ loaded: true }) } // offline: treat as empty
   },
@@ -111,34 +123,48 @@ export const useCartStore = create((set, get) => ({
       get().setCart(data)
       return
     }
-    const lines = readGuestCart()
-    const wanted = (lines.find(l => l.productId === productId)?.quantity ?? 0) + quantity
-    const next = lines.some(l => l.productId === productId)
-      ? lines.map(l => l.productId === productId ? { productId, quantity: wanted } : l)
-      : [...lines, { productId, quantity }]
-    const { data } = await cartApi.preview(next)
-    const line = data.items.find(i => i.productId === productId)
-    if (!line) throw cartError('This product is no longer available.')
-    const available = Math.max(line.availableStock ?? 0, 0)
-    if (available < wanted) throw cartError(`Only ${available} units available.`)
-    keepGuestCart(data)
-    get().setCart(data)
+    return oneAtATime(async () => {
+      const lines = readGuestCart()
+      const wanted = (lines.find(l => l.productId === productId)?.quantity ?? 0) + quantity
+      const next = lines.some(l => l.productId === productId)
+        ? lines.map(l => l.productId === productId ? { productId, quantity: wanted } : l)
+        : [...lines, { productId, quantity }]
+      const { data } = await cartApi.preview(next)
+      const line = data.items.find(i => i.productId === productId)
+      if (!line) throw cartError('This product is no longer available.')
+      const available = Math.max(line.availableStock ?? 0, 0)
+      if (available < wanted) throw cartError(`Only ${available} units available.`)
+      keepGuestCart(data)
+      get().setCart(data)
+    })
   },
 
   removeItem: async (item) => {
     if (signedIn()) { const { data } = await cartApi.removeItem(item.id); get().setCart(data); return }
-    await get().priceGuestCart(readGuestCart().filter(l => l.productId !== item.productId))
+    await oneAtATime(() => get().priceGuestCart(readGuestCart().filter(l => l.productId !== item.productId)))
   },
 
-  // After signing in: what was put in the cart before joins the account's cart
-  // (anything that's sold out or been switched off since is left out)
-  mergeGuestCart: async () => {
-    for (const line of readGuestCart()) {
-      try { await cartApi.addItem(line) } catch { /* left out */ }
-    }
-    writeGuestCart([])
-    await get().loadCart()
-  },
+  // After signing in, what was put in the cart before joins the account's cart. Anything the
+  // shop turns down (sold out or switched off since) is left out. Anything that got no answer,
+  // or hit a server fault, stays in this browser marked `retry`, and the next loadCart tries
+  // again. It's skipped then if the account's cart already has it: the first try may have gone
+  // through with only the answer lost, and adding it again would double it.
+  mergeGuestCart: () => oneAtATime(async () => {
+    const lines = readGuestCart()
+    const keep = []
+    try {
+      const inAccount = lines.some(l => l.retry)
+        ? new Set((await cartApi.get()).data.items.map(i => i.productId)) : new Set()
+      for (const line of lines) {
+        if (line.retry && inAccount.has(line.productId)) continue
+        try { await cartApi.addItem({ productId: line.productId, quantity: line.quantity }) }
+        catch (err) { if (!err.response || err.response.status >= 500) keep.push({ ...line, retry: true }) }
+      }
+    } catch { keep.push(...lines) } // couldn't read the account's cart: nothing was added, so keep it all
+    writeGuestCart(keep)
+    if (keep.length) toast.error("Some of your cart couldn't be moved to your account yet. It'll be added next time you open the shop.")
+    try { const { data } = await cartApi.get(); get().setCart(data) } catch { set({ loaded: true }) }
+  }),
 
   // The browser's cart, for a guest's checkout
   guestLines: () => readGuestCart(),
