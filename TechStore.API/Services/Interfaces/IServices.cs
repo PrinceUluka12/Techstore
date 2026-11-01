@@ -36,8 +36,11 @@ public interface IAuthService
 public interface IEmailService
 {
     Task SendWelcomeAsync(string toEmail, string firstName);
-    Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total);
-    Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus);
+    // payBy: when an unpaid bank-transfer order is cancelled; pickupShop: null for delivery
+    Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total,
+        DateTime? payBy = null, string? pickupShop = null);
+    Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus, string? detail = null);
+    Task SendPaymentReminderAsync(string toEmail, string firstName, string orderNumber, decimal total, DateTime payBy);
     Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink);
 }
 
@@ -71,7 +74,17 @@ public interface IOrderService
         SalesChannel? channel = null, int? storeId = null, string? search = null);
     Task<OrderDto> CreateFromCartAsync(int userId, CreateOrderRequest request);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
+    Task<OrderDto?> MarkPaidAsync(int id, string? reference);
+    Task<IEnumerable<PickupShopDto>> GetPickupShopsAsync(int userId);
+    Task<int> ProcessUnpaidOrdersAsync();
     Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId);
+}
+
+public interface IDeliveryRateService
+{
+    Task<IEnumerable<DeliveryRateDto>> GetActiveAsync();
+    Task<IEnumerable<DeliveryRateAdminDto>> GetAllStatesAsync();
+    Task<IEnumerable<DeliveryRateAdminDto>> SaveAsync(int actorId, IEnumerable<SaveDeliveryRateRequest> rates);
 }
 
 public interface ICartService

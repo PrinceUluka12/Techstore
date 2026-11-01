@@ -29,26 +29,40 @@ public class EmailService : IEmailService
             <p style="color:#6b7280;font-size:13px;margin-top:24px">If you didn't create this account, you can safely ignore this email.</p>
             """);
 
-    public Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total) =>
-        Send(toEmail, $"Order Confirmed — {orderNumber}", $"""
-            <h2>Order Confirmed!</h2>
+    public Task SendOrderConfirmationAsync(string toEmail, string firstName, string orderNumber, decimal total,
+        DateTime? payBy = null, string? pickupShop = null) =>
+        Send(toEmail, $"Order Received — {orderNumber}", $"""
+            <h2>Thanks for your order!</h2>
             <p>Hi {firstName}, your order <strong>{orderNumber}</strong> has been received.</p>
             <table style="width:100%;border-collapse:collapse;margin:16px 0">
               <tr><td style="padding:8px 0;color:#6b7280">Order Number</td><td style="font-family:monospace;font-weight:600">{orderNumber}</td></tr>
               <tr><td style="padding:8px 0;color:#6b7280">Total</td><td style="font-weight:600">₦{total:N2}</td></tr>
-              <tr><td style="padding:8px 0;color:#6b7280">Status</td><td><span style="background:#fef3c7;color:#92400e;padding:2px 10px;border-radius:999px;font-size:13px">Pending</span></td></tr>
+              <tr><td style="padding:8px 0;color:#6b7280">{(pickupShop != null ? "Pickup" : "Delivery")}</td><td>{(pickupShop != null ? $"Collect from {pickupShop}" : "To your address")}</td></tr>
             </table>
-            <p>We'll send you another email when your order ships. You can track your order in your account.</p>
+            {(payBy is { } due ? $"<p><strong>Please pay by bank transfer by {NigeriaTime(due)}</strong>, or the order will be cancelled. The account details are on your order page.</p>" : "")}
+            <p>We'll email you when your payment is confirmed and again when your order is {(pickupShop != null ? "ready to collect" : "on its way")}.</p>
             <p><a href="{_siteUrl}/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">View Order</a></p>
             """);
 
-    public Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus) =>
-        Send(toEmail, $"Order Update — {orderNumber}", $"""
-            <h2>Order Status Updated</h2>
-            <p>Hi {firstName}, your order <strong>{orderNumber}</strong> has been updated.</p>
-            <p>New status: <strong>{newStatus}</strong></p>
+    public Task SendOrderStatusUpdateAsync(string toEmail, string firstName, string orderNumber, string newStatus, string? detail = null) =>
+        Send(toEmail, $"Order {orderNumber}: {newStatus}", $"""
+            <h2>{newStatus}</h2>
+            <p>Hi {firstName}, there's an update on your order <strong>{orderNumber}</strong>.</p>
+            {(detail != null ? $"<p>{detail}</p>" : "")}
             <p><a href="{_siteUrl}/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Track Order</a></p>
             """);
+
+    public Task SendPaymentReminderAsync(string toEmail, string firstName, string orderNumber, decimal total, DateTime payBy) =>
+        Send(toEmail, $"Reminder: payment for order {orderNumber}", $"""
+            <h2>Your order is waiting for payment</h2>
+            <p>Hi {firstName}, we haven't received payment for your order <strong>{orderNumber}</strong> yet.</p>
+            <p>Please transfer <strong>₦{total:N2}</strong> by <strong>{NigeriaTime(payBy)}</strong>, or the order will be cancelled and the items go back on sale. The account details are on your order page.</p>
+            <p>Already paid? Thank you, there's nothing more to do. We'll confirm as soon as it arrives.</p>
+            <p><a href="{_siteUrl}/account/orders" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">View Order</a></p>
+            """);
+
+    // Nigeria is UTC+1 all year (no daylight saving)
+    private static string NigeriaTime(DateTime utc) => $"{utc.AddHours(1):h:mm tt} on {utc.AddHours(1):d MMMM}";
 
     public Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink) =>
         Send(toEmail, "Reset Your Password", $"""

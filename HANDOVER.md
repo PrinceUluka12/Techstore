@@ -472,9 +472,10 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 | `/admin/products` | Product CRUD |
 | `/admin/inventory` | Stock management |
 | `/admin/images` | Image upload and CDN management |
-| `/admin/orders` | Order management, status updates |
+| `/admin/orders` | Order management: mark as paid, next steps |
 | `/admin/users` | Customer list |
-| `/admin/coupons` | Coupon CRUD |
+| `/admin/coupons` | Coupon CRUD (including uses per customer) |
+| `/admin/delivery-fees` | Delivery fee per state |
 | `/admin/reports` | Sales reports and charts |
 
 ### SPA routing on Azure Static Web Apps
@@ -518,12 +519,28 @@ Base path: `/api`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/checkout` | User | Create order from cart |
+| POST | `/checkout` | User | Create order from cart (delivery, or pickup from a shop) |
+| GET | `/pickup-shops` | User | Shops to collect from, and whether each has the whole cart |
 | GET | `/my` | User | Own orders |
-| GET | `/{id}` | User/Admin | Order detail |
-| GET | `/{id}/history` | User/Admin | Status timeline |
-| GET | `/` | Admin | All orders |
-| PUT | `/{id}/status` | Admin | Update order status |
+| GET | `/{id}` | User / View Orders | Order detail |
+| GET | `/{id}/history` | User / View Orders | Status timeline |
+| GET | `/` | View Orders | All orders |
+| POST | `/{id}/mark-paid` | Manage Orders | Record that the payment arrived |
+| PUT | `/{id}/status` | Manage Orders | Move an online order to its next step |
+
+**Online order path:** Pending (waiting for payment) → Confirmed (marked paid) → Processing → Shipped (delivery) or Ready for pickup → Delivered/Collected. An order can be cancelled until it's handed over; nothing changes after that (no returns). In-store sales are final.
+
+**Unpaid orders:** bank-transfer orders must be paid within `Orders:PayWithinHours` (24). `UnpaidOrderService` checks every `Orders:UnpaidCheckMinutes` (15): it emails a reminder halfway, then cancels the order and puts its stock back on sale.
+
+### Delivery fees — `/api/delivery-rates`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | — | States we deliver to, with fees (for checkout) |
+| GET | `/all` | Admin | Every state, blank where there's no delivery |
+| PUT | `/` | Admin | Save fees; a blank fee stops delivery to that state |
+
+Set in the back office under **System → Delivery Fees**. A state without a fee is pickup only; 0 is free delivery.
 
 ### Payments — `/api/payments/paystack`
 

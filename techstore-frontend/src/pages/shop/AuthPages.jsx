@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   Package, Building2, Lock,
-  ChevronDown, ChevronUp, CheckCircle, Truck, Shield, Tag, X
+  ChevronDown, ChevronUp, CheckCircle, Truck, Shield, Tag, X, Store
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { authApi, cartApi, orderApi } from '../../services/api'
+import { authApi, cartApi, orderApi, deliveryApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
 import { Input, Spinner, ProductImage, LoadingPage } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
@@ -162,8 +162,8 @@ export function RegisterPage() {
 }
 
 // ── Bank transfer details ─────────────────────────────────────────────────────
-// accounts: from useBankAccounts (null while loading)
-function BankTransferDetails({ orderTotal, accounts }) {
+// accounts: from useBankAccounts (null while loading); refField: the sender-name input's props and error
+function BankTransferDetails({ orderTotal, accounts, refField }) {
   if (accounts === null)
     return <div className="mt-4 pt-4 border-t border-surface-100 flex justify-center py-6"><Spinner /></div>
 
@@ -181,19 +181,19 @@ function BankTransferDetails({ orderTotal, accounts }) {
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
         <p className="text-sm font-semibold text-amber-800 mb-1">How it works</p>
         <ol className="text-xs text-amber-700 space-y-1 list-decimal list-inside">
-          <li>Transfer <strong>₦{orderTotal.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</strong> to {accounts.length > 1 ? 'one of the accounts' : 'the account'} below</li>
-          <li>Use your name as the payment reference</li>
-          <li>Your order will be confirmed within 1–2 business hours</li>
+          <li>Transfer <strong>{naira(orderTotal)}</strong> to {accounts.length > 1 ? 'one of the accounts' : 'the account'} below <strong>within 24 hours</strong>, or the order is cancelled</li>
+          <li>Use your order number or your name as the payment reference</li>
+          <li>We'll email you as soon as the payment is confirmed</li>
         </ol>
       </div>
 
       <BankAccountList accounts={accounts} />
 
       <Input
-        label="Transfer Reference / Sender Name"
-        placeholder="e.g. John Doe — used to match your payment"
-        {...({} /* not validated — bank transfer confirmed manually */)}
-        name="transferRef"
+        label="Name on the paying account (optional)"
+        placeholder="e.g. John Doe — helps us match your payment"
+        error={refField.error}
+        {...refField.props}
       />
 
       <div className="flex items-center gap-2 text-xs text-surface-400 bg-surface-50 rounded-xl px-3 py-2.5">
@@ -203,6 +203,8 @@ function BankTransferDetails({ orderTotal, accounts }) {
     </div>
   )
 }
+
+const naira = v => `₦${Number(v).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 // ── Coupon Input ──────────────────────────────────────────────────────────────
 function CouponInput({ onApply, onRemove, appliedCode, discount, loading }) {
@@ -250,11 +252,16 @@ function CouponInput({ onApply, onRemove, appliedCode, discount, loading }) {
 const CHECKOUT_FIELDS = {
   shippingfirstname: 'firstName', shippinglastname: 'lastName', shippingaddress: 'address',
   shippingcity: 'city', shippingprovince: 'province', shippingpostalcode: 'postalCode',
+  shippingphone: 'phone', transactionid: 'transferRef',
 }
 
 export function CheckoutPage() {
-  const { register, handleSubmit, setError, formState: { errors } } = useForm({ mode: 'onTouched' })
+  const { register, handleSubmit, setError, watch, formState: { errors } } = useForm({ mode: 'onTouched' })
   const [loading, setLoading]               = useState(false)
+  const [method, setMethod] = useState('Delivery') // or 'Pickup'
+  const [rates, setRates]   = useState(null)        // states we deliver to: [{ state, fee }]
+  const [shops, setShops]   = useState(null)        // shops to collect from: [{ id, name, ..., hasStock }]
+  const [shopId, setShopId] = useState(null)
   const accounts = useBankAccounts()            // nothing to pay into = online orders paused
   const { items, total, loaded, loadCart, clearLocal, applyCoupon, removeCoupon, couponCode, discountAmount, couponLoading } = useCartStore()
   const navigate = useNavigate()
@@ -266,10 +273,22 @@ export function CheckoutPage() {
     if (loaded && !items.length && !placed.current) navigate('/products', { replace: true })
   }, [loaded, items.length])
 
-  // No VAT is charged (same as OrderService)
+  useEffect(() => { deliveryApi.list().then(r => setRates(r.data)).catch(() => setRates([])) }, [])
+  // Which shops have everything in the cart; asked again when the cart changes
+  useEffect(() => {
+    if (loaded && items.length) orderApi.pickupShops().then(r => setShops(r.data)).catch(() => setShops([]))
+  }, [loaded, items.length, total])
+
+  // Delivery is priced per state (same as OrderService); pickup is free. No VAT is charged.
+  const pickup     = method === 'Pickup'
+  const state      = watch('province')
+  const rate       = rates?.find(r => r.state === state)
+  const shop       = shops?.find(s => s.id === shopId)
   const discount   = discountAmount || 0
-  const shipping   = total >= 100 ? 0 : 9.99
-  const orderTotal = +(total - discount + shipping).toFixed(2)
+  const shipping   = pickup ? 0 : rate?.fee ?? null // null until a state with delivery is chosen
+  const orderTotal = +(total - discount + (shipping ?? 0)).toFixed(2)
+  const noDelivery = rates?.length === 0
+  const blocked    = pickup ? !shop?.hasStock : noDelivery || (!!state && !rate)
 
   const handleCoupon = async (code) => {
     const result = await applyCoupon(code)
@@ -280,13 +299,16 @@ export function CheckoutPage() {
   const buildOrderPayload = (data) => ({
     shippingFirstName:  data.firstName.trim(),
     shippingLastName:   data.lastName.trim(),
-    shippingAddress:    data.address.trim(),
-    shippingCity:       data.city.trim(),
-    shippingProvince:   data.province,
-    shippingPostalCode: data.postalCode.trim(),
+    shippingAddress:    pickup ? '' : data.address.trim(),
+    shippingCity:       pickup ? '' : data.city.trim(),
+    shippingProvince:   pickup ? '' : data.province,
+    shippingPostalCode: pickup ? '' : data.postalCode.trim(),
     shippingCountry:    'Nigeria',
     shippingPhone:      normalizePhone(data.phone) || null,
+    fulfilment:         method,
+    pickupStoreId:      pickup ? shopId : null,
     paymentMethod:      'BankTransfer', // the only option until card payments (Paystack) are set up
+    transactionId:      data.transferRef?.trim() || null,
     notes:              data.notes?.trim() || null,
     couponCode:         couponCode || null,
   })
@@ -335,14 +357,26 @@ export function CheckoutPage() {
           {/* ── Left — form ── */}
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="lg:col-span-2 space-y-5">
 
-            {/* Shipping */}
+            {/* Delivery or pickup */}
             <div className="card p-6">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-7 h-7 rounded-lg bg-brand-50 flex items-center justify-center">
                   <Truck className="w-3.5 h-3.5 text-brand-600" />
                 </div>
-                <h2 className="font-semibold text-surface-900">Shipping Address</h2>
+                <h2 className="font-semibold text-surface-900">Delivery or Pickup</h2>
               </div>
+
+              <div className="grid grid-cols-2 gap-3 mb-5" role="radiogroup" aria-label="Delivery or pickup">
+                {[['Delivery', Truck, 'To your address'], ['Pickup', Store, 'Free, from one of our shops']].map(([m, Icon, hint]) => (
+                  <button key={m} type="button" role="radio" aria-checked={method === m} onClick={() => setMethod(m)}
+                    className={`text-left rounded-xl border p-3 transition-colors
+                      ${method === m ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-surface-200 hover:border-surface-300'}`}>
+                    <span className="flex items-center gap-2 font-medium text-sm text-surface-900"><Icon className="w-4 h-4" /> {m}</span>
+                    <span className="block text-xs text-surface-500 mt-0.5">{hint}</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="First Name" autoComplete="given-name" error={errors.firstName?.message}
                   {...register('firstName', nameRules('First name'))} />
@@ -350,24 +384,64 @@ export function CheckoutPage() {
                   {...register('lastName', nameRules('Last name'))} />
                 <Input label="Phone Number" className="col-span-2" type="tel" autoComplete="tel"
                   placeholder="08012345678" error={errors.phone?.message}
-                  {...register('phone', phoneRules)} />
-                <Input label="Street Address" className="col-span-2" autoComplete="street-address"
-                  error={errors.address?.message}
-                  placeholder="House number, street name"
-                  {...register('address', requiredText('Street address', 200))} />
-                <Input label="City" autoComplete="address-level2" error={errors.city?.message}
-                  {...register('city', requiredText('City', 100))} />
-                <div>
-                  <label className="label">State {errors.province && <span className="text-red-500 text-xs ml-1">{errors.province.message}</span>}</label>
-                  <select className="input w-full" {...register('province', { required: 'Select a state' })}>
-                    <option value="">Select state…</option>
-                    {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <Input label="Postal Code" placeholder="100001" inputMode="numeric" maxLength={6}
-                  autoComplete="postal-code" error={errors.postalCode?.message}
-                  {...register('postalCode', postalCodeRules)} />
+                  {...register('phone', pickup
+                    ? { validate: v => normalizePhone(v) === '' ? 'Enter a phone number so the shop can reach you' : phoneRules.validate(v) }
+                    : phoneRules)} />
+
+                {!pickup && (noDelivery ? (
+                  <p className="col-span-2 text-sm bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3">
+                    We can't deliver yet. Choose <strong>Pickup</strong> to collect from one of our shops.
+                  </p>
+                ) : <>
+                  <Input label="Street Address" className="col-span-2" autoComplete="street-address"
+                    error={errors.address?.message}
+                    placeholder="House number, street name"
+                    {...register('address', requiredText('Street address', 200))} />
+                  <Input label="City" autoComplete="address-level2" error={errors.city?.message}
+                    {...register('city', requiredText('City', 100))} />
+                  <div>
+                    <label className="label">State {errors.province && <span className="text-red-500 text-xs ml-1">{errors.province.message}</span>}</label>
+                    <select className="input w-full" {...register('province', { required: 'Select a state' })}>
+                      <option value="">Select state…</option>
+                      {NIGERIAN_STATES.map(s => {
+                        const r = rates?.find(x => x.state === s)
+                        return (
+                          <option key={s} value={s} disabled={!!rates && !r}>
+                            {s}{r ? ` — ${r.fee === 0 ? 'free delivery' : naira(r.fee)}` : rates ? ' (pickup only)' : ''}
+                          </option>
+                        )
+                      })}
+                    </select>
+                  </div>
+                  <Input label="Postal Code" placeholder="100001" inputMode="numeric" maxLength={6}
+                    autoComplete="postal-code" error={errors.postalCode?.message}
+                    {...register('postalCode', postalCodeRules)} />
+                </>)}
               </div>
+
+              {pickup && (
+                <div className="mt-5 space-y-2">
+                  <p className="label">Collect from</p>
+                  {shops === null ? <div className="flex justify-center py-4"><Spinner /></div>
+                  : shops.length === 0 ? <p className="text-sm text-surface-500">No shops are taking pickups right now.</p>
+                  : shops.map(s => (
+                    <label key={s.id}
+                      className={`flex items-start gap-3 rounded-xl border p-3
+                        ${s.hasStock ? 'cursor-pointer hover:border-surface-300' : 'opacity-60 cursor-not-allowed'}
+                        ${shopId === s.id ? 'border-brand-500 bg-brand-50' : 'border-surface-200'}`}>
+                      <input type="radio" name="pickupShop" className="mt-1" disabled={!s.hasStock}
+                        checked={shopId === s.id} onChange={() => setShopId(s.id)} />
+                      <span className="flex-1">
+                        <span className="block font-medium text-sm text-surface-900">{s.name}</span>
+                        {(s.address || s.city) && <span className="block text-xs text-surface-500">{[s.address, s.city].filter(Boolean).join(', ')}</span>}
+                        {s.phone && <span className="block text-xs text-surface-500">{s.phone}</span>}
+                        {!s.hasStock && <span className="block text-xs text-amber-700 mt-0.5">Doesn't have everything in your cart</span>}
+                      </span>
+                    </label>
+                  ))}
+                  <p className="text-xs text-surface-400">We'll email you when it's ready to collect. Bring your order number.</p>
+                </div>
+              )}
             </div>
 
             {/* Payment */}
@@ -379,19 +453,21 @@ export function CheckoutPage() {
                 <h2 className="font-semibold text-surface-900">Payment: Bank Transfer</h2>
               </div>
 
-              <BankTransferDetails orderTotal={orderTotal} accounts={accounts} />
+              <BankTransferDetails orderTotal={orderTotal} accounts={accounts}
+                refField={{ props: register('transferRef', maxText(100)), error: errors.transferRef?.message }} />
             </div>
 
             {/* Notes */}
             <div className="card p-5">
               <label className="label">Order Notes <span className="text-surface-400 font-normal">(optional)</span></label>
-              <textarea className="input min-h-[80px] resize-none" placeholder="Special delivery instructions…"
+              <textarea className="input min-h-[80px] resize-none"
+                placeholder={pickup ? 'Anything the shop should know…' : 'Special delivery instructions…'}
                 {...register('notes', maxText(500))} />
               {errors.notes && <p className="text-red-500 text-xs mt-1">{errors.notes.message}</p>}
             </div>
 
             {/* Place order */}
-            <button type="submit" disabled={loading || !accounts?.length}
+            <button type="submit" disabled={loading || !accounts?.length || blocked}
               className="btn-primary w-full btn-lg text-base font-bold gap-3">
               {loading
                 ? <><Spinner size="sm" /> Processing…</>
@@ -400,6 +476,13 @@ export function CheckoutPage() {
                     Place Order — Pay via Transfer
                   </>}
             </button>
+            {blocked && accounts?.length > 0 && (
+              <p className="text-center text-xs text-amber-700">
+                {pickup ? 'Choose a shop that has everything in your cart.'
+                  : noDelivery ? 'Choose Pickup to collect from one of our shops.'
+                  : `We don't deliver to ${state} yet. Choose Pickup, or another state.`}
+              </p>
+            )}
 
             <p className="text-center text-xs text-surface-400 flex items-center justify-center gap-1.5">
               <Shield className="w-3.5 h-3.5 text-emerald-500" />
@@ -452,11 +535,11 @@ export function CheckoutPage() {
                   </div>
                 )}
                 <div className="flex justify-between text-surface-500">
-                  <span>Shipping</span>
+                  <span>{pickup ? `Pickup${shop ? ` · ${shop.name}` : ''}` : 'Delivery'}</span>
                   <span>
-                    {shipping === 0
-                      ? <span className="text-emerald-600 font-medium">Free</span>
-                      : `₦${Number(shipping).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    {shipping === 0 ? <span className="text-emerald-600 font-medium">Free</span>
+                      : shipping == null ? <span className="text-surface-400">Choose a state</span>
+                      : naira(shipping)}
                   </span>
                 </div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-surface-100">

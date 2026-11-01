@@ -66,6 +66,7 @@ builder.Services.AddScoped<IStoreService, StoreService>();
 builder.Services.AddScoped<IPosService, PosService>();
 builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
+builder.Services.AddScoped<IDeliveryRateService, DeliveryRateService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 
 // Azure Blob Storage
@@ -127,6 +128,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(opts =>
 
 // Background token cleanup (runs every 24 h)
 builder.Services.AddHostedService<TokenCleanupService>();
+// Reminds about and cancels unpaid bank-transfer orders (every Orders:UnpaidCheckMinutes)
+builder.Services.AddHostedService<UnpaidOrderService>();
 
 // CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!;

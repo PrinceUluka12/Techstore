@@ -61,16 +61,25 @@ public class CouponRepository : ICouponRepository
         return q.AnyAsync();
     }
 
-    public async Task IncrementUsageAsync(int couponId)
-    {
-        var coupon = await _db.Coupons.FindAsync(couponId);
-        if (coupon != null)
-        {
-            coupon.UsedCount++;
-            coupon.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-        }
-    }
+    // Counts one use, unless the coupon has just reached its limit (two checkouts can't both take the last use)
+    public async Task<bool> TryUseAsync(int couponId) =>
+        await _db.Coupons
+            .Where(c => c.Id == couponId && (c.UsageLimit == null || c.UsedCount < c.UsageLimit))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.UsedCount, c => c.UsedCount + 1)
+                .SetProperty(c => c.UpdatedAt, DateTime.UtcNow)) == 1;
+
+    // A cancelled order gives its use back
+    public Task ReleaseUseAsync(string code) =>
+        _db.Coupons
+            .Where(c => c.Code == code.ToUpper() && c.UsedCount > 0)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(c => c.UsedCount, c => c.UsedCount - 1)
+                .SetProperty(c => c.UpdatedAt, DateTime.UtcNow));
+
+    public Task<int> CountUsesByCustomerAsync(string code, int userId) =>
+        _db.Orders.CountAsync(o => o.UserId == userId && o.CouponCode == code.ToUpper()
+            && o.Status != OrderStatus.Cancelled);
 
     public Task<int> CountAsync() => _db.Coupons.CountAsync();
 }

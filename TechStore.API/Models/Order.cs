@@ -1,5 +1,8 @@
 namespace TechStore.API.Models;
 
+// Online orders: Pending (waiting for payment) → Confirmed (paid) → Processing →
+// Shipped or ReadyForPickup → Delivered (handed over). They can be Cancelled until then.
+// Refunded is only on older orders. In-store sales are saved as Delivered.
 public enum OrderStatus
 {
     Pending,
@@ -8,7 +11,15 @@ public enum OrderStatus
     Shipped,
     Delivered,
     Cancelled,
-    Refunded
+    Refunded,
+    ReadyForPickup
+}
+
+// How an online order reaches the customer
+public enum FulfilmentMethod
+{
+    Delivery,
+    Pickup // collected from the order's shop (StoreId)
 }
 
 public enum PaymentStatus
@@ -52,6 +63,11 @@ public class Order
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
     public string? PaymentMethod { get; set; }
     public string? TransactionId { get; set; }
+    public FulfilmentMethod Fulfilment { get; set; } = FulfilmentMethod.Delivery;
+    // Online orders: unpaid ones are cancelled at PaymentDueAt (null on orders from before this)
+    public DateTime? PaymentDueAt { get; set; }
+    public DateTime? PaymentReminderSentAt { get; set; }
+    public DateTime? PaidAt { get; set; }
 
     public decimal SubTotal { get; set; }
     public decimal DiscountAmount { get; set; } = 0;

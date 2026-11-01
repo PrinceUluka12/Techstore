@@ -185,21 +185,32 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 
         RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50);
         RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.ShippingAddress).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.ShippingCity).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Fulfilment).IsInEnum();
 
-        // Province = State in Nigeria
-        RuleFor(x => x.ShippingProvince)
-            .NotEmpty().WithMessage("State is required.")
-            .MaximumLength(50);
+        // Pickup orders need a shop and a phone number to call when it's ready, not an address
+        When(x => x.Fulfilment == FulfilmentMethod.Pickup, () =>
+        {
+            RuleFor(x => x.PickupStoreId).NotNull().WithMessage("Choose a shop to collect from.");
+            RuleFor(x => x.ShippingPhone).NotEmpty().WithMessage("Enter a phone number so the shop can reach you.");
+        }).Otherwise(() =>
+        {
+            RuleFor(x => x.ShippingAddress).NotEmpty().MaximumLength(200);
+            RuleFor(x => x.ShippingCity).NotEmpty().MaximumLength(100);
 
-        // Nigerian postal code — 6 digits (e.g. 100001 for Lagos Island)
-        RuleFor(x => x.ShippingPostalCode)
-            .NotEmpty()
-            .Matches(@"^\d{6}$")
-            .WithMessage("Enter a valid Nigerian postal code (6 digits, e.g. 100001).");
+            // Province = State in Nigeria
+            RuleFor(x => x.ShippingProvince)
+                .NotEmpty().WithMessage("State is required.")
+                .MaximumLength(50);
 
-        RuleFor(x => x.ShippingCountry).NotEmpty().MaximumLength(50);
+            // Nigerian postal code — 6 digits (e.g. 100001 for Lagos Island)
+            RuleFor(x => x.ShippingPostalCode)
+                .NotEmpty()
+                .Matches(@"^\d{6}$")
+                .WithMessage("Enter a valid Nigerian postal code (6 digits, e.g. 100001).");
+        });
+
+        RuleFor(x => x.ShippingCountry).MaximumLength(50);
+        RuleFor(x => x.TransactionId).MaximumLength(100);
 
         // Validate payment method when provided
         RuleFor(x => x.PaymentMethod)

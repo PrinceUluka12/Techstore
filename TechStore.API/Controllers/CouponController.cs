@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TechStore.API.DTOs.Coupon;
 using TechStore.API.Models;
 using TechStore.API.Repositories.Interfaces;
+using TechStore.API.Services;
 
 namespace TechStore.API.Controllers;
 
@@ -39,6 +41,7 @@ public class CouponsController : ControllerBase
             MinimumOrderAmount    = req.MinimumOrderAmount,
             MaximumDiscountAmount = req.MaximumDiscountAmount,
             UsageLimit            = req.UsageLimit,
+            UsesPerCustomer       = req.UsesPerCustomer > 0 ? req.UsesPerCustomer : null,
             ValidFrom             = req.ValidFrom,
             ValidTo               = req.ValidTo,
             IsActive              = req.IsActive,
@@ -69,6 +72,7 @@ public class CouponsController : ControllerBase
         if (req.MinimumOrderAmount    != null) coupon.MinimumOrderAmount    = req.MinimumOrderAmount;
         if (req.MaximumDiscountAmount != null) coupon.MaximumDiscountAmount = req.MaximumDiscountAmount;
         if (req.UsageLimit            != null) coupon.UsageLimit            = req.UsageLimit;
+        if (req.UsesPerCustomer       != null) coupon.UsesPerCustomer       = req.UsesPerCustomer > 0 ? req.UsesPerCustomer : null;
         if (req.ValidFrom             != null) coupon.ValidFrom             = req.ValidFrom;
         if (req.ValidTo               != null) coupon.ValidTo               = req.ValidTo;
         if (req.IsActive              != null) coupon.IsActive              = req.IsActive.Value;
@@ -92,30 +96,13 @@ public class CouponsController : ControllerBase
     public async Task<IActionResult> Validate([FromBody] ValidateCouponRequest req)
     {
         var coupon = await _coupons.GetByCodeAsync(req.Code.ToUpper());
+        var uses = coupon == null ? 0 : await _coupons.CountUsesByCustomerAsync(coupon.Code, GetUserId());
 
-        if (coupon == null || !coupon.IsActive)
-            return Ok(new ValidateCouponResponse(false, "Coupon code not found or inactive.", 0, req.SubTotal));
+        var problem = CouponRules.Problem(coupon, req.SubTotal, uses, DateTime.UtcNow);
+        if (problem != null)
+            return Ok(new ValidateCouponResponse(false, problem, 0, req.SubTotal));
 
-        if (coupon.ValidFrom.HasValue && coupon.ValidFrom > DateTime.UtcNow)
-            return Ok(new ValidateCouponResponse(false, "Coupon is not yet valid.", 0, req.SubTotal));
-
-        if (coupon.ValidTo.HasValue && coupon.ValidTo < DateTime.UtcNow)
-            return Ok(new ValidateCouponResponse(false, "Coupon has expired.", 0, req.SubTotal));
-
-        if (coupon.UsageLimit.HasValue && coupon.UsedCount >= coupon.UsageLimit)
-            return Ok(new ValidateCouponResponse(false, "Coupon usage limit reached.", 0, req.SubTotal));
-
-        if (coupon.MinimumOrderAmount.HasValue && req.SubTotal < coupon.MinimumOrderAmount)
-            return Ok(new ValidateCouponResponse(false,
-                $"Minimum order of ₦{coupon.MinimumOrderAmount:N2} required.", 0, req.SubTotal));
-
-        var discount = coupon.Type == DiscountType.Percentage
-            ? Math.Round(req.SubTotal * coupon.Value / 100, 2)
-            : coupon.Value;
-
-        if (coupon.MaximumDiscountAmount.HasValue)
-            discount = Math.Min(discount, coupon.MaximumDiscountAmount.Value);
-
+        var discount = CouponRules.Discount(coupon!, req.SubTotal);
         return Ok(new ValidateCouponResponse(true, null, discount, req.SubTotal - discount));
     }
 
@@ -123,5 +110,8 @@ public class CouponsController : ControllerBase
         c.Id, c.Code, c.Description, c.Type, c.Value,
         c.MinimumOrderAmount, c.MaximumDiscountAmount,
         c.UsageLimit, c.UsedCount, c.ValidFrom, c.ValidTo,
-        c.IsActive, c.CreatedAt, c.UpdatedAt);
+        c.IsActive, c.CreatedAt, c.UpdatedAt, c.UsesPerCustomer);
+
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue("userId") ?? User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

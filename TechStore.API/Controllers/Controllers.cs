@@ -294,7 +294,7 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> MyOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
         Ok(await _orders.GetMyOrdersAsync(GetUserId(), page, pageSize));
 
-    /// <summary>Get a specific order (own orders or Admin)</summary>
+    /// <summary>Get a specific order (own orders, or staff who can view orders)</summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -302,11 +302,16 @@ public class OrdersController : ControllerBase
         if (order == null) return NotFound();
 
         // Customers can only see their own orders
-        if (!User.IsInRole("Admin") && order.UserId != GetUserId())
+        if (!User.HasPermission(Perms.OrdersView) && order.UserId != GetUserId())
             return Forbid();
 
         return Ok(order);
     }
+
+    /// <summary>Shops the signed-in customer can collect from, and whether each has their whole cart</summary>
+    [HttpGet("pickup-shops")]
+    public async Task<IActionResult> PickupShops() =>
+        Ok(await _orders.GetPickupShopsAsync(GetUserId()));
 
     /// <summary>Place order from cart</summary>
     [HttpPost("checkout")]
@@ -333,12 +338,21 @@ public class OrdersController : ControllerBase
         [FromQuery] string? search = null) =>
         Ok(await _orders.GetAllOrdersAsync(page, pageSize, status, channel, storeId, search));
 
-    /// <summary>Update order status</summary>
+    /// <summary>Move an online order to its next step (see OrderDto.NextStatuses)</summary>
     [HttpPut("{id}/status")]
     [RequirePermission(Perms.OrdersManage)]
     public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest req)
     {
         var order = await _orders.UpdateStatusAsync(id, req);
+        return order == null ? NotFound() : Ok(order);
+    }
+
+    /// <summary>Record that the customer's payment has arrived</summary>
+    [HttpPost("{id}/mark-paid")]
+    [RequirePermission(Perms.OrdersManage)]
+    public async Task<IActionResult> MarkPaid(int id, [FromBody] MarkPaidRequest req)
+    {
+        var order = await _orders.MarkPaidAsync(id, req.Reference);
         return order == null ? NotFound() : Ok(order);
     }
 
@@ -348,8 +362,7 @@ public class OrdersController : ControllerBase
     {
         var order = await _orders.GetByIdAsync(id);
         if (order == null) return NotFound();
-        var perms = User.FindFirst("permissions")?.Value ?? "";
-        var isStaff = User.IsInRole("Admin") || perms.Contains(Perms.OrdersView) || perms.Contains(Perms.OrdersManage);
+        var isStaff = User.HasPermission(Perms.OrdersView) || User.HasPermission(Perms.OrdersManage);
         if (!isStaff && order.UserId != GetUserId())
             return Forbid();
         return Ok(await _orders.GetStatusHistoryAsync(id));

@@ -89,6 +89,7 @@ const statusMap = {
   Confirmed:  'badge-blue',
   Processing: 'badge-blue',
   Shipped:    'badge-blue',
+  ReadyForPickup: 'badge-blue',
   Delivered:  'badge-green',
   Cancelled:  'badge-red',
   Refunded:   'badge-gray',
@@ -96,8 +97,11 @@ const statusMap = {
   Failed:     'badge-red',
 }
 
-export function StatusBadge({ status }) {
-  return <span className={statusMap[status] || 'badge-gray'}>{status}</span>
+// Order statuses as people read them
+export const STATUS_LABELS = { ReadyForPickup: 'Ready for pickup' }
+
+export function StatusBadge({ status, label }) {
+  return <span className={statusMap[status] || 'badge-gray'}>{label ?? STATUS_LABELS[status] ?? status}</span>
 }
 
 // ── Product image ─────────────────────────────────────────────────────────────

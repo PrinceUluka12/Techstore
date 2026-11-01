@@ -31,6 +31,7 @@ public class AppDbContext : DbContext
     public DbSet<StockTransferItem> StockTransferItems => Set<StockTransferItem>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<BankAccountLog> BankAccountLogs => Set<BankAccountLog>();
+    public DbSet<DeliveryRate> DeliveryRates => Set<DeliveryRate>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -91,6 +92,8 @@ public class AppDbContext : DbContext
             e.Property(o => o.Total).HasColumnType("decimal(18,2)");
             e.Property(o => o.Status).HasConversion<string>();
             e.Property(o => o.PaymentStatus).HasConversion<string>();
+            e.Property(o => o.Fulfilment).HasConversion<string>().HasMaxLength(20)
+                .HasDefaultValue(FulfilmentMethod.Delivery); // orders from before pickup were all delivered
             e.HasOne(o => o.User).WithMany(u => u.Orders)
                 .HasForeignKey(o => o.UserId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(o => o.Store).WithMany()
@@ -141,6 +144,14 @@ public class AppDbContext : DbContext
         });
 
         // BankAccount — where customers pay for online orders; BankAccountLog — its history
+        builder.Entity<DeliveryRate>(e =>
+        {
+            e.HasIndex(r => r.State).IsUnique();
+            e.Property(r => r.State).HasMaxLength(50);
+            e.Property(r => r.Fee).HasColumnType("decimal(18,2)");
+            e.Property(r => r.UpdatedByName).HasMaxLength(150);
+        });
+
         builder.Entity<BankAccount>(e =>
         {
             e.Property(b => b.BankName).HasMaxLength(100);

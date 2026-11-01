@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw } from 'lucide-react'
+import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw, Store } from 'lucide-react'
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
-import { StatusBadge, LoadingPage, EmptyState, Pagination, ProductImage } from '../../components/ui'
+import { StatusBadge, STATUS_LABELS, LoadingPage, EmptyState, Pagination, ProductImage } from '../../components/ui'
 import { format } from 'date-fns'
 
 const STATUS_ICONS = {
@@ -12,22 +12,35 @@ const STATUS_ICONS = {
   Confirmed:  CheckCircle,
   Processing: RefreshCw,
   Shipped:    Truck,
+  ReadyForPickup: Store,
   Delivered:  CheckCircle,
   Cancelled:  XCircle,
   Refunded:   RefreshCw,
 }
+
+// What the customer sees for each status
+const customerLabel = (status, order) =>
+  status === 'Pending' ? (order?.paymentStatus === 'Pending' ? 'Awaiting payment' : 'Pending')
+  : status === 'Confirmed' ? 'Payment received'
+  : status === 'Processing' ? 'Being prepared'
+  : status === 'Shipped' ? 'On its way'
+  : status === 'Delivered' && order?.fulfilment === 'Pickup' ? 'Collected'
+  : STATUS_LABELS[status] ?? status
+
+const naira = v => `₦${Number(v).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const STATUS_COLORS = {
   Pending:    'text-amber-500 bg-amber-50',
   Confirmed:  'text-blue-500 bg-blue-50',
   Processing: 'text-purple-500 bg-purple-50',
   Shipped:    'text-cyan-500 bg-cyan-50',
+  ReadyForPickup: 'text-cyan-500 bg-cyan-50',
   Delivered:  'text-emerald-500 bg-emerald-50',
   Cancelled:  'text-red-500 bg-red-50',
   Refunded:   'text-surface-400 bg-surface-50',
 }
 
-function OrderTimeline({ orderId }) {
+function OrderTimeline({ orderId, fulfilment }) {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -56,7 +69,9 @@ function OrderTimeline({ orderId }) {
                 <Icon className="w-4 h-4" />
               </div>
               <div className="flex-1 pt-0.5">
-                <p className="text-sm font-medium text-surface-900">{log.toStatus}</p>
+                <p className="text-sm font-medium text-surface-900">
+                  {i === 0 && log.fromStatus === log.toStatus ? 'Order placed' : customerLabel(log.toStatus, { fulfilment })}
+                </p>
                 {log.note && <p className="text-xs text-surface-500 mt-0.5">{log.note}</p>}
                 <p className="text-xs text-surface-400 mt-1">
                   {format(new Date(log.changedAt), 'MMM d, yyyy · h:mm a')}
@@ -110,7 +125,7 @@ export function MyOrdersPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
-                  <StatusBadge status={order.status} />
+                  <StatusBadge status={order.status} label={customerLabel(order.status, order)} />
                   <span className="font-semibold text-surface-900 whitespace-nowrap">₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   <ChevronRight className="w-4 h-4 text-surface-300 group-hover:text-surface-600 transition-colors flex-shrink-0" />
                 </div>
@@ -132,9 +147,14 @@ function PayByTransfer({ order }) {
     <div className="card p-5 border-amber-200 bg-amber-50/40">
       <h2 className="font-semibold mb-1">Pay by bank transfer</h2>
       <p className="text-sm text-surface-600 mb-3">
-        Transfer <strong>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> to {accounts.length > 1 ? 'one of these accounts' : 'this account'}.
+        Transfer <strong>{naira(order.total)}</strong> to {accounts.length > 1 ? 'one of these accounts' : 'this account'}.
         Use <span className="font-mono font-semibold">{order.orderNumber}</span> or your name as the reference.
       </p>
+      {order.paymentDueAt && (
+        <p className="text-sm font-medium text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 mb-3">
+          Please pay by {format(new Date(order.paymentDueAt), "h:mm a 'on' MMM d")}, or the order will be cancelled.
+        </p>
+      )}
       <BankAccountList accounts={accounts} />
       <p className="text-xs text-surface-400 mt-3">We'll confirm your order once the payment arrives, usually within 1–2 business hours.</p>
     </div>
@@ -166,7 +186,7 @@ export function OrderDetailPage() {
             <h1 className="font-mono text-2xl font-semibold">{order.orderNumber}</h1>
             <p className="text-surface-400 text-sm mt-1">{format(new Date(order.createdAt), 'MMMM d, yyyy · h:mm a')}</p>
           </div>
-          <StatusBadge status={order.status} />
+          <StatusBadge status={order.status} label={customerLabel(order.status, order)} />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -191,7 +211,7 @@ export function OrderDetailPage() {
                 ))}
               </div>
             </div>
-            <OrderTimeline orderId={order.id} />
+            <OrderTimeline orderId={order.id} fulfilment={order.fulfilment} />
           </div>
 
           <div className="space-y-4">
@@ -210,21 +230,37 @@ export function OrderDetailPage() {
                 {order.tax > 0 && ( // only orders from before VAT was dropped
                   <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                 )}
-                <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                <div className="flex justify-between text-surface-500">
+                  <span>{order.fulfilment === 'Pickup' ? 'Pickup' : 'Delivery'}</span>
+                  <span>{order.shippingCost === 0 ? 'Free' : naira(order.shippingCost)}</span>
+                </div>
                 <div className="flex justify-between font-semibold pt-2 border-t border-surface-100 text-base">
                   <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
-            <div className="card p-5">
-              <h2 className="font-semibold mb-3">Shipping To</h2>
-              <address className="text-sm text-surface-600 not-italic leading-relaxed">
-                {order.shippingAddress}<br />
-                {order.shippingCity}, {order.shippingProvince}<br />
-                {order.shippingPostalCode}<br />
-                {order.shippingCountry}
-              </address>
-            </div>
+            {order.fulfilment === 'Pickup' ? (
+              <div className="card p-5">
+                <h2 className="font-semibold mb-3">Collect From</h2>
+                <address className="text-sm text-surface-600 not-italic leading-relaxed">
+                  <span className="font-medium text-surface-900">{order.storeName}</span><br />
+                  {order.pickupAddress && <>{order.pickupAddress}<br /></>}
+                  {order.pickupPhone}
+                </address>
+                <p className="text-xs text-surface-400 mt-3">We'll email you when it's ready. Bring your order number.</p>
+              </div>
+            ) : (
+              <div className="card p-5">
+                <h2 className="font-semibold mb-3">Delivering To</h2>
+                <address className="text-sm text-surface-600 not-italic leading-relaxed">
+                  {order.shippingAddress}<br />
+                  {order.shippingCity}, {order.shippingProvince}<br />
+                  {order.shippingPostalCode}<br />
+                  {order.shippingCountry}
+                  {order.shippingPhone && <><br />{order.shippingPhone}</>}
+                </address>
+              </div>
+            )}
           </div>
         </div>
       </main>

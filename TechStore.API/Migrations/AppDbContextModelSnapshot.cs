@@ -245,7 +245,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 10, 31, 17, 1, 31, 18, DateTimeKind.Utc).AddTicks(8598),
+                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(623),
                             Description = "Latest smartphones and accessories",
                             IsActive = true,
                             Name = "Smartphones",
@@ -254,7 +254,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 10, 31, 17, 1, 31, 18, DateTimeKind.Utc).AddTicks(8601),
+                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(625),
                             Description = "Tablets and e-readers",
                             IsActive = true,
                             Name = "Tablets",
@@ -263,7 +263,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 10, 31, 17, 1, 31, 18, DateTimeKind.Utc).AddTicks(8603),
+                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(627),
                             Description = "Wearable technology",
                             IsActive = true,
                             Name = "Smart Watches",
@@ -272,7 +272,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 4,
-                            CreatedAt = new DateTime(2026, 10, 31, 17, 1, 31, 18, DateTimeKind.Utc).AddTicks(8605),
+                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(629),
                             Description = "Laptops and ultrabooks",
                             IsActive = true,
                             Name = "Laptops",
@@ -281,7 +281,7 @@ namespace TechStore.API.Migrations
                         new
                         {
                             Id = 5,
-                            CreatedAt = new DateTime(2026, 10, 31, 17, 1, 31, 18, DateTimeKind.Utc).AddTicks(8607),
+                            CreatedAt = new DateTime(2026, 10, 31, 22, 54, 34, 784, DateTimeKind.Utc).AddTicks(631),
                             Description = "Cases, chargers, and more",
                             IsActive = true,
                             Name = "Accessories",
@@ -329,6 +329,9 @@ namespace TechStore.API.Migrations
                     b.Property<int>("UsedCount")
                         .HasColumnType("int");
 
+                    b.Property<int?>("UsesPerCustomer")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ValidFrom")
                         .HasColumnType("datetime2");
 
@@ -344,6 +347,37 @@ namespace TechStore.API.Migrations
                         .IsUnique();
 
                     b.ToTable("Coupons");
+                });
+
+            modelBuilder.Entity("TechStore.API.Models.DeliveryRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Fee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State")
+                        .IsUnique();
+
+                    b.ToTable("DeliveryRates");
                 });
 
             modelBuilder.Entity("TechStore.API.Models.Inventory", b =>
@@ -428,6 +462,13 @@ namespace TechStore.API.Migrations
                     b.Property<string>("DiscountReason")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Fulfilment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Delivery");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
@@ -435,8 +476,17 @@ namespace TechStore.API.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PaymentDueAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("PaymentMethod")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PaymentReminderSentAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("PaymentStatus")
                         .IsRequired()

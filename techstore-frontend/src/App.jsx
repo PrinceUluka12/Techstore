@@ -30,6 +30,7 @@ import AdminPosReceipt from './pages/admin/AdminPosReceipt'
 import AdminCashUp from './pages/admin/AdminCashUp'
 import AdminTransfers from './pages/admin/AdminTransfers'
 import AdminBankAccounts from './pages/admin/AdminBankAccounts'
+import AdminDeliveryFees from './pages/admin/AdminDeliveryFees'
 
 // ── Route guards ──────────────────────────────────────────────────────────────
 function RequireAuth({ children }) {
@@ -131,6 +132,7 @@ export default function App() {
             <Route path="/admin/pos/cash-up" element={<RequireAdmin><AdminCashUp /></RequireAdmin>} />
             <Route path="/admin/transfers"  element={<RequireAdmin><AdminTransfers /></RequireAdmin>} />
             <Route path="/admin/bank-accounts" element={<RequireAdmin><AdminBankAccounts /></RequireAdmin>} />
+            <Route path="/admin/delivery-fees" element={<RequireAdmin><AdminDeliveryFees /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={
