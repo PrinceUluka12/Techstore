@@ -87,6 +87,23 @@ public class GuestCheckoutTests(ApiFactory api)
     }
 
     [Fact]
+    public async Task A_name_has_to_be_a_name_because_it_goes_into_emails_sent_to_any_address()
+    {
+        var phone = await api.NewProduct(20000, stock: 10);
+
+        // Markup in place of a name would be emailed, from the shop, to whoever the "guest" chose
+        var r = await Checkout(ApiFactory.Unique("victim"), [(phone, 1)], Lagos(new { shippingFirstName = "<a href=//evil.example>Pay here</a>" }));
+        Assert.Equal(HttpStatusCode.BadRequest, r.Status);
+        Assert.Contains("letters", r.Message);
+        Assert.Equal("10/0", await api.Stock(1, phone));
+
+        // Real names, tone marks and all, are fine
+        r = await Checkout(ApiFactory.Unique("adebayo"), [(phone, 1)], Lagos(new { shippingFirstName = "Adébáyọ̀", shippingLastName = "O'Neil-Smith Jr." }));
+        Assert.Equal(HttpStatusCode.Created, r.Status);
+        Assert.Equal("Adébáyọ̀ O'Neil-Smith Jr.", r.Str("customerName"));
+    }
+
+    [Fact]
     public async Task A_browser_cart_is_priced_from_the_catalogue()
     {
         var phone = await api.NewProduct(20000, stock: 10);

@@ -23,7 +23,7 @@ public class EmailService : IEmailService
 
     public Task SendWelcomeAsync(string toEmail, string firstName) =>
         Send(toEmail, $"Welcome to Hytel Phones, {firstName}!", $"""
-            <h2>Welcome, {firstName}!</h2>
+            <h2>Welcome, {Enc(firstName)}!</h2>
             <p>Thank you for creating your Hytel Phones account. You can now shop our full range of smartphones, tablets, laptops and more.</p>
             <p><a href="{_siteUrl}/products" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:8px">Start Shopping</a></p>
             <p style="color:#6b7280;font-size:13px;margin-top:24px">If you didn't create this account, you can safely ignore this email.</p>
@@ -33,11 +33,11 @@ public class EmailService : IEmailService
         DateTime? payBy = null, string? pickupShop = null, string orderPath = "/account/orders") =>
         Send(toEmail, $"Order Received — {orderNumber}", $"""
             <h2>Thanks for your order!</h2>
-            <p>Hi {firstName}, your order <strong>{orderNumber}</strong> has been received.</p>
+            <p>Hi {Enc(firstName)}, your order <strong>{orderNumber}</strong> has been received.</p>
             <table style="width:100%;border-collapse:collapse;margin:16px 0">
               <tr><td style="padding:8px 0;color:#6b7280">Order Number</td><td style="font-family:monospace;font-weight:600">{orderNumber}</td></tr>
               <tr><td style="padding:8px 0;color:#6b7280">Total</td><td style="font-weight:600">₦{total:N2}</td></tr>
-              <tr><td style="padding:8px 0;color:#6b7280">{(pickupShop != null ? "Pickup" : "Delivery")}</td><td>{(pickupShop != null ? $"Collect from {pickupShop}" : "To your address")}</td></tr>
+              <tr><td style="padding:8px 0;color:#6b7280">{(pickupShop != null ? "Pickup" : "Delivery")}</td><td>{(pickupShop != null ? $"Collect from {Enc(pickupShop)}" : "To your address")}</td></tr>
             </table>
             {(payBy is { } due ? $"<p><strong>Please pay by bank transfer by {NigeriaTime(due)}</strong>, or the order will be cancelled. The account details are on your order page.</p>" : "")}
             <p>We'll email you when your payment is confirmed and again when your order is {(pickupShop != null ? "ready to collect" : "on its way")}.</p>
@@ -48,8 +48,8 @@ public class EmailService : IEmailService
         string orderPath = "/account/orders") =>
         Send(toEmail, $"Order {orderNumber}: {newStatus}", $"""
             <h2>{newStatus}</h2>
-            <p>Hi {firstName}, there's an update on your order <strong>{orderNumber}</strong>.</p>
-            {(detail != null ? $"<p>{detail}</p>" : "")}
+            <p>Hi {Enc(firstName)}, there's an update on your order <strong>{orderNumber}</strong>.</p>
+            {(detail != null ? $"<p>{Enc(detail)}</p>" : "")}
             <p><a href="{_siteUrl}{orderPath}" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Track Order</a></p>
             """);
 
@@ -57,7 +57,7 @@ public class EmailService : IEmailService
         string orderPath = "/account/orders") =>
         Send(toEmail, $"Reminder: payment for order {orderNumber}", $"""
             <h2>Your order is waiting for payment</h2>
-            <p>Hi {firstName}, we haven't received payment for your order <strong>{orderNumber}</strong> yet.</p>
+            <p>Hi {Enc(firstName)}, we haven't received payment for your order <strong>{orderNumber}</strong> yet.</p>
             <p>Please transfer <strong>₦{total:N2}</strong> by <strong>{NigeriaTime(payBy)}</strong>, or the order will be cancelled and the items go back on sale. The account details are on your order page.</p>
             <p>Already paid? Thank you, there's nothing more to do. We'll confirm as soon as it arrives.</p>
             <p><a href="{_siteUrl}{orderPath}" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">View Order</a></p>
@@ -69,10 +69,14 @@ public class EmailService : IEmailService
     public Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink) =>
         Send(toEmail, "Reset Your Password", $"""
             <h2>Password Reset</h2>
-            <p>Hi {firstName}, you requested a password reset for your Hytel Phones account.</p>
+            <p>Hi {Enc(firstName)}, you requested a password reset for your Hytel Phones account.</p>
             <p><a href="{resetLink}" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block;margin:8px 0">Reset Password</a></p>
             <p style="color:#6b7280;font-size:13px">This link expires in 1 hour. If you did not request a reset, you can safely ignore this email.</p>
             """);
+
+    // Names and other text people typed go into the HTML as text, never as markup: a guest's
+    // "first name" could otherwise be a link, emailed from the shop to whatever address they gave
+    private static string Enc(string value) => System.Net.WebUtility.HtmlEncode(value);
 
     private async Task Send(string toEmail, string subject, string htmlBody)
     {

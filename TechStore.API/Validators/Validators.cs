@@ -236,8 +236,11 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
             ? ["Card", "BankTransfer"]
             : ["BankTransfer"];
 
-        RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50);
+        // Letters, spaces, apostrophes, dots and hyphens, as the checkout form allows (NAME_RE in
+        // utils/validation.js). The name goes into emails, and a guest can choose who gets them.
+        const string name = @"^\p{L}[\p{L}\p{M}\s'.-]*$";
+        RuleFor(x => x.ShippingFirstName).NotEmpty().MaximumLength(50).Matches(name).WithMessage("Use letters only.");
+        RuleFor(x => x.ShippingLastName).NotEmpty().MaximumLength(50).Matches(name).WithMessage("Use letters only.");
         RuleFor(x => x.Fulfilment).IsInEnum();
 
         // Pickup orders need a shop and a phone number to call when it's ready, not an address
