@@ -155,19 +155,20 @@ export const useCartStore = create((set, get) => ({
 
   // After signing in, what was put in the cart before joins the account's cart. Anything the
   // shop turns down (sold out or switched off since) is left out. Anything that got no answer,
-  // or hit a server fault, stays in this browser marked `retry`, and the next loadCart tries
-  // again. It's skipped then if the account's cart already has it: the first try may have gone
-  // through with only the answer lost, and adding it again would double it.
+  // or hit a server fault, stays in this browser marked `retry`, with how many the account had
+  // before (`accountHad`), and the next loadCart tries again. The first try may have gone
+  // through with only the answer lost, so a retry only adds if the account still has fewer
+  // than accountHad + quantity; otherwise it would double it.
   mergeGuestCart: () => oneAtATime(async () => {
     const lines = readGuestCart()
     const keep = []
     try {
-      const inAccount = lines.some(l => l.retry)
-        ? new Set((await cartApi.get()).data.items.map(i => i.productId)) : new Set()
+      const has = new Map((await cartApi.get()).data.items.map(i => [i.productId, i.quantity]))
       for (const line of lines) {
-        if (line.retry && inAccount.has(line.productId)) continue
+        const accountHad = line.retry ? line.accountHad : (has.get(line.productId) ?? 0)
+        if (line.retry && (has.get(line.productId) ?? 0) >= accountHad + line.quantity) continue // went through last time
         try { await cartApi.addItem({ productId: line.productId, quantity: line.quantity }) }
-        catch (err) { if (!err.response || err.response.status >= 500) keep.push({ ...line, retry: true }) }
+        catch (err) { if (!err.response || err.response.status >= 500) keep.push({ ...line, retry: true, accountHad }) }
       }
     } catch { keep.push(...lines) } // couldn't read the account's cart: nothing was added, so keep it all
     writeGuestCart(keep)
@@ -178,10 +179,13 @@ export const useCartStore = create((set, get) => ({
   // The browser's cart, for a guest's checkout
   guestLines: () => readGuestCart(),
 
-  // After an order or on sign-out the cart is known to be empty
+  // After an order or on sign-out the cart is known to be empty. Signed in (an account's
+  // order), the browser's cart only holds lines still waiting to move into the account, which
+  // weren't in that order, so they stay. Signed out (a guest's order, or after signing out) it's
+  // cleared, so the next person to sign in on this browser doesn't get them.
   clearLocal: () => {
     guestCartEmptied++
-    writeGuestCart([])
+    if (!signedIn()) writeGuestCart([])
     set({
       items: [], total: 0, itemCount: 0, cartId: null, loaded: true,
       couponCode: null, discountAmount: 0, couponError: null,
