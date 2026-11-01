@@ -81,6 +81,11 @@ const oneAtATime = (change) => {
   return run
 }
 
+// Goes up each time the cart is emptied (clearLocal: after an order, on sign-out). A change that
+// started before then and finishes after (on a slow connection) is dropped, rather than putting
+// back the cart that was just ordered.
+let guestCartEmptied = 0
+
 export const useCartStore = create((set, get) => ({
   items: [],
   total: 0,
@@ -111,7 +116,9 @@ export const useCartStore = create((set, get) => ({
 
   // Prices the browser's cart, keeping only what can still be bought
   priceGuestCart: async (lines) => {
+    const emptied = guestCartEmptied
     const cart = lines.length ? (await cartApi.preview(lines)).data : EMPTY_CART
+    if (emptied !== guestCartEmptied) return
     keepGuestCart(cart)
     get().setCart(cart)
   },
@@ -124,6 +131,7 @@ export const useCartStore = create((set, get) => ({
       return
     }
     return oneAtATime(async () => {
+      const emptied = guestCartEmptied
       const lines = readGuestCart()
       const wanted = (lines.find(l => l.productId === productId)?.quantity ?? 0) + quantity
       const next = lines.some(l => l.productId === productId)
@@ -134,6 +142,7 @@ export const useCartStore = create((set, get) => ({
       if (!line) throw cartError('This product is no longer available.')
       const available = Math.max(line.availableStock ?? 0, 0)
       if (available < wanted) throw cartError(`Only ${available} units available.`)
+      if (emptied !== guestCartEmptied) throw cartError('Your cart was just emptied. Please add it again.')
       keepGuestCart(data)
       get().setCart(data)
     })
@@ -171,6 +180,7 @@ export const useCartStore = create((set, get) => ({
 
   // After an order or on sign-out the cart is known to be empty
   clearLocal: () => {
+    guestCartEmptied++
     writeGuestCart([])
     set({
       items: [], total: 0, itemCount: 0, cartId: null, loaded: true,

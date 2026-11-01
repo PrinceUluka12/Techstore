@@ -192,7 +192,7 @@ public class GuestCartRequestValidator : AbstractValidator<GuestCartRequest>
         RuleForEach(x => x.Items).ChildRules(line =>
         {
             line.RuleFor(l => l.ProductId).GreaterThan(0);
-            line.RuleFor(l => l.Quantity).InclusiveBetween(1, 100);
+            line.RuleFor(l => l.Quantity).InclusiveBetween(1, AddToCartRequestValidator.MaxQuantity);
         });
     }
 }
@@ -209,7 +209,7 @@ public class GuestCheckoutRequestValidator : AbstractValidator<GuestCheckoutRequ
         RuleForEach(x => x.Items).ChildRules(line =>
         {
             line.RuleFor(l => l.ProductId).GreaterThan(0);
-            line.RuleFor(l => l.Quantity).InclusiveBetween(1, 100);
+            line.RuleFor(l => l.Quantity).InclusiveBetween(1, AddToCartRequestValidator.MaxQuantity);
         });
         RuleFor(x => x.Order).NotNull().SetValidator(new CreateOrderRequestValidator(config));
         RuleFor(x => x.Order.ShippingPhone).NotEmpty()
@@ -279,10 +279,14 @@ public class CreateOrderRequestValidator : AbstractValidator<CreateOrderRequest>
 
 public class AddToCartRequestValidator : AbstractValidator<AddToCartRequest>
 {
+    // Of one product in a cart. A signed-out cart has the same limit, so all of it can move into
+    // the account's cart at sign-in.
+    public const int MaxQuantity = 99;
+
     public AddToCartRequestValidator()
     {
         RuleFor(x => x.ProductId).GreaterThan(0);
-        RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(99);
+        RuleFor(x => x.Quantity).GreaterThan(0).LessThanOrEqualTo(MaxQuantity);
     }
 }
 

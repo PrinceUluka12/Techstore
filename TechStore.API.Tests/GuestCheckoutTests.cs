@@ -121,6 +121,11 @@ public class GuestCheckoutTests(ApiFactory api)
         Assert.Equal(10, item["availableStock"]!.GetValue<int>());
         Assert.Equal(60000m, r.Num("subTotal"));
 
+        // At most 99 of one product, the same as an account's cart, so it all moves across at sign-in
+        Task<Res> preview(int quantity) => api.Call(HttpMethod.Post, "/cart/preview", body: new { items = new[] { new { productId = phone, quantity } } });
+        Assert.Equal(HttpStatusCode.OK, (await preview(99)).Status);
+        Assert.Equal(HttpStatusCode.BadRequest, (await preview(100)).Status);
+
         // Checking out something that's been switched off is refused, with nothing held
         var co = await Checkout(ApiFactory.Unique("ngozi"), [(phone, 1), (gone, 1)]);
         Assert.Equal(HttpStatusCode.BadRequest, co.Status);
