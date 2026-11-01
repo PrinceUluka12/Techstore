@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, RefreshCw, Store } from 'lucide-react'
 import { orderApi } from '../../services/api'
+import { useAuthStore } from '../../store'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
 import { StatusBadge, STATUS_LABELS, LoadingPage, EmptyState, Pagination, ProductImage, PageTitle, Input, Spinner } from '../../components/ui'
@@ -113,6 +114,7 @@ export function MyOrdersPage() {
       <PageTitle>My Orders</PageTitle>
       <main className="flex-1 page-container py-10">
         <h1 className="font-display text-2xl font-semibold mb-6">My Orders</h1>
+        <ClaimBanner />
         {loading ? <LoadingPage /> : orders.length === 0 ? (
           <EmptyState icon={Package} title="No orders yet"
             description="Once you place an order, it will appear here."
@@ -143,6 +145,40 @@ export function MyOrdersPage() {
         )}
       </main>
       <Footer />
+    </div>
+  )
+}
+
+// Orders placed without an account using this account's email: offer to add them. The link
+// goes to that email, which proves it's theirs.
+function ClaimBanner() {
+  const email = useAuthStore(s => s.user?.email)
+  const [count, setCount]     = useState(0)
+  const [sent, setSent]       = useState(false)
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => { orderApi.claimable().then(r => setCount(r.data.count)).catch(() => {}) }, [])
+  if (!count) return null
+
+  const request = async () => {
+    setSending(true)
+    try { await orderApi.requestClaim(); setSent(true) }
+    catch (err) { showApiError(err, null, "We couldn't send the email. Please try again.") }
+    finally { setSending(false) }
+  }
+
+  return (
+    <div className="card p-5 mb-6 bg-brand-50/40 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-sm text-surface-700">
+        {sent
+          ? <>We've emailed <strong>{email}</strong> a link that adds {count === 1 ? 'it' : 'them'} here. It works for 24 hours.</>
+          : <>We found {count === 1 ? 'an order' : `${count} orders`} placed with <strong>{email}</strong> without an account.</>}
+      </p>
+      {!sent && (
+        <button onClick={request} disabled={sending} className="btn-primary btn-sm">
+          {sending ? <Spinner size="sm" /> : 'Add to my account'}
+        </button>
+      )}
     </div>
   )
 }
@@ -216,7 +252,9 @@ export function GuestOrderPage() {
       <p className="card p-4 mb-6 bg-brand-50/40 text-sm text-surface-700">
         <strong>Keep this page's link:</strong> it's how you check this order without an account. You can
         also find it with <Link to="/track-order" className="text-brand-600 hover:underline">Track an order</Link>,
-        using your order number and email.
+        using your order number and email. Want your orders in one place?{' '}
+        <Link to="/register" state={{ email: order.customerEmail, from: '/account/orders' }} className="text-brand-600 hover:underline">
+          Create an account</Link> with this email, then add this order to it from My Orders.
       </p>
     } />
   )

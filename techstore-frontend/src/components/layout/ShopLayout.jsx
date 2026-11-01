@@ -7,7 +7,8 @@ import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
 import toast from 'react-hot-toast'
 import { useAuthStore, useCartStore, useUIStore } from '../../store'
-import { authApi } from '../../services/api'
+import { authApi, newsletterApi } from '../../services/api'
+import { EMAIL_RE, showApiError } from '../../utils/validation'
 import { Spinner, ProductImage } from '../ui'
 import { returnHere } from '../../utils/signIn'
 import { whatsAppLink, WhatsAppIcon } from '../shop/WhatsApp'
@@ -278,6 +279,43 @@ export function CartDrawer() {
 }
 
 // ── Footer ─────────────────────────────────────────────────────────────────────
+// Sign-ups go on the list staff download from Admin → Newsletter
+function NewsletterSignup() {
+  const [email, setEmail]     = useState('')
+  const [sending, setSending] = useState(false)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!EMAIL_RE.test(email.trim())) { toast.error('Enter a valid email address'); return }
+    setSending(true)
+    try {
+      const { data } = await newsletterApi.subscribe(email.trim())
+      toast.success(data.message)
+      setEmail('')
+    } catch (err) {
+      showApiError(err, null, "We couldn't sign you up. Please try again.")
+    } finally { setSending(false) }
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="flex gap-0 mb-4">
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Your email address"
+        aria-label="Your email address"
+        autoComplete="email"
+        className="flex-1 bg-white text-surface-900 text-sm px-4 py-2.5 rounded-l-lg focus:outline-none placeholder:text-surface-400 min-w-0"
+      />
+      <button type="submit" disabled={sending}
+        className="bg-surface-800 hover:bg-surface-700 text-white text-sm font-semibold px-4 py-2.5 rounded-r-lg border border-surface-600 hover:border-surface-500 transition-colors flex-shrink-0">
+        {sending ? <Spinner size="sm" /> : 'Subscribe'}
+      </button>
+    </form>
+  )
+}
+
 export function Footer() {
   return (
     <footer className="bg-[#1e1e1e] text-surface-400 pt-14 pb-8 mt-16">
@@ -361,16 +399,7 @@ export function Footer() {
           {/* Col 4 — Newsletter */}
           <div>
             <h4 className="text-white font-bold text-sm mb-5">Let's stay in touch</h4>
-            <div className="flex gap-0 mb-4">
-              <input
-                type="email"
-                placeholder="Your email address"
-                className="flex-1 bg-white text-surface-900 text-sm px-4 py-2.5 rounded-l-lg focus:outline-none placeholder:text-surface-400 min-w-0"
-              />
-              <button className="bg-surface-800 hover:bg-surface-700 text-white text-sm font-semibold px-4 py-2.5 rounded-r-lg border border-surface-600 hover:border-surface-500 transition-colors flex-shrink-0">
-                Subscribe
-              </button>
-            </div>
+            <NewsletterSignup />
             <p className="text-sm leading-relaxed">
               Keep up to date with our latest news and special offers.
             </p>

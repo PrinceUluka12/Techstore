@@ -1,6 +1,7 @@
 ﻿using System.Buffers.Text;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using TechStore.API.Data;
@@ -304,6 +305,52 @@ public class OrderService : IOrderService
         return _db.Orders.Where(o => o.GuestToken != null && o.OrderNumber == number && o.CustomerEmail == address)
             .Select(o => o.GuestToken).FirstOrDefaultAsync();
     }
+
+    // ── Adding orders placed without an account to the account with the same email ──
+    // The account's email isn't proven by signing up, so the orders only move once the customer
+    // opens a link sent to that email.
+
+    public async Task<int> CountClaimableAsync(int userId)
+    {
+        var email = await _db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleAsync();
+        return await Claimable(email).CountAsync();
+    }
+
+    public async Task<int> RequestClaimAsync(int userId)
+    {
+        var user = await _users.GetByIdAsync(userId) ?? throw new KeyNotFoundException("User not found.");
+        var count = await Claimable(user.Email).CountAsync();
+        if (count == 0) return 0;
+
+        var token = NewGuestToken();
+        await _db.Users.Where(u => u.Id == userId).ExecuteUpdateAsync(s => s
+            .SetProperty(u => u.OrdersClaimTokenHash, Sha256(token))
+            .SetProperty(u => u.OrdersClaimTokenExpiry, DateTime.UtcNow.AddHours(24)));
+        _ = _email.SendClaimOrdersAsync(user.Email, user.FirstName, count, token);
+        return count;
+    }
+
+    public async Task<int> ClaimAsync(int userId, string token)
+    {
+        const string expired = "This link has expired or has already been used. Ask for a new one from My Orders.";
+        var hash = Sha256(token);
+        // One use: clearing the token is what claims it, so two clicks can't both go through
+        var valid = await _db.Users
+            .Where(u => u.Id == userId && u.OrdersClaimTokenHash == hash && u.OrdersClaimTokenExpiry > DateTime.UtcNow)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.OrdersClaimTokenHash, (string?)null)
+                .SetProperty(u => u.OrdersClaimTokenExpiry, (DateTime?)null)) == 1;
+        if (!valid) throw new InvalidOperationException(expired);
+
+        var email = await _db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleAsync();
+        // The orders keep their private link, so it still works
+        return await Claimable(email).ExecuteUpdateAsync(s => s.SetProperty(o => o.UserId, userId));
+    }
+
+    private IQueryable<Order> Claimable(string email) =>
+        _db.Orders.Where(o => o.UserId == null && o.GuestToken != null && o.CustomerEmail == email);
+
+    private static string Sha256(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
     public async Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest req)
     {

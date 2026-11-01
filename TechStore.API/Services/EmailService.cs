@@ -74,6 +74,39 @@ public class EmailService : IEmailService
             <p style="color:#6b7280;font-size:13px">This link expires in 1 hour. If you did not request a reset, you can safely ignore this email.</p>
             """);
 
+    public Task SendNewsletterWelcomeAsync(string toEmail, string unsubscribeLink) =>
+        Send(toEmail, "You're on the Hytel Phones list", $"""
+            <h2>Thanks for signing up!</h2>
+            <p>Now and then we'll send you news about new phones and special offers from Hytel Phones.</p>
+            <p><a href="{_siteUrl}/products" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Shop Now</a></p>
+            <p style="color:#6b7280;font-size:13px">Changed your mind? <a href="{unsubscribeLink}">Unsubscribe</a>.</p>
+            """);
+
+    public Task SendLowStockAlertAsync(string toEmail, string firstName, IReadOnlyList<LowStockLine> lines) =>
+        Send(toEmail, $"Low stock: {lines.Count} item{(lines.Count == 1 ? "" : "s")}", $"""
+            <h2>Running low</h2>
+            <p>Hi {Enc(firstName)}, these are at or below their low-stock level this morning:</p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+              <tr style="color:#6b7280;text-align:left"><th style="padding:6px 0">Shop</th><th>Product</th><th style="text-align:right">Left</th></tr>
+              {LowStockRows(lines)}
+            </table>
+            <p><a href="{_siteUrl}/admin/inventory" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Open Inventory</a></p>
+            """);
+
+    public Task SendClaimOrdersAsync(string toEmail, string firstName, int count, string token) =>
+        Send(toEmail, "Add your earlier orders to your account", $"""
+            <h2>Is this you?</h2>
+            <p>Hi {Enc(firstName)}, we found {count} order{(count == 1 ? "" : "s")} placed with this email without an account.</p>
+            <p>To add {(count == 1 ? "it" : "them")} to your Hytel Phones account, confirm this is your email:</p>
+            <p><a href="{_siteUrl}/account/claim-orders?token={token}" style="background:#2d52ff;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;display:inline-block">Add to My Account</a></p>
+            <p style="color:#6b7280;font-size:13px">This link expires in 24 hours. If you didn't ask for it, you can ignore this email.</p>
+            """);
+
+    private static string Enc(string value) => System.Net.WebUtility.HtmlEncode(value);
+
+    private static string LowStockRows(IEnumerable<LowStockLine> lines) => string.Concat(lines.Select(l =>
+        $"""<tr><td style="padding:6px 0">{Enc(l.Shop)}</td><td>{Enc(l.Product)}</td><td style="text-align:right;font-weight:600">{l.Available}</td></tr>"""));
+
     private async Task Send(string toEmail, string subject, string htmlBody)
     {
         if (string.IsNullOrEmpty(_from))

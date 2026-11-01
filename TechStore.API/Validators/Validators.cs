@@ -6,6 +6,7 @@ using TechStore.API.DTOs.BankAccount;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
+using TechStore.API.DTOs.Newsletter;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Review;
@@ -216,6 +217,21 @@ public class GuestCheckoutRequestValidator : AbstractValidator<GuestCheckoutRequ
             .WithMessage("Enter a phone number so we can reach you about your order.")
             .When(x => x.Order != null);
     }
+}
+
+public class ClaimOrdersRequestValidator : AbstractValidator<ClaimOrdersRequest>
+{
+    public ClaimOrdersRequestValidator() => RuleFor(x => x.Token).NotEmpty().MaximumLength(64);
+}
+
+public class SubscribeRequestValidator : AbstractValidator<SubscribeRequest>
+{
+    public SubscribeRequestValidator() => RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
+}
+
+public class UnsubscribeRequestValidator : AbstractValidator<UnsubscribeRequest>
+{
+    public UnsubscribeRequestValidator() => RuleFor(x => x.Token).NotEmpty().MaximumLength(64);
 }
 
 public class FindGuestOrderRequestValidator : AbstractValidator<FindGuestOrderRequest>

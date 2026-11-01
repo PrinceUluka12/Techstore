@@ -32,6 +32,8 @@ public class AppDbContext : DbContext
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<BankAccountLog> BankAccountLogs => Set<BankAccountLog>();
     public DbSet<DeliveryRate> DeliveryRates => Set<DeliveryRate>();
+    public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
+    public DbSet<JobRun> JobRuns => Set<JobRun>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -256,6 +258,23 @@ public class AppDbContext : DbContext
                  v => v.Aggregate(0, (h, s) => HashCode.Combine(h, s.GetHashCode())),
                  v => v.ToList()));
         });
+
+        builder.Entity<NewsletterSubscriber>(e =>
+        {
+            e.Property(s => s.Email).HasMaxLength(256);
+            e.HasIndex(s => s.Email).IsUnique();
+            e.Property(s => s.UnsubscribeToken).HasMaxLength(64);
+            e.HasIndex(s => s.UnsubscribeToken).IsUnique();
+        });
+
+        builder.Entity<JobRun>(e =>
+        {
+            e.HasKey(j => j.Name);
+            e.Property(j => j.Name).HasMaxLength(50);
+            e.HasData(new JobRun { Name = JobRun.LowStockAlert, LastRunOn = new DateOnly(2026, 1, 1) });
+        });
+
+        builder.Entity<User>().Property(u => u.OrdersClaimTokenHash).HasMaxLength(64);
 
         // Seed system roles
         builder.Entity<AppRole>().HasData(

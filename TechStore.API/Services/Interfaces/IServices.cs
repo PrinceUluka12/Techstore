@@ -9,6 +9,7 @@ using TechStore.API.DTOs.Role;
 using TechStore.API.DTOs.Store;
 using TechStore.API.DTOs.Transfer;
 using TechStore.API.DTOs.BankAccount;
+using TechStore.API.DTOs.Newsletter;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Wishlist;
 using TechStore.API.Helpers;
@@ -45,6 +46,25 @@ public interface IEmailService
     Task SendPaymentReminderAsync(string toEmail, string firstName, string orderNumber, decimal total, DateTime payBy,
         string orderPath = "/account/orders");
     Task SendPasswordResetAsync(string toEmail, string firstName, string resetLink);
+    Task SendNewsletterWelcomeAsync(string toEmail, string unsubscribeLink);
+    Task SendLowStockAlertAsync(string toEmail, string firstName, IReadOnlyList<LowStockLine> lines);
+    // token: for the link that adds orders placed without an account to the account with this email
+    Task SendClaimOrdersAsync(string toEmail, string firstName, int count, string token);
+}
+
+public record LowStockLine(string Shop, string Product, string? Sku, int Available, int Threshold);
+
+public interface INewsletterService
+{
+    Task SubscribeAsync(string email);
+    Task<bool> UnsubscribeAsync(string token);
+    Task<NewsletterPage> ListAsync(int page, int pageSize, string? search);
+    Task<string> ExportCsvAsync();
+}
+
+public interface IStockAlertService
+{
+    Task<int> SendDailyLowStockAlertAsync(DateTime nowUtc);
 }
 
 public interface IWishlistService
@@ -79,6 +99,9 @@ public interface IOrderService
     Task<OrderDto> CreateGuestOrderAsync(GuestCheckoutRequest request);
     Task<OrderDto?> GetGuestOrderAsync(string token);
     Task<string?> FindGuestOrderAsync(string orderNumber, string email);
+    Task<int> CountClaimableAsync(int userId);
+    Task<int> RequestClaimAsync(int userId);
+    Task<int> ClaimAsync(int userId, string token);
     Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest request);
     Task<OrderDto?> MarkPaidAsync(int id, string? reference);
     Task<IEnumerable<PickupShopDto>> GetPickupShopsAsync(int userId);

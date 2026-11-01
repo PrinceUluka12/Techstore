@@ -18,6 +18,7 @@ import ResetPasswordPage from './pages/shop/ResetPasswordPage'
 import AccountProfilePage from './pages/shop/AccountProfilePage'
 import WishlistPage from './pages/shop/WishlistPage'
 import { INFO_PAGES } from './pages/shop/infoLinks'
+import { UnsubscribePage, ClaimOrdersPage } from './pages/shop/LinkPages'
 
 // Admin pages are loaded only when someone opens one, so shoppers don't download the back
 // office (the till, reports, charts) with the shop
@@ -37,6 +38,7 @@ const AdminCashUp       = lazy(() => import('./pages/admin/AdminCashUp'))
 const AdminTransfers    = lazy(() => import('./pages/admin/AdminTransfers'))
 const AdminBankAccounts = lazy(() => import('./pages/admin/AdminBankAccounts'))
 const AdminDeliveryFees = lazy(() => import('./pages/admin/AdminDeliveryFees'))
+const AdminNewsletter   = lazy(() => import('./pages/admin/AdminNewsletter'))
 
 // Policies and help are rarely opened, so they load on demand too
 const infoPage = name => lazy(() => import('./pages/shop/InfoPages').then(m => ({ default: m[name] })))
@@ -121,6 +123,7 @@ export default function App() {
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/orders/track/:token" element={<GuestOrderPage />} />
             <Route path="/track-order" element={<TrackOrderPage />} />
+            <Route path="/newsletter/unsubscribe" element={<UnsubscribePage />} />
             {Object.entries(InfoRoutes).map(([key, Page]) =>
               <Route key={key} path={INFO_PAGES[key].path} element={<Page />} />)}
 
@@ -135,6 +138,7 @@ export default function App() {
             <Route path="/account/orders/:id"    element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
             <Route path="/account/profile"       element={<RequireAuth><AccountProfilePage /></RequireAuth>} />
             <Route path="/account/wishlist"      element={<RequireAuth><WishlistPage /></RequireAuth>} />
+            <Route path="/account/claim-orders"  element={<RequireAuth><ClaimOrdersPage /></RequireAuth>} />
 
             {/* ── Admin ── */}
             <Route path="/admin"            element={<RequireAdmin><AdminEntry /></RequireAdmin>} />
@@ -155,6 +159,7 @@ export default function App() {
             <Route path="/admin/transfers"  element={<RequireAdmin><AdminTransfers /></RequireAdmin>} />
             <Route path="/admin/bank-accounts" element={<RequireAdmin><AdminBankAccounts /></RequireAdmin>} />
             <Route path="/admin/delivery-fees" element={<RequireAdmin><AdminDeliveryFees /></RequireAdmin>} />
+            <Route path="/admin/newsletter" element={<RequireAdmin><AdminNewsletter /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={

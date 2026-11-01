@@ -300,6 +300,25 @@ public class OrdersController : ControllerBase
     public async Task<IActionResult> MyOrders([FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
         Ok(await _orders.GetMyOrdersAsync(GetUserId(), page, pageSize));
 
+    /// <summary>How many orders placed without an account have this account's email</summary>
+    [HttpGet("my/claimable")]
+    public async Task<IActionResult> Claimable() =>
+        Ok(new { count = await _orders.CountClaimableAsync(GetUserId()) });
+
+    /// <summary>Email a link that adds them to this account (opening it proves the email is theirs)</summary>
+    [HttpPost("my/claim/request")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> RequestClaim() =>
+        Ok(new { count = await _orders.RequestClaimAsync(GetUserId()) });
+
+    /// <summary>Add them, with the token from that link</summary>
+    [HttpPost("my/claim")]
+    public async Task<IActionResult> Claim([FromBody] ClaimOrdersRequest req)
+    {
+        try { return Ok(new { claimed = await _orders.ClaimAsync(GetUserId(), req.Token) }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
     /// <summary>Get a specific order (own orders, or staff who can view orders)</summary>
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
