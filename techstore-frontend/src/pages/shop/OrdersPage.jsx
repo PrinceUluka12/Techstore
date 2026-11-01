@@ -4,7 +4,7 @@ import { Package, ArrowLeft, ChevronRight, Clock, CheckCircle, Truck, XCircle, R
 import { orderApi } from '../../services/api'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
-import { StatusBadge, STATUS_LABELS, LoadingPage, EmptyState, Pagination, ProductImage } from '../../components/ui'
+import { StatusBadge, STATUS_LABELS, LoadingPage, EmptyState, Pagination, ProductImage, PageTitle } from '../../components/ui'
 import { format } from 'date-fns'
 
 const STATUS_ICONS = {
@@ -104,6 +104,7 @@ export function MyOrdersPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>My Orders</PageTitle>
       <main className="flex-1 page-container py-10">
         <h1 className="font-display text-2xl font-semibold mb-6">My Orders</h1>
         {loading ? <LoadingPage /> : orders.length === 0 ? (
@@ -176,6 +177,7 @@ export function OrderDetailPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>{`Order ${order.orderNumber}`}</PageTitle>
       <main className="flex-1 page-container py-10">
         <Link to="/account/orders" className="inline-flex items-center gap-2 text-sm text-surface-500 hover:text-surface-900 mb-6">
           <ArrowLeft className="w-4 h-4" /> Back to orders

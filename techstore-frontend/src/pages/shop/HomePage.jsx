@@ -9,8 +9,8 @@ import { ProductImage } from '../../components/ui'
 
 const perks = [
   {
-    title: 'Free Delivery',
-    desc: "Let's surprise you this season",
+    title: 'Delivery or Pickup',
+    desc: 'Nationwide delivery, or collect free from our shops',
     svg: (
       <svg viewBox="0 0 40 40" className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 30c0 2.2 1.8 4 4 4s4-1.8 4-4-1.8-4-4-4-4 1.8-4 4zm20 0c0 2.2 1.8 4 4 4s4-1.8 4-4-1.8-4-4-4-4 1.8-4 4zM2 6h4l4 18h20l4-14H10" stroke="#8B0000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -114,7 +114,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col bg-white">
       <Helmet>
         <title>Hytel Phones — Smartphones, Laptops & Gadgets in Nigeria</title>
-        <meta name="description" content="Shop the latest smartphones, laptops, tablets and smartwatches at Hytel Phones. Free delivery on orders over ₦100." />
+        <meta name="description" content="Shop the latest smartphones, laptops, tablets and smartwatches at Hytel Phones. Delivery across Nigeria, or free pickup from our shops." />
       </Helmet>
       <Navbar />
       <CartDrawer />

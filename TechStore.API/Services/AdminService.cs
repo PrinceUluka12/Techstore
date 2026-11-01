@@ -54,8 +54,25 @@ public class AdminService : IAdminService
             totalProducts, totalProducts,
             lowStock,
             totalCustomers, newCustomers,
-            revenueChart, topProducts, ordersByStatus
+            revenueChart, topProducts, ordersByStatus,
+            await GetNeedsAttentionAsync(lowStock)
         );
+    }
+
+    private async Task<NeedsAttentionDto> GetNeedsAttentionAsync(int lowStock)
+    {
+        var dueSoon = DateTime.UtcNow.AddHours(6);
+        var online  = _db.Orders.Where(o => o.Channel == SalesChannel.Online);
+        var unpaid  = online.Where(o => o.Status == OrderStatus.Pending && o.PaymentStatus == PaymentStatus.Pending);
+
+        return new NeedsAttentionDto(
+            await unpaid.CountAsync(),
+            await unpaid.CountAsync(o => o.PaymentDueAt != null && o.PaymentDueAt <= dueSoon),
+            await online.CountAsync(o => o.Status == OrderStatus.Confirmed),
+            await online.CountAsync(o => o.Status == OrderStatus.Processing),
+            await online.CountAsync(o => o.Status == OrderStatus.ReadyForPickup),
+            lowStock,
+            await _db.StockTransfers.CountAsync(t => t.Status == TransferStatus.InTransit));
     }
 
     public async Task<SalesReportDto> GetSalesReportAsync(DateTime from, DateTime to)

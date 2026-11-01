@@ -6,6 +6,7 @@ import {
   ArrowLeftRight, Calculator, UserCog, Landmark, Truck
 } from 'lucide-react'
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useAuthStore } from '../../store'
 import { authApi } from '../../services/api'
 import toast from 'react-hot-toast'
@@ -67,6 +68,11 @@ function NavItem({ item, onClick }) {
 export function AdminLayout({ children }) {
   const { user, logout, isAdmin, hasPermission } = useAuthStore()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  // The tab title: the menu entry for this page (the longest matching link)
+  const currentPage = navSections.flatMap(s => s.items)
+    .filter(i => i.exact ? pathname === i.to : pathname.startsWith(i.to))
+    .sort((a, b) => b.to.length - a.to.length)[0]?.label ?? 'Back Office'
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = async () => {
@@ -147,6 +153,7 @@ export function AdminLayout({ children }) {
 
   return (
     <div className="flex h-screen bg-surface-50 overflow-hidden">
+      <Helmet><title>{`${currentPage} · Hytel Phones Admin`}</title></Helmet>
       {/* Desktop sidebar */}
       <div className="hidden lg:flex flex-shrink-0">
         <Sidebar />

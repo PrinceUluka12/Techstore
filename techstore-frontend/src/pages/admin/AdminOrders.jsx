@@ -5,7 +5,7 @@ import { AdminLayout } from '../../components/layout/AdminLayout'
 import { Modal, StatusBadge, STATUS_LABELS, Spinner, Pagination, ProductImage } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 
 const ORDER_STATUSES = ['Pending','Confirmed','Processing','Shipped','ReadyForPickup','Delivered','Cancelled','Refunded']
 const label = s => STATUS_LABELS[s] ?? s
@@ -380,7 +380,8 @@ export default function AdminOrders() {
   const [total, setTotal]             = useState(0)
   const [loading, setLoading]         = useState(true)
   const [page, setPage]               = useState(1)
-  const [statusFilter, setStatusFilter] = useState('')
+  const [params] = useSearchParams() // the dashboard links here with ?status=
+  const [statusFilter, setStatusFilter] = useState(params.get('status') ?? '')
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [modalOpen, setModalOpen]     = useState(false)
 

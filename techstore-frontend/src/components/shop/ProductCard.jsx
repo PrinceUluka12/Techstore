@@ -6,9 +6,11 @@ import { useState } from 'react'
 import { cartApi } from '../../services/api'
 import { useAuthStore, useCartStore, useUIStore, useWishlistStore } from '../../store'
 import { Spinner, Price, ProductImage } from '../ui'
+import { useSignInFirst } from '../../utils/signIn'
 
 export function ProductCard({ product }) {
   const { isAuthenticated } = useAuthStore()
+  const signInFirst = useSignInFirst()
   const { setCart, isInCart } = useCartStore()
   const { toggleCart } = useUIStore()
   const { toggle: toggleWishlist, isInWishlist } = useWishlistStore()
@@ -19,7 +21,10 @@ export function ProductCard({ product }) {
 
   const addToCart = async (e) => {
     e.preventDefault()
-    if (!isAuthenticated) { toast.error('Please sign in to add to cart'); return }
+    if (!isAuthenticated) {
+      signInFirst({ then: { addToCart: { productId: product.id, quantity: 1 } }, message: `Sign in to add ${product.name} to your cart.` })
+      return
+    }
     if (inCart) { toggleCart(); return }
     setLoading(true)
     try {
@@ -33,7 +38,10 @@ export function ProductCard({ product }) {
 
   const handleWishlist = async (e) => {
     e.preventDefault()
-    if (!isAuthenticated) { toast.error('Please sign in to save items'); return }
+    if (!isAuthenticated) {
+      signInFirst({ then: { wishlist: product.id }, message: `Sign in to save ${product.name}.` })
+      return
+    }
     setWishLoading(true)
     const added = await toggleWishlist(product.id)
     if (added !== false) toast.success(wished ? 'Removed from wishlist' : 'Saved to wishlist')
@@ -90,11 +98,12 @@ export function ProductCard({ product }) {
           </div>
         )}
 
-        <div className="mt-auto flex items-center justify-between pt-2">
+        {/* Wraps on narrow cards: naira prices are long, and the button shouldn't be cut off */}
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2">
           <Price value={product.price} compare={product.compareAtPrice} />
           <button onClick={addToCart} disabled={loading || outOfStock}
             className={clsx(
-              'flex items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
+              'flex flex-shrink-0 items-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-medium transition-all duration-200',
               outOfStock
                 ? 'bg-surface-100 text-surface-400 cursor-not-allowed'
                 : inCart

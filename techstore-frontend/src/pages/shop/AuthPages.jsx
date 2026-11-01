@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import {
   Package, Building2, Lock,
@@ -8,13 +8,14 @@ import {
 import toast from 'react-hot-toast'
 import { authApi, cartApi, orderApi, deliveryApi } from '../../services/api'
 import { useAuthStore, useCartStore } from '../../store'
-import { Input, Spinner, ProductImage, LoadingPage } from '../../components/ui'
+import { Input, Spinner, ProductImage, LoadingPage, PageTitle } from '../../components/ui'
 import { Navbar, Footer } from '../../components/layout/ShopLayout'
 import { BankAccountList, useBankAccounts } from '../../components/shop/BankAccounts'
 import {
   emailRules, nameRules, passwordRules, phoneRules, postalCodeRules,
   requiredText, maxText, normalizePhone, showApiError,
 } from '../../utils/validation'
+import { finishSignIn } from '../../utils/signIn'
 
 const NIGERIAN_STATES = [
   'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
@@ -31,6 +32,7 @@ export function LoginPage() {
   const { login } = useAuthStore()
   const { setCart } = useCartStore()
   const navigate = useNavigate()
+  const { state } = useLocation() // where they came from and what they were doing (utils/signIn)
 
   const onSubmit = async (data) => {
     setLoading(true)
@@ -39,7 +41,7 @@ export function LoginPage() {
       login(auth)
       try { const { data: cart } = await cartApi.get(); setCart(cart) } catch {}
       toast.success(`Welcome back, ${auth.firstName}!`)
-      navigate(auth.role === 'Admin' ? '/admin' : '/')
+      await finishSignIn(state, navigate, auth.role === 'Admin' ? '/admin' : '/')
     } catch (err) {
       showApiError(err, setError, 'Login failed')
     } finally { setLoading(false) }
@@ -48,6 +50,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>Sign In</PageTitle>
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-sm animate-fade-up">
           <div className="text-center mb-8">
@@ -55,7 +58,7 @@ export function LoginPage() {
               <img src="/hytel-logo.png" alt="Hytel Phones" className="w-full h-full object-contain" />
             </div>
             <h1 className="font-display text-2xl font-semibold">Welcome back</h1>
-            <p className="text-surface-500 text-sm mt-1">Sign in to your account</p>
+            <p className="text-surface-500 text-sm mt-1">{state?.message ?? 'Sign in to your account'}</p>
           </div>
           <div className="card p-6">
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
@@ -76,7 +79,7 @@ export function LoginPage() {
           </div>
           <p className="text-center text-sm text-surface-500 mt-4">
             Don't have an account?{' '}
-            <Link to="/register" className="text-brand-600 font-medium hover:underline">Create one</Link>
+            <Link to="/register" state={state} className="text-brand-600 font-medium hover:underline">Create one</Link>
           </p>
         </div>
       </div>
@@ -90,6 +93,7 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuthStore()
   const navigate = useNavigate()
+  const { state } = useLocation() // passed on from the sign-in page (utils/signIn)
 
   const onSubmit = async (data) => {
     setLoading(true)
@@ -104,7 +108,7 @@ export function RegisterPage() {
       })
       login(auth)
       toast.success(`Welcome, ${auth.firstName}!`)
-      navigate('/')
+      await finishSignIn(state, navigate, '/')
     } catch (err) {
       showApiError(err, setError, 'Registration failed')
     } finally { setLoading(false) }
@@ -113,11 +117,12 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>Create Account</PageTitle>
       <div className="flex-1 flex items-center justify-center p-4 py-12">
         <div className="w-full max-w-sm animate-fade-up">
           <div className="text-center mb-8">
             <h1 className="font-display text-2xl font-semibold">Create account</h1>
-            <p className="text-surface-500 text-sm mt-1">Join Hytel Phones today</p>
+            <p className="text-surface-500 text-sm mt-1">{state?.message ?? 'Join Hytel Phones today'}</p>
           </div>
           <div className="card p-6">
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
@@ -153,7 +158,7 @@ export function RegisterPage() {
           </div>
           <p className="text-center text-sm text-surface-500 mt-4">
             Already have an account?{' '}
-            <Link to="/login" className="text-brand-600 font-medium hover:underline">Sign in</Link>
+            <Link to="/login" state={state} className="text-brand-600 font-medium hover:underline">Sign in</Link>
           </p>
         </div>
       </div>
@@ -333,6 +338,7 @@ export function CheckoutPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <PageTitle>Checkout</PageTitle>
       <main className="flex-1 page-container py-10">
 
         {/* Steps indicator */}
