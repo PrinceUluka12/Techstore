@@ -68,6 +68,7 @@ builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IDeliveryRateService, DeliveryRateService>();
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
+builder.Services.AddScoped<IPolicyService, PolicyService>();
 builder.Services.AddScoped<IStockAlertService, StockAlertService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 

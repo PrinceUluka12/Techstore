@@ -468,7 +468,7 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 | `/register` | RegisterPage | Creates account, sends welcome email |
 | `/forgot-password` | ForgotPasswordPage | Triggers reset email |
 | `/reset-password?token=` | ResetPasswordPage | Validates token, sets new password |
-| `/terms-of-service-compliance` | TermsPage | Policies and help: `pages/shop/InfoPages.jsx`, paths in `infoLinks.js`. The paths match the old WordPress site's, so its links still work. Linked from the footer, sign-up and checkout. The text is in the code; change it there. |
+| `/terms-of-service-compliance` | TermsPage | Policies and help: `pages/shop/InfoPages.jsx`, paths in `infoLinks.js`. The paths match the old WordPress site's, so its links still work. Linked from the footer, sign-up and checkout. The text of Terms, Refund and Returns, Privacy and Disclaimer is edited in Admin → Policy Pages; the Help page's is in the code. |
 | `/refund-returns-policy` | ReturnsPage | No returns or exchanges; check before accepting |
 | `/disclaimer` | DisclaimerPage | |
 | `/privacy-policy` | PrivacyPage | What's collected and why; rights under the Nigeria Data Protection Act 2023 |
@@ -498,6 +498,7 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 | `/admin/users` | Customer list |
 | `/admin/coupons` | Coupon CRUD (including uses per customer) |
 | `/admin/delivery-fees` | Delivery fee per state |
+| `/admin/policies` | Policy Pages: edit Terms, Refund and Returns, Privacy and Disclaimer (Markdown, with a preview). Every save is kept, with who saved it and when, and any version can be brought back. Needs **Edit Policy Pages**: Admins have it, and it can be given to other roles in Roles. |
 | `/admin/reports` | Sales reports and charts |
 
 ### SPA routing on Azure Static Web Apps
@@ -599,6 +600,17 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 | POST | `/` | User | Add product |
 | DELETE | `/{productId}` | User | Remove product |
 | GET | `/check/{productId}` | User | Check if product is in wishlist |
+
+### Policy pages — `/api/policies`
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/{slug}` | — | A page as the shop shows it (`terms`, `returns`, `privacy`, `disclaimer`) |
+| GET | `/` | Edit Policy Pages | All four, for the editor |
+| PUT | `/{slug}` | Edit Policy Pages | Save new text: adds a version, which the shop then shows |
+| GET | `/{slug}/history` | Edit Policy Pages | Every saved version, newest first |
+
+**How it's stored:** saving never changes a version; it adds one to `PolicyVersions`, and the newest is shown. The Terms say the version shown when an order was placed is the one that applies, so the history matters. Until a page is first saved, it shows its starting text, built into the API from `TechStore.API/Content/Policies/{slug}.md`. The text is Markdown, displayed with `react-markdown` (`components/shop/PolicyText.jsx`): HTML typed into it is shown as text, and `javascript:` links are dropped.
 
 ### Other endpoints
 

@@ -6,6 +6,10 @@
 		<RootNamespace>TechStore.API</RootNamespace>
 	</PropertyGroup>
 	<ItemGroup>
+		<!-- Starting text of the policy pages (PolicyService) -->
+		<EmbeddedResource Include="Content\Policies\*.md" />
+	</ItemGroup>
+	<ItemGroup>
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />

@@ -39,6 +39,7 @@ const AdminTransfers    = lazy(() => import('./pages/admin/AdminTransfers'))
 const AdminBankAccounts = lazy(() => import('./pages/admin/AdminBankAccounts'))
 const AdminDeliveryFees = lazy(() => import('./pages/admin/AdminDeliveryFees'))
 const AdminNewsletter   = lazy(() => import('./pages/admin/AdminNewsletter'))
+const AdminPolicies     = lazy(() => import('./pages/admin/AdminPolicies'))
 
 // Policies and help are rarely opened, so they load on demand too
 const infoPage = name => lazy(() => import('./pages/shop/InfoPages').then(m => ({ default: m[name] })))
@@ -160,6 +161,7 @@ export default function App() {
             <Route path="/admin/bank-accounts" element={<RequireAdmin><AdminBankAccounts /></RequireAdmin>} />
             <Route path="/admin/delivery-fees" element={<RequireAdmin><AdminDeliveryFees /></RequireAdmin>} />
             <Route path="/admin/newsletter" element={<RequireAdmin><AdminNewsletter /></RequireAdmin>} />
+            <Route path="/admin/policies"   element={<RequireAdmin><AdminPolicies /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={

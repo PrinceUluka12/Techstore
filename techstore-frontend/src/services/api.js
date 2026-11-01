@@ -137,6 +137,14 @@ export const orderApi = {
   claim:            (token) => api.post('/orders/my/claim', { token }),
 }
 
+// ── Policy pages (terms, returns, privacy, disclaimer) ────────────────────────
+export const policyApi = {
+  get:     (slug)       => api.get(`/policies/${slug}`),
+  list:    ()           => api.get('/policies'),                   // Edit Policy Pages
+  save:    (slug, body) => api.put(`/policies/${slug}`, { body }),   // adds a version
+  history: (slug)       => api.get(`/policies/${slug}/history`),
+}
+
 // ── Newsletter ────────────────────────────────────────────────────────────────
 export const newsletterApi = {
   subscribe:   (email) => api.post('/newsletter/subscribe', { email }),
