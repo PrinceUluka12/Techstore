@@ -2,18 +2,30 @@ import { useEffect, useState } from 'react'
 import { Eye, Clock, User, ArrowRight, CheckCircle, XCircle, Package, Search } from 'lucide-react'
 import { orderApi, storeApi } from '../../services/api'
 import { AdminLayout } from '../../components/layout/AdminLayout'
-import { Modal, StatusBadge, Spinner, Pagination, ProductImage } from '../../components/ui'
+import { Modal, StatusBadge, STATUS_LABELS, Spinner, Pagination, ProductImage } from '../../components/ui'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { Link } from 'react-router-dom'
 
-const ORDER_STATUSES = ['Pending','Confirmed','Processing','Shipped','Delivered','Cancelled','Refunded']
+const ORDER_STATUSES = ['Pending','Confirmed','Processing','Shipped','ReadyForPickup','Delivered','Cancelled','Refunded']
+const label = s => STATUS_LABELS[s] ?? s
+const naira = v => `₦${Number(v).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+// Button text for each next step an order can take (the API decides which are allowed)
+const stepLabel = (status, order) => ({
+  Processing:     'Start preparing',
+  Shipped:        'Mark as shipped',
+  ReadyForPickup: 'Ready for pickup',
+  Delivered:      order.fulfilment === 'Pickup' ? 'Mark as collected' : 'Mark as delivered',
+  Cancelled:      'Cancel order',
+}[status] ?? `Move to ${label(status)}`)
 
 const STATUS_COLORS = {
   Pending:    'bg-amber-100 text-amber-700 border-amber-200',
   Confirmed:  'bg-blue-100 text-blue-700 border-blue-200',
   Processing: 'bg-violet-100 text-violet-700 border-violet-200',
   Shipped:    'bg-cyan-100 text-cyan-700 border-cyan-200',
+  ReadyForPickup: 'bg-cyan-100 text-cyan-700 border-cyan-200',
   Delivered:  'bg-emerald-100 text-emerald-700 border-emerald-200',
   Cancelled:  'bg-red-100 text-red-700 border-red-200',
   Refunded:   'bg-surface-100 text-surface-600 border-surface-200',
@@ -57,18 +69,18 @@ function StatusTimeline({ logs, loading }) {
                   {log.fromStatus === log.toStatus ? (
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
                       ${STATUS_COLORS[log.toStatus] ?? 'bg-surface-100 text-surface-600 border-surface-200'}`}>
-                      {log.toStatus}
+                      {label(log.toStatus)}
                     </span>
                   ) : (
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
                         ${STATUS_COLORS[log.fromStatus] ?? 'bg-surface-100 text-surface-600 border-surface-200'}`}>
-                        {log.fromStatus}
+                        {label(log.fromStatus)}
                       </span>
                       <ArrowRight className="w-3 h-3 text-surface-400" />
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
                         ${STATUS_COLORS[log.toStatus] ?? 'bg-surface-100 text-surface-600 border-surface-200'}`}>
-                        {log.toStatus}
+                        {label(log.toStatus)}
                       </span>
                     </div>
                   )}
@@ -112,6 +124,7 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
   const [logsLoading, setLogsLoading] = useState(false)
   const [updating, setUpdating]       = useState(false)
   const [activeTab, setActiveTab]     = useState('details')
+  const [paidRef, setPaidRef]         = useState('')
 
   const loadOrder = () => {
     if (!orderId) return
@@ -130,17 +143,35 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
     loadOrder()
     loadHistory()
     setActiveTab('details')
+    setPaidRef('')
   }, [orderId, open])
 
+  const afterChange = (message) => {
+    toast.success(message)
+    loadOrder()
+    loadHistory()
+    onUpdated()
+  }
+
   const updateStatus = async (status) => {
+    if (status === 'Cancelled' && !confirm(order.paymentStatus === 'Paid'
+      ? 'Cancel this order? The customer has paid, so you will need to refund them.'
+      : 'Cancel this order? Its items go back on sale.')) return
     setUpdating(true)
     try {
       await orderApi.updateStatus(orderId, { status })
-      toast.success(`Status updated → ${status}`)
-      loadOrder()
-      loadHistory()
-      onUpdated()
-    } catch { toast.error('Failed to update status') }
+      afterChange(`Order is now ${label(status).toLowerCase()}`)
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status') }
+    finally { setUpdating(false) }
+  }
+
+  const markPaid = async () => {
+    setUpdating(true)
+    try {
+      await orderApi.markPaid(orderId, { reference: paidRef.trim() || null })
+      setPaidRef('')
+      afterChange('Marked as paid')
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to mark as paid') }
     finally { setUpdating(false) }
   }
 
@@ -189,6 +220,11 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                     </Link>
                   </>
                 )}
+                {order.channel === 'Online' && (
+                  <span className="badge-gray">
+                    {order.fulfilment === 'Pickup' ? `Pickup · ${order.storeName}` : `Delivery · ${order.shippingProvince}`}
+                  </span>
+                )}
                 {order.paymentMethodDetails && (
                   <span className="text-xs text-surface-500 bg-surface-100 px-2.5 py-1 rounded-full">
                     {order.paymentMethodDetails}
@@ -196,22 +232,44 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                 )}
               </div>
 
-              {/* Status update buttons */}
-              <div className="bg-surface-50 rounded-xl p-4">
-                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3">
-                  Update Status
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {ORDER_STATUSES.filter(s => s !== order.status).map(s => (
-                    <button key={s} onClick={() => updateStatus(s)} disabled={updating}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors
-                        ${STATUS_COLORS[s] ?? 'bg-surface-100 text-surface-600 border-surface-200'}
-                        hover:opacity-80 disabled:opacity-50`}>
-                      {updating ? '…' : `→ ${s}`}
-                    </button>
-                  ))}
+              {/* Next step: online orders only, in-store sales are final */}
+              {order.channel === 'Online' && (
+                <div className="bg-surface-50 rounded-xl p-4 space-y-3">
+                  <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider">Next Step</p>
+
+                  {order.canMarkPaid && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input className="input text-sm flex-1 min-w-[200px]" maxLength={100}
+                        placeholder="Transfer reference (optional)" aria-label="Transfer reference"
+                        value={paidRef} onChange={e => setPaidRef(e.target.value)} />
+                      <button onClick={markPaid} disabled={updating} className="btn-primary btn-sm">
+                        {updating ? '…' : 'Mark as paid'}
+                      </button>
+                    </div>
+                  )}
+                  {order.paymentDueAt && (
+                    <p className="text-xs text-amber-700">
+                      Cancelled automatically at {format(new Date(order.paymentDueAt), 'h:mm a, MMM d')} if the payment hasn't arrived.
+                    </p>
+                  )}
+
+                  {order.nextStatuses?.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {order.nextStatuses.map(s => (
+                        <button key={s} onClick={() => updateStatus(s)} disabled={updating}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors
+                            ${STATUS_COLORS[s] ?? 'bg-surface-100 text-surface-600 border-surface-200'}
+                            hover:opacity-80 disabled:opacity-50`}>
+                          {updating ? '…' : stepLabel(s, order)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {!order.canMarkPaid && !order.nextStatuses?.length && (
+                    <p className="text-sm text-surface-500">Nothing more to do: this order is {label(order.status).toLowerCase()}.</p>
+                  )}
                 </div>
-              </div>
+              )}
 
               <div className="grid sm:grid-cols-2 gap-5">
                 {/* Customer + address */}
@@ -219,13 +277,23 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                   <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">Customer</p>
                   <p className="font-medium text-surface-900">{order.customerName}</p>
                   <p className="text-sm text-surface-500">{order.customerEmail}</p>
+                  {order.shippingPhone && <p className="text-sm text-surface-500">{order.shippingPhone}</p>}
 
-                  <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mt-4 mb-2">Shipping Address</p>
-                  <address className="text-sm text-surface-600 not-italic leading-relaxed">
-                    {order.shippingAddress}<br />
-                    {order.shippingCity}, {order.shippingProvince} {order.shippingPostalCode}<br />
-                    {order.shippingCountry}
-                  </address>
+                  {order.channel === 'Online' && (order.fulfilment === 'Pickup' ? <>
+                    <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mt-4 mb-2">Collecting From</p>
+                    <p className="text-sm text-surface-600">{order.storeName}</p>
+                  </> : <>
+                    <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mt-4 mb-2">Delivery Address</p>
+                    <address className="text-sm text-surface-600 not-italic leading-relaxed">
+                      {order.shippingAddress}<br />
+                      {order.shippingCity}, {order.shippingProvince} {order.shippingPostalCode}<br />
+                      {order.shippingCountry}
+                    </address>
+                  </>)}
+                  {order.notes && <>
+                    <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mt-4 mb-2">Customer Notes</p>
+                    <p className="text-sm text-surface-600 whitespace-pre-line">{order.notes}</p>
+                  </>}
                 </div>
 
                 {/* Totals */}
@@ -236,7 +304,17 @@ function OrderDetailModal({ open, onClose, orderId, onUpdated }) {
                     {order.tax > 0 && ( // only orders from before VAT was dropped
                       <div className="flex justify-between text-surface-500"><span>VAT (7.5%)</span><span>₦{order.tax.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                     )}
-                    <div className="flex justify-between text-surface-500"><span>Shipping</span><span>₦{order.shippingCost.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                    {order.discountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span><span>–{naira(order.discountAmount)}</span>
+                      </div>
+                    )}
+                    {order.channel === 'Online' && (
+                      <div className="flex justify-between text-surface-500">
+                        <span>{order.fulfilment === 'Pickup' ? 'Pickup' : 'Delivery'}</span>
+                        <span>{order.shippingCost === 0 ? 'Free' : naira(order.shippingCost)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-bold text-surface-900 border-t border-surface-100 pt-2 mt-2">
                       <span>Total</span><span>₦{order.total.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
@@ -363,7 +441,7 @@ export default function AdminOrders() {
             </select>
             <select className="input w-auto text-sm" value={statusFilter} onChange={filter(setStatusFilter)} aria-label="Status">
               <option value="">All Statuses</option>
-              {ORDER_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              {ORDER_STATUSES.map(s => <option key={s} value={s}>{label(s)}</option>)}
             </select>
           </div>
         </div>

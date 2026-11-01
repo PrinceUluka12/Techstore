@@ -21,7 +21,7 @@ const validToRules  = {
 const EMPTY_FORM = {
   code: '', description: '', type: 'Percentage', value: '',
   minimumOrderAmount: '', maximumDiscountAmount: '',
-  usageLimit: '', validFrom: '', validTo: '', isActive: true,
+  usageLimit: '', usesPerCustomer: '', validFrom: '', validTo: '', isActive: true,
 }
 
 function toFormDate(iso) {
@@ -81,7 +81,9 @@ function CouponForm({ initial, onSave, onClose, saving }) {
           placeholder="Unlimited" error={errors.usageLimit?.message}
           {...register('usageLimit', usageRules)} />
 
-        <div />
+        <Input label="Uses Per Customer" type="number" min="1" step="1"
+          placeholder="Unlimited" error={errors.usesPerCustomer?.message}
+          {...register('usesPerCustomer', usageRules)} />
 
         <Input label="Valid From" type="date" {...register('validFrom', { deps: ['validTo'] })} />
         <Input label="Valid To" type="date" error={errors.validTo?.message}
@@ -156,6 +158,7 @@ export default function AdminCoupons() {
         minimumOrderAmount:   data.minimumOrderAmount   ? parseFloat(data.minimumOrderAmount)   : null,
         maximumDiscountAmount: data.maximumDiscountAmount ? parseFloat(data.maximumDiscountAmount) : null,
         usageLimit:           data.usageLimit ? parseInt(data.usageLimit) : null,
+        usesPerCustomer:      data.usesPerCustomer ? parseInt(data.usesPerCustomer) : null,
         validFrom:            data.validFrom  ? new Date(data.validFrom).toISOString() : null,
         validTo:              data.validTo    ? new Date(data.validTo).toISOString()   : null,
         isActive:             !!data.isActive,
@@ -179,6 +182,7 @@ export default function AdminCoupons() {
         minimumOrderAmount:   data.minimumOrderAmount   ? parseFloat(data.minimumOrderAmount)   : null,
         maximumDiscountAmount: data.maximumDiscountAmount ? parseFloat(data.maximumDiscountAmount) : null,
         usageLimit:           data.usageLimit ? parseInt(data.usageLimit) : null,
+        usesPerCustomer:      data.usesPerCustomer ? parseInt(data.usesPerCustomer) : 0, // 0 clears the limit
         validFrom:            data.validFrom  ? new Date(data.validFrom).toISOString() : null,
         validTo:              data.validTo    ? new Date(data.validTo).toISOString()   : null,
         isActive:             !!data.isActive,
@@ -317,6 +321,7 @@ export default function AdminCoupons() {
               minimumOrderAmount:    editTarget.minimumOrderAmount ?? '',
               maximumDiscountAmount: editTarget.maximumDiscountAmount ?? '',
               usageLimit:            editTarget.usageLimit ?? '',
+              usesPerCustomer:       editTarget.usesPerCustomer ?? '',
               validFrom:             toFormDate(editTarget.validFrom),
               validTo:               toFormDate(editTarget.validTo),
               isActive:              editTarget.isActive,

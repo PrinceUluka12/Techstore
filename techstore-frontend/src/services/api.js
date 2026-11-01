@@ -113,7 +113,16 @@ export const orderApi = {
   checkout:     (data)     => api.post('/orders/checkout', data),
   getAll:       (p)        => api.get('/orders', { params: p }),
   updateStatus: (id, data) => api.put(`/orders/${id}/status`, data),
+  markPaid:     (id, data) => api.post(`/orders/${id}/mark-paid`, data),
   getHistory:   (id)       => api.get(`/orders/${id}/history`),
+  pickupShops:  ()         => api.get('/orders/pickup-shops'), // for the signed-in customer's cart
+}
+
+// ── Delivery fees (per state) ─────────────────────────────────────────────────
+export const deliveryApi = {
+  list: ()      => api.get('/delivery-rates'),      // states we deliver to, for checkout
+  all:  ()      => api.get('/delivery-rates/all'),  // admin: every state
+  save: (rates) => api.put('/delivery-rates', rates),
 }
 
 // ── Inventory ─────────────────────────────────────────────────────────────────

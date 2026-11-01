@@ -21,6 +21,7 @@ public class OrderService : IOrderService
     private readonly AppDbContext _db;
     private readonly IHttpContextAccessor _http;
     private readonly IEmailService _email;
+    private readonly int _payWithinHours; // unpaid bank-transfer orders are cancelled after this
 
     public OrderService(
         IOrderRepository orders,
@@ -31,7 +32,8 @@ public class OrderService : IOrderService
         IStoreRepository stores,
         AppDbContext db,
         IHttpContextAccessor http,
-        IEmailService email)
+        IEmailService email,
+        IConfiguration config)
     {
         _orders    = orders;
         _carts     = carts;
@@ -42,6 +44,7 @@ public class OrderService : IOrderService
         _db        = db;
         _http      = http;
         _email     = email;
+        _payWithinHours = config.GetValue("Orders:PayWithinHours", 24);
     }
 
     public async Task<OrderDto?> GetByIdAsync(int id)
@@ -73,12 +76,27 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Cart is empty.");
 
         // Bank transfer is how online orders are paid, so there has to be an account to pay into
-        if (req.PaymentMethod is null or "BankTransfer" && !await _db.BankAccounts.AnyAsync(b => b.IsActive))
+        var byTransfer = req.PaymentMethod is null or "BankTransfer";
+        if (byTransfer && !await _db.BankAccounts.AnyAsync(b => b.IsActive))
             throw new InvalidOperationException(
                 "Online orders are paused: there's no bank account to pay into yet. Please call or visit one of our shops.");
 
-        // Online orders sell from the shop that sends online orders
-        var store = await _stores.GetOnlineAsync();
+        // Deliveries go out from the shop that sends online orders; pickups are held at the
+        // shop the customer chose, from that shop's stock
+        var pickup = req.Fulfilment == FulfilmentMethod.Pickup;
+        Store store;
+        if (pickup)
+        {
+            var chosen = req.PickupStoreId is int sid ? await _stores.GetByIdAsync(sid) : null;
+            store = chosen is { IsActive: true } ? chosen
+                : throw new InvalidOperationException("Choose one of our shops to collect your order from.");
+        }
+        else store = await _stores.GetOnlineAsync();
+
+        var productIds = cart.Items.Select(i => i.ProductId).ToList();
+        var available = await _db.Inventories
+            .Where(i => i.StoreId == store.Id && productIds.Contains(i.ProductId))
+            .ToDictionaryAsync(i => i.ProductId, i => i.QuantityOnHand - i.QuantityReserved);
 
         foreach (var item in cart.Items)
         {
@@ -87,10 +105,21 @@ public class OrderService : IOrderService
                 throw new InvalidOperationException(
                     $"'{item.Product?.Name}' is no longer available. Remove it from your cart to continue.");
 
-            var available = item.Product?.OnlineInventory?.QuantityAvailable ?? 0;
-            if (available < item.Quantity)
-                throw new InvalidOperationException(
-                    $"Insufficient stock for '{item.Product?.Name}'. Available: {available}");
+            var left = available.GetValueOrDefault(item.ProductId);
+            if (left < item.Quantity)
+                throw new InvalidOperationException(pickup
+                    ? $"{store.Name} only has {Math.Max(left, 0)} of '{item.Product?.Name}'. Choose another shop or delivery."
+                    : $"Insufficient stock for '{item.Product?.Name}'. Available: {Math.Max(left, 0)}");
+        }
+
+        // Delivery is priced per state; states without a fee only get pickup
+        decimal shipping = 0;
+        if (!pickup)
+        {
+            var rate = await _db.DeliveryRates.FirstOrDefaultAsync(r => r.State == req.ShippingProvince)
+                ?? throw new InvalidOperationException(
+                    $"We don't deliver to {req.ShippingProvince} yet. Choose pickup from one of our shops, or call us.");
+            shipping = rate.Fee;
         }
 
         var orderItems = cart.Items.Select(i => new OrderItem
@@ -105,41 +134,35 @@ public class OrderService : IOrderService
 
         var subTotal = orderItems.Sum(i => i.LineTotal);
 
-        // Validate and apply coupon if provided
+        // A coupon that's stopped working since the customer applied it is an error, not silently dropped
         decimal discount = 0;
         Coupon? appliedCoupon = null;
         if (!string.IsNullOrWhiteSpace(req.CouponCode))
         {
-            appliedCoupon = await _coupons.GetByCodeAsync(req.CouponCode.ToUpper());
-            if (appliedCoupon != null && appliedCoupon.IsActive &&
-                (appliedCoupon.ValidFrom == null || appliedCoupon.ValidFrom <= DateTime.UtcNow) &&
-                (appliedCoupon.ValidTo == null || appliedCoupon.ValidTo >= DateTime.UtcNow) &&
-                (appliedCoupon.UsageLimit == null || appliedCoupon.UsedCount < appliedCoupon.UsageLimit) &&
-                (appliedCoupon.MinimumOrderAmount == null || subTotal >= appliedCoupon.MinimumOrderAmount))
-            {
-                discount = appliedCoupon.Type == DiscountType.Percentage
-                    ? Math.Round(subTotal * appliedCoupon.Value / 100, 2)
-                    : appliedCoupon.Value;
-
-                if (appliedCoupon.MaximumDiscountAmount.HasValue)
-                    discount = Math.Min(discount, appliedCoupon.MaximumDiscountAmount.Value);
-            }
+            appliedCoupon = await _coupons.GetByCodeAsync(req.CouponCode.Trim());
+            var uses = appliedCoupon == null ? 0 : await _coupons.CountUsesByCustomerAsync(appliedCoupon.Code, userId);
+            var problem = CouponRules.Problem(appliedCoupon, subTotal, uses, DateTime.UtcNow);
+            if (problem != null)
+                throw new InvalidOperationException($"{problem} Remove the coupon to continue.");
+            discount = CouponRules.Discount(appliedCoupon!, subTotal);
         }
 
         // No VAT is charged. Tax stays on orders because older ones were charged 7.5%.
-        var tax      = 0m;
-        var shipping = subTotal >= 100 ? 0 : 9.99m;
-        var total    = subTotal - discount + shipping;
+        var tax   = 0m;
+        var total = subTotal - discount + shipping;
+        var now   = DateTime.UtcNow;
 
         var order = new Order
         {
             OrderNumber        = GenerateOrderNumber(),
             UserId             = userId,
             StoreId            = store.Id,
+            Fulfilment         = req.Fulfilment,
             Status             = OrderStatus.Pending,
             PaymentStatus      = PaymentStatus.Pending,
             PaymentMethod      = req.PaymentMethod,
-            TransactionId      = req.TransactionId,
+            TransactionId      = string.IsNullOrWhiteSpace(req.TransactionId) ? null : req.TransactionId.Trim(),
+            PaymentDueAt       = byTransfer ? now.AddHours(_payWithinHours) : null,
             SubTotal           = subTotal,
             DiscountAmount     = discount,
             CouponCode         = appliedCoupon?.Code,
@@ -148,19 +171,21 @@ public class OrderService : IOrderService
             Total              = total,
             ShippingFirstName  = req.ShippingFirstName,
             ShippingLastName   = req.ShippingLastName,
-            ShippingAddress    = req.ShippingAddress,
-            ShippingCity       = req.ShippingCity,
-            ShippingProvince   = req.ShippingProvince,
-            ShippingPostalCode = req.ShippingPostalCode,
-            ShippingCountry    = req.ShippingCountry,
+            ShippingAddress    = pickup ? "" : req.ShippingAddress ?? "",
+            ShippingCity       = pickup ? "" : req.ShippingCity ?? "",
+            ShippingProvince   = pickup ? "" : req.ShippingProvince ?? "",
+            ShippingPostalCode = pickup ? "" : req.ShippingPostalCode ?? "",
+            ShippingCountry    = string.IsNullOrWhiteSpace(req.ShippingCountry) ? "Nigeria" : req.ShippingCountry,
             ShippingPhone      = req.ShippingPhone,
             Notes              = req.Notes,
+            CreatedAt          = now,
             Items              = orderItems
         };
 
         // The order, stock reservation, emptied cart and coupon use save together or not at
-        // all. Each reservation is a conditional UPDATE, so two checkouts can't take the same
-        // last unit. The retrying execution strategy requires the transaction to run inside it.
+        // all. Each reservation and the coupon use is a conditional UPDATE, so two checkouts
+        // can't take the same last unit or last use. The retrying execution strategy requires
+        // the transaction to run inside it.
         var strategy = _db.Database.CreateExecutionStrategy();
         var created = await strategy.ExecuteAsync(async () =>
         {
@@ -173,21 +198,46 @@ public class OrderService : IOrderService
                     throw new InvalidOperationException(
                         $"'{item.Product?.Name}' has just sold out. Please update your cart and try again.");
 
-            // Write initial status log — placed by customer
+            if (appliedCoupon != null && !await _coupons.TryUseAsync(appliedCoupon.Id))
+                throw new InvalidOperationException(
+                    $"Coupon {appliedCoupon.Code} has just run out. Remove it to continue.");
+
             await WriteLogAsync(saved.Id, null, OrderStatus.Pending, OrderStatus.Pending,
-                "Order placed by customer", isSystem: true);
+                pickup ? $"Order placed by customer, to collect from {store.Name}" : "Order placed by customer",
+                isSystem: true);
 
             await _carts.ClearAsync(userId);
-            if (appliedCoupon != null)
-                await _coupons.IncrementUsageAsync(appliedCoupon.Id);
 
             await tx.CommitAsync();
             return saved;
         });
 
         var result = MapToDto(await _orders.GetByIdAsync(created.Id) ?? created);
-        _ = _email.SendOrderConfirmationAsync(user.Email, user.FirstName, result.OrderNumber, result.Total);
+        _ = _email.SendOrderConfirmationAsync(user.Email, user.FirstName, result.OrderNumber, result.Total,
+            order.PaymentDueAt, pickup ? store.Name : null);
         return result;
+    }
+
+    // Shops the customer can collect from, and whether each has everything in their cart
+    public async Task<IEnumerable<PickupShopDto>> GetPickupShopsAsync(int userId)
+    {
+        var cart = await _carts.GetByUserIdAsync(userId);
+        var wanted = (cart?.Items ?? [])
+            .GroupBy(i => i.ProductId)
+            .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+        var ids = wanted.Keys.ToList();
+
+        var stock = await _db.Inventories
+            .Where(i => ids.Contains(i.ProductId))
+            .Select(i => new { i.StoreId, i.ProductId, Available = i.QuantityOnHand - i.QuantityReserved })
+            .ToListAsync();
+
+        return (await _stores.GetAllAsync())
+            .Where(s => s.IsActive)
+            .OrderBy(s => s.Name)
+            .Select(s => new PickupShopDto(s.Id, s.Name, s.Address, s.City, s.Phone,
+                wanted.Count > 0 && wanted.All(w =>
+                    stock.Any(r => r.StoreId == s.Id && r.ProductId == w.Key && r.Available >= w.Value))));
     }
 
     public async Task<OrderDto?> UpdateStatusAsync(int id, UpdateOrderStatusRequest req)
@@ -195,54 +245,102 @@ public class OrderService : IOrderService
         var order = await _orders.GetByIdAsync(id);
         if (order == null) return null;
 
-        var prevStatus = order.Status;
-
         // Don't log a no-op
-        if (prevStatus == req.Status) return MapToDto(order);
+        if (order.Status == req.Status) return MapToDto(order);
 
-        order.Status = req.Status;
+        if (order.Channel != SalesChannel.Online)
+            throw new InvalidOperationException("In-store sales are final and can't be changed here.");
 
-        if (req.Status == OrderStatus.Shipped && order.ShippedAt == null)
-            order.ShippedAt = DateTime.UtcNow;
+        if (!NextStatuses(order).Contains(req.Status))
+            throw new InvalidOperationException(order.Status == OrderStatus.Pending && req.Status == OrderStatus.Confirmed
+                ? "Use \"Mark as paid\" once the payment has arrived."
+                : $"An order that's {Describe(order.Status)} can't be moved to {Describe(req.Status)}.");
 
-        if (req.Status == OrderStatus.Delivered && order.DeliveredAt == null)
+        await MoveAsync(order, req.Status, GetCurrentUserId(), req.Notes);
+
+        EmailStatus(order);
+        return MapToDto(order);
+    }
+
+    public async Task<OrderDto?> MarkPaidAsync(int id, string? reference)
+    {
+        var order = await _orders.GetByIdAsync(id);
+        if (order == null) return null;
+
+        if (!CanMarkPaid(order))
+            throw new InvalidOperationException(order.PaymentStatus == PaymentStatus.Paid
+                ? "This order is already marked as paid."
+                : $"An order that's {Describe(order.Status)} can't be marked as paid.");
+
+        reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim();
+        var note = reference == null ? "Payment received" : $"Payment received (ref: {reference})";
+        void RecordPayment(Order o)
         {
-            order.DeliveredAt     = DateTime.UtcNow;
-            order.PaymentStatus   = PaymentStatus.Paid;
+            o.PaymentStatus   = PaymentStatus.Paid;
+            o.PaidAt          = DateTime.UtcNow;
+            o.TransactionId ??= reference;
         }
 
-        if (req.Status == OrderStatus.Cancelled && prevStatus != OrderStatus.Cancelled)
-            order.PaymentStatus = PaymentStatus.Refunded;
-
-        // Stock is reserved from checkout until the order is delivered (the units leave the
-        // shop) or cancelled/refunded first (the reservation is released). Before this,
-        // delivery never took stock off and cancelling a delivered order released other
-        // orders' reservations.
-        var stillReserved = prevStatus is not (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Refunded);
-        if (stillReserved && req.Status is (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Refunded))
+        if (order.Status == OrderStatus.Pending)
         {
-            var storeId = order.StoreId ?? (await _stores.GetOnlineAsync()).Id;
-            foreach (var item in order.Items)
+            await MoveAsync(order, OrderStatus.Confirmed, GetCurrentUserId(), note, RecordPayment);
+            EmailStatus(order);
+        }
+        else
+        {
+            // An older order that staff moved on before payment was recorded
+            RecordPayment(order);
+            order.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            await WriteLogAsync(order.Id, GetCurrentUserId(), order.Status, order.Status, note);
+        }
+
+        return MapToDto(order);
+    }
+
+    // Run by UnpaidOrderService. Halfway to the deadline the customer gets a reminder; at the
+    // deadline an order that's still unpaid is cancelled, so its phones go back on sale.
+    // Returns how many orders were cancelled.
+    public async Task<int> ProcessUnpaidOrdersAsync()
+    {
+        var now = DateTime.UtcNow;
+        var remindFrom = now.AddHours(_payWithinHours / 2.0);
+
+        var toRemind = await _db.Orders.Include(o => o.User)
+            .Where(o => o.Status == OrderStatus.Pending && o.PaymentStatus == PaymentStatus.Pending
+                && o.PaymentDueAt != null && o.PaymentDueAt > now && o.PaymentDueAt <= remindFrom
+                && o.PaymentReminderSentAt == null)
+            .ToListAsync();
+        foreach (var o in toRemind)
+        {
+            // Claimed with a conditional update, so a second copy of the app can't send it too
+            var claimed = await _db.Orders
+                .Where(x => x.Id == o.Id && x.PaymentReminderSentAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.PaymentReminderSentAt, now)) == 1;
+            if (claimed && o.User != null)
+                await _email.SendPaymentReminderAsync(o.User.Email, o.User.FirstName, o.OrderNumber, o.Total, o.PaymentDueAt!.Value);
+        }
+
+        var dueIds = await _db.Orders
+            .Where(o => o.Status == OrderStatus.Pending && o.PaymentStatus == PaymentStatus.Pending
+                && o.PaymentDueAt != null && o.PaymentDueAt <= now)
+            .Select(o => o.Id)
+            .ToListAsync();
+
+        var cancelled = 0;
+        foreach (var id in dueIds)
+        {
+            var order = await _orders.GetByIdAsync(id);
+            if (order is not { Status: OrderStatus.Pending, PaymentStatus: PaymentStatus.Pending }) continue;
+            try
             {
-                if (req.Status == OrderStatus.Delivered)
-                    await _inventory.FulfilAsync(storeId, item.ProductId, item.Quantity);
-                else
-                    await _inventory.ReleaseAsync(storeId, item.ProductId, item.Quantity);
+                await MoveAsync(order, OrderStatus.Cancelled, null, $"Not paid within {_payWithinHours} hours");
+                cancelled++;
+                EmailStatus(order);
             }
+            catch (InvalidOperationException) { } // paid or changed by staff in the meantime
         }
-
-        if (req.Notes != null) order.Notes = req.Notes;
-
-        await _orders.UpdateAsync(order);
-
-        // Write audit log entry
-        await WriteLogAsync(id, GetCurrentUserId(), prevStatus, req.Status, req.Notes);
-
-        var dto = MapToDto(order);
-        if (order.User?.Email != null)
-            _ = _email.SendOrderStatusUpdateAsync(order.User.Email, order.User.FirstName ?? "", dto.OrderNumber, req.Status.ToString());
-
-        return dto;
+        return cancelled;
     }
 
     public async Task<IEnumerable<OrderStatusLogDto>> GetStatusHistoryAsync(int orderId)
@@ -262,6 +360,122 @@ public class OrderService : IOrderService
             l.ChangedAt
         ));
     }
+
+    // ── Order flow ────────────────────────────────────────────────────────────
+
+    // Where staff can move an online order next. Pending → Confirmed only happens through
+    // MarkPaidAsync, and nothing moves once delivered or cancelled (there are no returns).
+    private static List<OrderStatus> NextStatuses(Order o)
+    {
+        if (o.Channel != SalesChannel.Online) return [];
+        var handOver = o.Fulfilment == FulfilmentMethod.Pickup ? OrderStatus.ReadyForPickup : OrderStatus.Shipped;
+        return o.Status switch
+        {
+            OrderStatus.Pending    => [OrderStatus.Cancelled],
+            OrderStatus.Confirmed  => [OrderStatus.Processing, handOver, OrderStatus.Cancelled],
+            OrderStatus.Processing => [handOver, OrderStatus.Cancelled],
+            OrderStatus.Shipped or OrderStatus.ReadyForPickup => [OrderStatus.Delivered, OrderStatus.Cancelled],
+            _ => [],
+        };
+    }
+
+    private static bool CanMarkPaid(Order o) =>
+        o.Channel == SalesChannel.Online && o.PaymentStatus == PaymentStatus.Pending
+        && o.Status is not (OrderStatus.Delivered or OrderStatus.Cancelled or OrderStatus.Refunded);
+
+    // Moves the order on, together with its stock and coupon. The status only changes if it's
+    // still what we read, so two clicks (or a click and the unpaid-order sweep) can't both
+    // release the same stock. `also` makes extra changes in the same save.
+    private async Task MoveAsync(Order order, OrderStatus to, int? actorId, string? note, Action<Order>? also = null)
+    {
+        var from = order.Status;
+        var storeId = order.StoreId ?? (await _stores.GetOnlineAsync()).Id;
+
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await _db.Database.BeginTransactionAsync();
+
+            var moved = await _db.Orders
+                .Where(o => o.Id == order.Id && o.Status == from)
+                .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, to)) == 1;
+            if (!moved)
+                throw new InvalidOperationException("This order has just been changed by someone else. Refresh it and try again.");
+
+            var now = DateTime.UtcNow;
+            order.Status    = to;
+            order.UpdatedAt = now;
+            if (to == OrderStatus.Shipped) order.ShippedAt ??= now;
+            if (to == OrderStatus.Delivered)
+            {
+                order.DeliveredAt ??= now;
+                // Older orders weren't marked paid until delivery
+                if (order.PaymentStatus != PaymentStatus.Paid)
+                {
+                    order.PaymentStatus = PaymentStatus.Paid;
+                    order.PaidAt ??= now;
+                }
+            }
+            // Money that came in has to go back; an unpaid order just stays unpaid
+            if (to == OrderStatus.Cancelled && order.PaymentStatus == PaymentStatus.Paid)
+                order.PaymentStatus = PaymentStatus.Refunded;
+            also?.Invoke(order);
+
+            // Stock stays reserved from checkout until the phones are handed over or the order is cancelled
+            if (to is OrderStatus.Delivered or OrderStatus.Cancelled)
+                foreach (var item in order.Items)
+                {
+                    if (to == OrderStatus.Delivered)
+                        await _inventory.FulfilAsync(storeId, item.ProductId, item.Quantity);
+                    else
+                        await _inventory.ReleaseAsync(storeId, item.ProductId, item.Quantity);
+                }
+            if (to == OrderStatus.Cancelled && order.CouponCode != null)
+                await _coupons.ReleaseUseAsync(order.CouponCode);
+
+            await _db.SaveChangesAsync();
+            await WriteLogAsync(order.Id, actorId, from, to, note, isSystem: actorId == null);
+            await tx.CommitAsync();
+        });
+    }
+
+    // Tells the customer what's happened, in words rather than status names
+    private void EmailStatus(Order order)
+    {
+        if (order.User?.Email == null) return;
+        var shop = order.Store?.Name ?? "our shop";
+        var (title, detail) = order.Status switch
+        {
+            OrderStatus.Confirmed      => ("Payment received", "Thank you, we've received your payment and we're getting your order ready."),
+            OrderStatus.Processing     => ("Being prepared", "We're getting your order ready."),
+            OrderStatus.Shipped        => ("On its way", "Your order has left our shop and is on its way to you."),
+            OrderStatus.ReadyForPickup => ("Ready for pickup", $"Your order is ready to collect from {shop}{(order.Store?.Address is { } a ? $", {a}" : "")}. Bring your order number."),
+            OrderStatus.Delivered      => order.Fulfilment == FulfilmentMethod.Pickup
+                                            ? ("Collected", "Thanks for collecting your order. Enjoy!")
+                                            : ("Delivered", "Your order has been delivered. Enjoy!"),
+            OrderStatus.Cancelled      => ("Cancelled", order.PaymentStatus == PaymentStatus.Refunded
+                                            ? "Your order has been cancelled. As you'd already paid, we'll be in touch about your refund."
+                                            : order.PaymentDueAt <= DateTime.UtcNow
+                                                ? $"We didn't receive payment within {_payWithinHours} hours, so your order has been cancelled. You're welcome to order again."
+                                                : "Your order has been cancelled."),
+            _                          => (order.Status.ToString(), null),
+        };
+        _ = _email.SendOrderStatusUpdateAsync(order.User.Email, order.User.FirstName ?? "", order.OrderNumber, title, detail);
+    }
+
+    // For messages: "An order that's waiting for payment can't be moved to shipped."
+    private static string Describe(OrderStatus s) => s switch
+    {
+        OrderStatus.Pending        => "waiting for payment",
+        OrderStatus.Confirmed      => "paid",
+        OrderStatus.Processing     => "being prepared",
+        OrderStatus.Shipped        => "shipped",
+        OrderStatus.ReadyForPickup => "ready for pickup",
+        OrderStatus.Delivered      => "delivered",
+        OrderStatus.Cancelled      => "cancelled",
+        OrderStatus.Refunded       => "refunded",
+        _                          => s.ToString(),
+    };
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
@@ -326,29 +540,42 @@ public class OrderService : IOrderService
         : !string.IsNullOrWhiteSpace(o.CustomerName) ? o.CustomerName
         : "Walk-in customer";
 
-    private static OrderDto MapToDto(Order o) => new(
-        o.Id, o.OrderNumber, o.UserId,
-        CustomerNameOf(o),
-        o.User?.Email ?? o.CustomerEmail ?? "",
-        o.Status, o.PaymentStatus, o.PaymentMethod,
-        BuildPaymentMethodDetails(o),
-        o.SubTotal, o.DiscountAmount, o.CouponCode,
-        o.Tax, o.ShippingCost, o.Total,
-        o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
-        o.ShippingPostalCode, o.ShippingCountry,
-        o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,
-        o.Items.Select(i => new OrderItemDto(
-            i.Id, i.ProductId, i.ProductName, i.ProductSKU,
-            i.Product?.ImageUrl,
-            i.UnitPrice, i.Quantity, i.LineTotal)).ToList(),
-        o.Channel, o.Store?.Name
-    );
+    private static OrderDto MapToDto(Order o)
+    {
+        var pickup = o.Channel == SalesChannel.Online && o.Fulfilment == FulfilmentMethod.Pickup;
+        return new(
+            o.Id, o.OrderNumber, o.UserId,
+            CustomerNameOf(o),
+            o.User?.Email ?? o.CustomerEmail ?? "",
+            o.Status, o.PaymentStatus, o.PaymentMethod,
+            BuildPaymentMethodDetails(o),
+            o.SubTotal, o.DiscountAmount, o.CouponCode,
+            o.Tax, o.ShippingCost, o.Total,
+            o.ShippingAddress, o.ShippingCity, o.ShippingProvince,
+            o.ShippingPostalCode, o.ShippingCountry,
+            o.Notes, o.ShippedAt, o.DeliveredAt, o.CreatedAt,
+            o.Items.Select(i => new OrderItemDto(
+                i.Id, i.ProductId, i.ProductName, i.ProductSKU,
+                i.Product?.ImageUrl,
+                i.UnitPrice, i.Quantity, i.LineTotal)).ToList(),
+            o.Channel, o.Store?.Name,
+            o.Fulfilment,
+            o.ShippingPhone,
+            pickup ? string.Join(", ", new[] { o.Store?.Address, o.Store?.City }.Where(x => !string.IsNullOrWhiteSpace(x))) : null,
+            pickup ? o.Store?.Phone : null,
+            o.Status == OrderStatus.Pending && o.PaymentStatus == PaymentStatus.Pending ? o.PaymentDueAt : null,
+            o.PaidAt,
+            NextStatuses(o),
+            CanMarkPaid(o)
+        );
+    }
 
     private static OrderSummaryDto MapToSummaryDto(Order o) => new(
         o.Id, o.OrderNumber,
         CustomerNameOf(o),
         o.Status, o.PaymentStatus, o.Total,
         o.Items.Sum(i => i.Quantity), o.CreatedAt,
-        o.Channel, o.Store?.Name
+        o.Channel, o.Store?.Name,
+        o.Fulfilment
     );
 }

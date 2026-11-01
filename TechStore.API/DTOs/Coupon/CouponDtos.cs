@@ -16,7 +16,8 @@ public record CouponDto(
     DateTime? ValidTo,
     bool IsActive,
     DateTime CreatedAt,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    int? UsesPerCustomer = null
 );
 
 public record CouponListDto(
@@ -41,7 +42,8 @@ public record CreateCouponRequest(
     int? UsageLimit = null,
     DateTime? ValidFrom = null,
     DateTime? ValidTo = null,
-    bool IsActive = true
+    bool IsActive = true,
+    int? UsesPerCustomer = null
 );
 
 public record UpdateCouponRequest(
@@ -54,7 +56,8 @@ public record UpdateCouponRequest(
     int? UsageLimit = null,
     DateTime? ValidFrom = null,
     DateTime? ValidTo = null,
-    bool? IsActive = null
+    bool? IsActive = null,
+    int? UsesPerCustomer = null // 0 clears the limit
 );
 
 /// <summary>

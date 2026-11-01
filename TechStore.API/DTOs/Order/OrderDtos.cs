@@ -29,7 +29,15 @@ public record OrderDto(
     DateTime CreatedAt,
     List<OrderItemDto> Items,
     SalesChannel Channel = SalesChannel.Online,
-    string? StoreName = null
+    string? StoreName = null,
+    FulfilmentMethod Fulfilment = FulfilmentMethod.Delivery,
+    string? ShippingPhone = null,
+    string? PickupAddress = null,      // the shop's, for pickup orders
+    string? PickupPhone = null,
+    DateTime? PaymentDueAt = null,     // unpaid online orders are cancelled then
+    DateTime? PaidAt = null,
+    List<OrderStatus>? NextStatuses = null, // what staff can move the order to now
+    bool CanMarkPaid = false
 );
 
 public record OrderItemDto(
@@ -53,9 +61,11 @@ public record OrderSummaryDto(
     int ItemCount,
     DateTime CreatedAt,
     SalesChannel Channel = SalesChannel.Online,
-    string? StoreName = null
+    string? StoreName = null,
+    FulfilmentMethod Fulfilment = FulfilmentMethod.Delivery
 );
 
+// For pickup orders the address fields are left empty
 public record CreateOrderRequest(
     string ShippingFirstName,
     string ShippingLastName,
@@ -68,10 +78,24 @@ public record CreateOrderRequest(
     string? PaymentMethod,
     string? TransactionId,
     string? Notes,
-    string? CouponCode = null
+    string? CouponCode = null,
+    FulfilmentMethod Fulfilment = FulfilmentMethod.Delivery,
+    int? PickupStoreId = null
 );
 
 public record UpdateOrderStatusRequest(OrderStatus Status, string? Notes = null);
+
+public record MarkPaidRequest(string? Reference = null);
+
+// A shop the customer can collect from; HasStock = everything in their cart is there
+public record PickupShopDto(int Id, string Name, string? Address, string? City, string? Phone, bool HasStock);
+
+public record DeliveryRateDto(string State, decimal Fee);
+
+// Admin view: every state, with Fee null where there's no delivery
+public record DeliveryRateAdminDto(string State, decimal? Fee, string? UpdatedByName, DateTime? UpdatedAt);
+
+public record SaveDeliveryRateRequest(string State, decimal? Fee);
 
 public record OrderStatusLogDto(
     int Id,
