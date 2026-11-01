@@ -55,12 +55,15 @@ export default function AdminNewsletter() {
           every newsletter you send; anyone who uses it comes off the list.
         </p>
 
-        <form onSubmit={e => { e.preventDefault(); setPage(1); setQuery(search.trim()) }} className="relative max-w-sm">
+        {/* attempt too, so searching the same thing again (say, after a failure) really reloads */}
+        <form onSubmit={e => { e.preventDefault(); setPage(1); setQuery(search.trim()); setAttempt(a => a + 1) }} className="relative max-w-sm">
           <Search className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input className="input pl-9" placeholder="Search by email" value={search} onChange={e => setSearch(e.target.value)} />
         </form>
 
-        {failed && !data ? (
+        {/* Any failed load, first or later (a search, another page): the old list would be the
+            wrong answer to what was asked, so it's replaced by the error */}
+        {failed ? (
           <div className="card p-8 text-center">
             <p className="text-surface-600">The sign-ups couldn't be loaded.</p>
             <button onClick={() => setAttempt(a => a + 1)} className="btn-secondary mt-4">Try again</button>
