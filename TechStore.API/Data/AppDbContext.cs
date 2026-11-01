@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<DeliveryRate> DeliveryRates => Set<DeliveryRate>();
     public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
+    public DbSet<PolicyVersion> PolicyVersions => Set<PolicyVersion>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -275,6 +276,15 @@ public class AppDbContext : DbContext
         });
 
         builder.Entity<User>().Property(u => u.OrdersClaimTokenHash).HasMaxLength(64);
+
+        builder.Entity<PolicyVersion>(e =>
+        {
+            e.Property(v => v.Slug).HasMaxLength(20);
+            e.Property(v => v.CreatedByName).HasMaxLength(101);
+            e.HasIndex(v => v.Slug, "IX_PolicyVersions_Slug");
+            // One starting-text version per page (the only versions with no author)
+            e.HasIndex(v => v.Slug, "IX_PolicyVersions_StartingText").IsUnique().HasFilter("[CreatedById] IS NULL");
+        });
 
         // Seed system roles
         builder.Entity<AppRole>().HasData(

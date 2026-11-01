@@ -7,6 +7,7 @@ using TechStore.API.Models;
 using TechStore.API.DTOs.Auth;
 using TechStore.API.DTOs.Cart;
 using TechStore.API.DTOs.Newsletter;
+using TechStore.API.DTOs.Policy;
 using TechStore.API.DTOs.Order;
 using TechStore.API.DTOs.Product;
 using TechStore.API.DTOs.Review;
@@ -222,6 +223,12 @@ public class GuestCheckoutRequestValidator : AbstractValidator<GuestCheckoutRequ
 public class ClaimOrdersRequestValidator : AbstractValidator<ClaimOrdersRequest>
 {
     public ClaimOrdersRequestValidator() => RuleFor(x => x.Token).NotEmpty().MaximumLength(64);
+}
+
+public class SavePolicyRequestValidator : AbstractValidator<SavePolicyRequest>
+{
+    public SavePolicyRequestValidator() =>
+        RuleFor(x => x.Body).NotEmpty().WithMessage("The page can't be empty.").MaximumLength(30000);
 }
 
 public class SubscribeRequestValidator : AbstractValidator<SubscribeRequest>

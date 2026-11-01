@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package,
-  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store, ArrowLeftRight, Calculator, UserCog
+  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store, ArrowLeftRight, Calculator, UserCog, FileText
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
@@ -29,6 +29,7 @@ const STAFF_PAGES = [
   { to: '/admin/coupons',   label: 'Coupons',     icon: Tag,            perms: ['coupons.manage'] },
   { to: '/admin/images',    label: 'Images',      icon: Image,          perms: ['images.manage'] },
   { to: '/admin/shops',     label: 'Shops',       icon: Store,          perms: ['stores.manage'] },
+  { to: '/admin/policies',  label: 'Policy Pages', icon: FileText,      perms: ['pages.manage'] },
 ]
 
 // ── Navbar ────────────────────────────────────────────────────────────────────

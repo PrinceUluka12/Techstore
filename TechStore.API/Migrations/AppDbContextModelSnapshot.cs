@@ -62,7 +62,7 @@ namespace TechStore.API.Migrations
                             Description = "Full access to all features.",
                             IsSystem = true,
                             Name = "Admin",
-                            Permissions = "[\"orders.view\",\"orders.manage\",\"products.view\",\"products.manage\",\"inventory.manage\",\"users.view\",\"users.manage\",\"roles.manage\",\"reports.view\",\"coupons.manage\",\"images.manage\",\"stores.manage\",\"pos.sell\",\"pos.discount.approve\",\"pos.cashup.shop\",\"transfers.manage\"]"
+                            Permissions = "[\"orders.view\",\"orders.manage\",\"products.view\",\"products.manage\",\"inventory.manage\",\"users.view\",\"users.manage\",\"roles.manage\",\"reports.view\",\"coupons.manage\",\"images.manage\",\"stores.manage\",\"pos.sell\",\"pos.discount.approve\",\"pos.cashup.shop\",\"transfers.manage\",\"pages.manage\"]"
                         },
                         new
                         {
@@ -787,6 +787,45 @@ namespace TechStore.API.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderStatusLogs");
+                });
+
+            modelBuilder.Entity("TechStore.API.Models.PolicyVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .IsRequired()
+                        .HasMaxLength(101)
+                        .HasColumnType("nvarchar(101)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "Slug" }, "IX_PolicyVersions_Slug");
+
+                    b.HasIndex(new[] { "Slug" }, "IX_PolicyVersions_StartingText")
+                        .IsUnique()
+                        .HasFilter("[CreatedById] IS NULL");
+
+                    b.ToTable("PolicyVersions");
                 });
 
             modelBuilder.Entity("TechStore.API.Models.Product", b =>

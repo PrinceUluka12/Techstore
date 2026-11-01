@@ -68,6 +68,7 @@ builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IDeliveryRateService, DeliveryRateService>();
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
+builder.Services.AddScoped<IPolicyService, PolicyService>();
 builder.Services.AddScoped<IStockAlertService, StockAlertService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
 
@@ -195,6 +196,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
+    // The policy pages' starting text becomes their first version, so their history is complete
+    await scope.ServiceProvider.GetRequiredService<IPolicyService>().EnsureStartingVersionsAsync();
 }
 
 app.UseMiddleware<ExceptionMiddleware>();

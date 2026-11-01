@@ -10,6 +10,7 @@ using TechStore.API.DTOs.Store;
 using TechStore.API.DTOs.Transfer;
 using TechStore.API.DTOs.BankAccount;
 using TechStore.API.DTOs.Newsletter;
+using TechStore.API.DTOs.Policy;
 using TechStore.API.Models;
 using TechStore.API.DTOs.Wishlist;
 using TechStore.API.Helpers;
@@ -60,6 +61,15 @@ public interface INewsletterService
     Task<bool> UnsubscribeAsync(string token);
     Task<NewsletterPage> ListAsync(int page, int pageSize, string? search);
     Task<string> ExportCsvAsync();
+}
+
+public interface IPolicyService
+{
+    Task<PolicyPageDto?> GetAsync(string slug);
+    Task<IEnumerable<PolicyPageDto>> ListAsync();
+    Task<PolicyPageDto?> SaveAsync(string slug, string body, int userId);
+    Task<IEnumerable<PolicyVersionDto>?> HistoryAsync(string slug);
+    Task EnsureStartingVersionsAsync();
 }
 
 public interface IStockAlertService
