@@ -2,13 +2,16 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Package, ShoppingBag, Users,
-  BarChart3, Warehouse, LogOut, Menu, X, Package2, Bell, ChevronRight, Image, Tag, ShieldCheck, Store, ScanBarcode,
-  ArrowLeftRight, Calculator, UserCog, Landmark, Truck, Mail, FileText
+  BarChart3, Warehouse, LogOut, Menu, X, Package2, ChevronRight, Image, Tag, ShieldCheck, Store, ScanBarcode,
+  ArrowLeftRight, Calculator, UserCog, Landmark, Truck, Mail, FileText, BellRing
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { useAuthStore, useCartStore } from '../../store'
 import { authApi } from '../../services/api'
+import { startLive } from '../../services/live'
+import { watchApprovals } from '../../services/approvals'
+import { ApprovalBell, ApprovalPopup, LiveDot } from './ApprovalAlerts'
 import toast from 'react-hot-toast'
 
 const navSections = [
@@ -33,6 +36,7 @@ const navSections = [
     items: [
       { to: '/admin/pos',     label: 'Point of Sale', icon: ScanBarcode, permission: 'pos.sell', exact: true },
       { to: '/admin/pos/cash-up', label: 'Cash-up',   icon: Calculator,  permission: 'pos.sell' },
+      { to: '/admin/approvals', label: 'Approvals', icon: BellRing,    permission: 'pos.discount.approve' },
       { to: '/admin/orders',  label: 'Orders',    icon: ShoppingBag, permission: 'orders.view' },
       { to: '/admin/users',   label: 'Customers', icon: Users,       permission: 'users.view' },
       { to: '/admin/newsletter', label: 'Newsletter', icon: Mail,     permission: 'users.view' },
@@ -76,6 +80,15 @@ export function AdminLayout({ children }) {
     .filter(i => i.exact ? pathname === i.to : pathname.startsWith(i.to))
     .sort((a, b) => b.to.length - a.to.length)[0]?.label ?? 'Back Office'
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Live alerts: tills hear back about their approval requests, managers hear the requests.
+  // The connection stays up across admin pages (services/live.js).
+  const approver = hasPermission('pos.discount.approve')
+  const live = approver || hasPermission('pos.sell')
+  useEffect(() => {
+    if (approver) watchApprovals()
+    if (live) startLive()
+  }, [approver, live])
 
   const handleLogout = async () => {
     try { await authApi.logout() } catch { /* cookie cleared on client regardless */ }
@@ -179,11 +192,9 @@ export function AdminLayout({ children }) {
           <button onClick={() => setSidebarOpen(true)} className="btn-icon lg:hidden">
             <Menu className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-2 ml-auto">
-            <button className="btn-icon relative">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />
-            </button>
+          <div className="flex items-center gap-3 ml-auto">
+            {live && <LiveDot />}
+            {approver && <ApprovalBell />}
           </div>
         </header>
 
@@ -192,6 +203,7 @@ export function AdminLayout({ children }) {
           {children}
         </main>
       </div>
+      {approver && <ApprovalPopup />}
     </div>
   )
 }

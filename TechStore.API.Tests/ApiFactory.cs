@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -127,12 +130,32 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         return (email, await Login(email), await UserId(email));
     }
 
-    public async Task<(string Email, string Token, int Id)> NewStaff(string firstName, string role, string? token = null)
+    public async Task<(string Email, string Token, int Id)> NewStaff(string firstName, string role, string? token = null, int storeId = 1)
     {
         var email = Unique(firstName);
         await Ok(Call(HttpMethod.Post, "/admin/users/staff", token ?? AdminToken,
-            new { firstName, lastName = "Test", email, password = Password, role, storeId = 1 }));
+            new { firstName, lastName = "Test", email, password = Password, role, storeId }));
         return (email, await Login(email), await UserId(email));
+    }
+
+    /// <summary>The back office's live alerts, connected as the browser does it (the token in the address)</summary>
+    public async Task<LiveAlerts> Live(string? token)
+    {
+        var hub = new HubConnectionBuilder()
+            .WithUrl(new Uri(Server.BaseAddress, "hubs/notifications"), o =>
+            {
+                o.Transports = HttpTransportType.WebSockets;
+                o.SkipNegotiation = true;
+                o.WebSocketFactory = async (ctx, ct) =>
+                {
+                    var uri = token == null ? ctx.Uri : new Uri($"{ctx.Uri}?access_token={Uri.EscapeDataString(token)}");
+                    return await Server.CreateWebSocketClient().ConnectAsync(uri, ct);
+                };
+            })
+            .Build();
+        var live = new LiveAlerts(hub);
+        await hub.StartAsync();
+        return live;
     }
 
     public async Task<string> NewRole(string name, params string[] permissions)
@@ -243,6 +266,47 @@ public record Res(HttpStatusCode Status, JsonNode? Data)
     public bool Has(string field) => Data is JsonObject o && o[field] != null;
 
     public override string ToString() => $"{(int)Status} {Message}";
+}
+
+/// <summary>One live connection and every message it has had, so a test can wait for one or
+/// check one never came.</summary>
+public sealed class LiveAlerts : IAsyncDisposable
+{
+    private readonly HubConnection _hub;
+    private readonly List<(string Message, JsonNode Data)> _messages = [];
+
+    public LiveAlerts(HubConnection hub)
+    {
+        _hub = hub;
+        foreach (var message in new[] { "ApprovalRequested", "ApprovalUpdated" })
+            hub.On<JsonElement>(message, data =>
+            {
+                lock (_messages) _messages.Add((message, JsonNode.Parse(data.GetRawText())!));
+            });
+    }
+
+    /// <summary>The message about this request (with this status), once it arrives</summary>
+    public async Task<JsonNode> Next(string message, int requestId, string? status = null)
+    {
+        for (var waited = 0; waited < 5000; waited += 25)
+        {
+            var found = Find(message, requestId, status);
+            if (found != null) return found;
+            await Task.Delay(25);
+        }
+        throw new TimeoutException($"No {message} for request {requestId}{(status != null ? $" ({status})" : "")}.");
+    }
+
+    public bool Heard(string message, int requestId) => Find(message, requestId, null) != null;
+
+    private JsonNode? Find(string message, int requestId, string? status)
+    {
+        lock (_messages)
+            return _messages.LastOrDefault(m => m.Message == message && m.Data["id"]!.GetValue<int>() == requestId
+                && (status == null || m.Data["status"]!.GetValue<string>() == status)).Data;
+    }
+
+    public ValueTask DisposeAsync() => _hub.DisposeAsync();
 }
 
 internal static class JsonSerializerHelpers

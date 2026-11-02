@@ -11,6 +11,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/hubs': { // the back office's live alerts
+        target: 'https://localhost:5010',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
       '/uploads': {
         target: 'https://localhost:5010',
         changeOrigin: true,

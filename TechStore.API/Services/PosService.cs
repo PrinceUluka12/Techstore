@@ -15,19 +15,16 @@ public class PosForbiddenException(string message) : Exception(message);
 // delivered, with its payments, the IMEIs of the units sold, and the cashier.
 public class PosService : IPosService
 {
-    private const int MaxPinAttempts = 5;
-    private static readonly TimeSpan PinLockout = TimeSpan.FromMinutes(15);
-
     private readonly AppDbContext _db;
     private readonly IInventoryRepository _inventory;
-    private readonly IRoleService _roles;
+    private readonly IApprovalService _approvals;
     private readonly ILogger<PosService> _logger;
 
-    public PosService(AppDbContext db, IInventoryRepository inventory, IRoleService roles, ILogger<PosService> logger)
+    public PosService(AppDbContext db, IInventoryRepository inventory, IApprovalService approvals, ILogger<PosService> logger)
     {
         _db = db;
         _inventory = inventory;
-        _roles = roles;
+        _approvals = approvals;
         _logger = logger;
     }
 
@@ -52,16 +49,18 @@ public class PosService : IPosService
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<PosApproverDto>> GetApproversAsync()
+    // Who can approve at this shop: its managers (by home shop) and Admins
+    public async Task<IEnumerable<PosApproverDto>> GetApproversAsync(int userId, bool isAdmin, int? storeId)
     {
+        var store = await ResolveStoreAsync(userId, isAdmin, storeId);
         var staff = await _db.Users.AsNoTracking()
-            .Where(u => u.IsActive && u.Role != "Customer")
+            .Where(u => u.IsActive && u.Role != "Customer" && (u.Role == "Admin" || u.StoreId == store.Id))
             .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .ToListAsync();
 
         var approvers = new List<PosApproverDto>();
         foreach (var u in staff)
-            if (await CanApproveAsync(u))
+            if (await _approvals.CanApproveAsync(u))
                 approvers.Add(new PosApproverDto(u.Id, FullName(u), u.Role, u.ApprovalPinHash != null));
         return approvers;
     }
@@ -70,7 +69,7 @@ public class PosService : IPosService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId)
             ?? throw new KeyNotFoundException("User not found.");
-        if (!await CanApproveAsync(user))
+        if (!await _approvals.CanApproveAsync(user))
             throw new PosForbiddenException("Only staff who can approve discounts need an approval PIN.");
         if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
             throw new InvalidOperationException("Current password is incorrect.");
@@ -159,15 +158,28 @@ public class PosService : IPosService
         var tax   = 0m;
         var total = subTotal - discount;
 
-        // ── Discounts and price changes need a manager's PIN ──
-        User? approver = null;
+        // ── Discounts and price changes need a manager: their PIN at the till, or a request
+        //    they approved from their own device (for exactly this cart) ──
+        int? approverId = null;
+        string? discountReason = null;
+        ApprovalRequest? approved = null;
         if (discount > 0 || priceChanged)
         {
-            if (string.IsNullOrWhiteSpace(req.DiscountReason))
-                throw new InvalidOperationException("Give a reason for the discount or price change.");
-            if (req.Approval == null)
-                throw new InvalidOperationException("A discount or price change needs a manager's approval.");
-            approver = await VerifyApprovalAsync(req.Approval);
+            if (req.ApprovalRequestId is int requestId)
+            {
+                approved = await _approvals.CheckForSaleAsync(requestId, cashierId, store.Id, items, discount);
+                approverId     = approved.DecidedByUserId;
+                discountReason = approved.Reason;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(req.DiscountReason))
+                    throw new InvalidOperationException("Give a reason for the discount or price change.");
+                if (req.Approval == null)
+                    throw new InvalidOperationException("A discount or price change needs a manager's approval.");
+                approverId     = (await _approvals.VerifyPinAsync(req.Approval.ApproverUserId, req.Approval.Pin, store.Id)).Id;
+                discountReason = req.DiscountReason.Trim();
+            }
         }
 
         var payments = BuildPayments(req.Payments, total, cashierId);
@@ -187,8 +199,8 @@ public class PosService : IPosService
             PaymentMethod    = payments.Select(p => p.Method).Distinct().Count() == 1 ? payments[0].Method : "Split",
             SubTotal         = subTotal,
             DiscountAmount   = discount,
-            DiscountReason   = approver != null ? req.DiscountReason!.Trim() : null,
-            DiscountApprovedByUserId = approver?.Id,
+            DiscountReason   = discountReason,
+            DiscountApprovedByUserId = approverId,
             Tax              = tax,
             ShippingCost     = 0,
             Total            = total,
@@ -207,6 +219,10 @@ public class PosService : IPosService
             await using var tx = await _db.Database.BeginTransactionAsync();
             _db.Orders.Add(order);
             await _db.SaveChangesAsync();
+
+            // An approval is used once: if another sale got there first, this one isn't saved
+            if (approved != null && !await _approvals.MarkUsedAsync(approved.Id, order.Id))
+                throw new InvalidOperationException("That approval has already been used for a sale.");
 
             foreach (var g in items.GroupBy(i => i.ProductId))
             {
@@ -235,6 +251,7 @@ public class PosService : IPosService
 
         _logger.LogInformation("In-store sale {OrderNumber} at {Store} by user {UserId}: {Total}",
             order.OrderNumber, store.Code, cashierId, total);
+        if (approved != null) await _approvals.NotifyAsync(approved.Id); // the managers' list shows it used
         return (await GetSaleAsync(cashierId, isAdmin, order.Id))!;
     }
 
@@ -347,57 +364,23 @@ public class PosService : IPosService
         return sum % 10 == 0;
     }
 
-    private async Task<Store> ResolveStoreAsync(int userId, bool isAdmin, int? storeId)
+    private Task<Store> ResolveStoreAsync(int userId, bool isAdmin, int? storeId) =>
+        ResolveStoreAsync(_db, userId, isAdmin, storeId);
+
+    // The shop a till works for: the user's home shop, or any shop for Admins (ApprovalService uses it too)
+    public static async Task<Store> ResolveStoreAsync(AppDbContext db, int userId, bool isAdmin, int? storeId)
     {
-        var homeStoreId = await _db.Users.Where(u => u.Id == userId).Select(u => u.StoreId).FirstOrDefaultAsync();
+        var homeStoreId = await db.Users.Where(u => u.Id == userId).Select(u => u.StoreId).FirstOrDefaultAsync();
         var id = storeId ?? homeStoreId
             ?? throw new InvalidOperationException("You don't have a home shop yet. An admin can set one on the Staff page.");
         if (!isAdmin && id != homeStoreId)
             throw new PosForbiddenException("You can only sell from your home shop.");
 
-        var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id)
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id)
             ?? throw new KeyNotFoundException("Shop not found.");
         if (!store.IsActive)
             throw new InvalidOperationException($"{store.Name} is not active.");
         return store;
-    }
-
-    private async Task<bool> CanApproveAsync(User u) =>
-        u.Role == "Admin" || (await _roles.GetPermissionsForRoleAsync(u.Role)).Contains(Perms.PosApproveDiscounts);
-
-    private async Task<User> VerifyApprovalAsync(PosApprovalRequest approval)
-    {
-        var approver = await _db.Users.FirstOrDefaultAsync(u => u.Id == approval.ApproverUserId && u.IsActive);
-        if (approver == null || !await CanApproveAsync(approver))
-            throw new InvalidOperationException("That person can't approve discounts.");
-        if (approver.ApprovalPinHash == null)
-            throw new InvalidOperationException($"{approver.FirstName} hasn't set an approval PIN yet.");
-        if (approver.PinLockoutUntil > DateTime.UtcNow)
-            throw new InvalidOperationException(
-                $"Too many wrong PINs for {approver.FirstName}. Try again after {approver.PinLockoutUntil:HH:mm} UTC.");
-
-        if (!BCrypt.Net.BCrypt.Verify(approval.Pin, approver.ApprovalPinHash))
-        {
-            approver.FailedPinAttempts++;
-            var left = MaxPinAttempts - approver.FailedPinAttempts;
-            if (left <= 0)
-            {
-                approver.FailedPinAttempts = 0;
-                approver.PinLockoutUntil   = DateTime.UtcNow.Add(PinLockout);
-            }
-            await _db.SaveChangesAsync(); // the attempt counts even though the sale is refused
-            _logger.LogWarning("Wrong approval PIN for user {UserId}", approver.Id);
-            throw new InvalidOperationException(left > 0
-                ? $"Wrong PIN. {left} attempt{(left == 1 ? "" : "s")} left."
-                : $"Wrong PIN. {approver.FirstName}'s PIN is locked for {PinLockout.TotalMinutes:0} minutes.");
-        }
-
-        if (approver.FailedPinAttempts != 0)
-        {
-            approver.FailedPinAttempts = 0;
-            await _db.SaveChangesAsync();
-        }
-        return approver;
     }
 
     // Cash can be overpaid and the difference is given back as change; other methods must
