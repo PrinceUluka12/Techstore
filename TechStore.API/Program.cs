@@ -7,11 +7,13 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using TechStore.API.Data;
 using TechStore.API.Helpers;
+using TechStore.API.Hubs;
 using TechStore.API.Middleware;
 using TechStore.API.Repositories;
 using TechStore.API.Repositories.Interfaces;
@@ -70,7 +72,16 @@ builder.Services.AddScoped<IDeliveryRateService, DeliveryRateService>();
 builder.Services.AddScoped<INewsletterService, NewsletterService>();
 builder.Services.AddScoped<IPolicyService, PolicyService>();
 builder.Services.AddScoped<IStockAlertService, StockAlertService>();
+builder.Services.AddScoped<IApprovalService, ApprovalService>();
 builder.Services.AddScoped<IJwtHelper, JwtHelper>();
+
+// Live alerts to staff with the back office open (NotificationsHub), e.g. a till asking the
+// shop's managers to approve a discount. Messages use the same JSON as the API.
+builder.Services.AddSignalR()
+    .AddJsonProtocol(opts => opts.PayloadSerializerOptions.Converters.Add(
+        new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddSingleton<StaffPresence>();
+builder.Services.AddSingleton<IUserIdProvider, UserIdClaimProvider>();
 
 // Azure Blob Storage
 var blobConnStr = builder.Configuration["AzureStorage:ConnectionString"]!;
@@ -97,9 +108,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
+        // A browser can't add a header to a live (WebSocket) connection, so the hub alone also
+        // takes the token from the address. It's the short-lived access token (15 minutes).
+        opts.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var token = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && ctx.Request.Path.StartsWithSegments("/hubs"))
+                    ctx.Token = token;
+                return Task.CompletedTask;
+            }
+        };
     });
 
-builder.Services.AddAuthorization();
+// Live alerts are for staff: customers' tokens are turned away
+builder.Services.AddAuthorization(opts => opts.AddPolicy(NotificationsHub.StaffOnly, policy => policy
+    .RequireAuthenticatedUser()
+    .RequireAssertion(ctx => !ctx.User.IsInRole("Customer"))));
 
 // Rate limiting — 10 requests/minute on auth endpoints (sign-in, sign-up, password reset),
 // counted per visitor's IP address. One shared count used to let 10 sign-ins from anyone
@@ -227,5 +253,8 @@ app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+// A connection closes when its token runs out and the browser reconnects with a fresh one, so
+// someone who loses their access stops getting alerts within 15 minutes
+app.MapHub<NotificationsHub>("/hubs/notifications", opts => opts.CloseOnAuthenticationExpiration = true);
 
 app.Run();

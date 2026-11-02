@@ -175,11 +175,21 @@ export const inventoryApi = {
 // storeId is only needed by admins selling for a shop other than their home shop
 export const posApi = {
   products:   (q, storeId) => api.get('/pos/products', { params: { q, storeId } }),
-  approvers:  ()           => api.get('/pos/approvers'),
+  approvers:  (storeId)    => api.get('/pos/approvers', { params: { storeId } }),
   createSale: (data)       => api.post('/pos/sales', data),
   getSale:    (id)         => api.get(`/pos/sales/${id}`),
   setPin:     (data)       => api.put('/pos/approval-pin', data),
   cashUp:     (params)     => api.get('/pos/cash-up', { params }), // { date: 'YYYY-MM-DD', storeId }
+}
+
+// ── Asking a manager to approve a discount; they answer on their own device ──
+export const approvalApi = {
+  ask:     (data)       => api.post('/pos/approval-requests', data), // { items, storeId, discountAmount, reason }
+  list:    (waiting)    => api.get('/pos/approval-requests', { params: { waiting } }),
+  get:     (id)         => api.get(`/pos/approval-requests/${id}`),
+  approve: (id, pin)    => api.post(`/pos/approval-requests/${id}/approve`, { pin }),
+  decline: (id, note)   => api.post(`/pos/approval-requests/${id}/decline`, { note }),
+  cancel:  (id)         => api.post(`/pos/approval-requests/${id}/cancel`),
 }
 
 // ── Stock transfers between shops ─────────────────────────────────────────────

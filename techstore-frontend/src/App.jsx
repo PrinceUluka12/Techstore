@@ -40,6 +40,7 @@ const AdminBankAccounts = lazy(() => import('./pages/admin/AdminBankAccounts'))
 const AdminDeliveryFees = lazy(() => import('./pages/admin/AdminDeliveryFees'))
 const AdminNewsletter   = lazy(() => import('./pages/admin/AdminNewsletter'))
 const AdminPolicies     = lazy(() => import('./pages/admin/AdminPolicies'))
+const AdminApprovals    = lazy(() => import('./pages/admin/AdminApprovals'))
 
 // Policies and help are rarely opened, so they load on demand too
 const infoPage = name => lazy(() => import('./pages/shop/InfoPages').then(m => ({ default: m[name] })))
@@ -68,6 +69,7 @@ const PERMISSION_TO_ROUTE = [
   { perm: 'images.manage',    route: '/admin/images' },
   { perm: 'stores.manage',    route: '/admin/shops' },
   { perm: 'pos.sell',         route: '/admin/pos' },
+  { perm: 'pos.discount.approve', route: '/admin/approvals' },
   { perm: 'transfers.manage', route: '/admin/transfers' },
   { perm: 'pages.manage',     route: '/admin/policies' },
 ]
@@ -158,6 +160,7 @@ export default function App() {
             <Route path="/admin/pos"        element={<RequireAdmin><AdminPos /></RequireAdmin>} />
             <Route path="/admin/pos/sales/:id" element={<RequireAdmin><AdminPosReceipt /></RequireAdmin>} />
             <Route path="/admin/pos/cash-up" element={<RequireAdmin><AdminCashUp /></RequireAdmin>} />
+            <Route path="/admin/approvals"  element={<RequireAdmin><AdminApprovals /></RequireAdmin>} />
             <Route path="/admin/transfers"  element={<RequireAdmin><AdminTransfers /></RequireAdmin>} />
             <Route path="/admin/bank-accounts" element={<RequireAdmin><AdminBankAccounts /></RequireAdmin>} />
             <Route path="/admin/delivery-fees" element={<RequireAdmin><AdminDeliveryFees /></RequireAdmin>} />

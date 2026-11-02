@@ -26,11 +26,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Keeps the App Service's .NET version in step with the API's (TargetFramework in the .csproj)
-      - name: Set App Service to .NET 10
+      # Keeps the App Service's .NET version in step with the API's (TargetFramework in the .csproj),
+      # and Web Sockets on for the back office's live alerts (without them SignalR falls back to
+      # slower ways of keeping in touch)
+      - name: Set App Service to .NET 10 with Web Sockets
         run: |
           id=$(az resource list --name "${{ secrets.AZURE_WEBAPP_NAME }}" --resource-type Microsoft.Web/sites --query "[0].id" -o tsv)
-          az webapp config set --ids "$id" --net-framework-version v10.0 --output none
+          az webapp config set --ids "$id" --net-framework-version v10.0 --web-sockets-enabled true --output none
 
       - name: Deploy to production
         uses: azure/webapps-deploy@v3

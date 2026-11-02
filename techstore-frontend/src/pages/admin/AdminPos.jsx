@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ScanBarcode, Plus, Minus, Trash2, Smartphone, ShieldCheck, Package } from 'lucide-react'
+import { ScanBarcode, Plus, Minus, Trash2, Smartphone, ShieldCheck, Package, BellRing, KeyRound, CheckCircle2, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { authApi, posApi, storeApi } from '../../services/api'
+import { approvalApi, authApi, posApi, storeApi } from '../../services/api'
+import { onLive } from '../../services/live'
 import { useAuthStore } from '../../store'
 import { AdminLayout } from '../../components/layout/AdminLayout'
+import { mmss, timeLeft, useNow } from '../../components/layout/ApprovalAlerts'
 import { Modal, Spinner, ProductImage } from '../../components/ui'
+import { naira } from '../../utils/format'
 import { isValidImei, EMAIL_RE, NG_PHONE_RE, PIN_RE, normalizePhone, showApiError } from '../../utils/validation'
 
 const METHODS = [
@@ -18,7 +21,7 @@ const METHODS = [
 const NEEDS_REFERENCE = ['Card', 'BankTransfer', 'USSD']
 
 const round2 = n => Math.round(n * 100) / 100
-export const naira = n => `₦${Number(n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+export { naira } // the receipt and cash-up pages take it from here
 let nextKey = 1
 const newPayment = (method = 'Cash') => ({ key: nextKey++, method, amount: '', reference: '' })
 
@@ -171,63 +174,198 @@ function SaleLine({ line, errors, onChange, onRemove }) {
 }
 
 // ── Manager approval ──────────────────────────────────────────────────────────
-function ApprovalModal({ open, onClose, onApprove, submitting }) {
+// Two ways: ask the shop's managers, who approve on their own phone or computer (the answer
+// comes back live), or a manager standing here picks their name and types their PIN
+function ApprovalModal({ open, onClose, storeId, cart, onApprove, submitting }) {
+  const [mode, setMode] = useState('choose') // choose | ask | pin
+  const [request, setRequest] = useState(null)
+  const [online, setOnline] = useState(0)
+  const [asking, setAsking] = useState(false)
+  const [error, setError] = useState('')
+  const used = useRef(null) // the approved request already passed on to the sale
+  const now = useNow()
+
+  useEffect(() => {
+    if (!open) return
+    setMode('choose'); setRequest(null); setError(''); used.current = null
+  }, [open])
+
+  // The answer: live, and by checking every 5 seconds as well, in case a live message never
+  // arrives. Once it's answered, a check still on its way is ignored.
+  useEffect(() => {
+    if (request?.status !== 'Waiting') return
+    const id = request.id
+    let waiting = true
+    const update = r => { if (waiting && r.id === id) setRequest(r) }
+    const check = () => approvalApi.get(id).then(r => update(r.data)).catch(() => {})
+    const stop = [onLive('ApprovalUpdated', update), onLive('connected', check)]
+    const poll = setInterval(check, 5000)
+    return () => { waiting = false; stop.forEach(s => s()); clearInterval(poll) }
+  }, [request?.id, request?.status])
+
+  // Approved: complete the sale with it straight away
+  useEffect(() => {
+    if (request?.status !== 'Approved' || used.current === request.id) return
+    used.current = request.id
+    onApprove({ approvalRequestId: request.id }, setError)
+  }, [request?.status])
+
+  const ask = async () => {
+    setMode('ask'); setAsking(true); setError(''); setRequest(null)
+    try {
+      const { data } = await approvalApi.ask(cart)
+      setRequest(data.request)
+      setOnline(data.managersOnline)
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'Couldn’t send the request. Check the connection and try again.')
+    } finally { setAsking(false) }
+  }
+
+  const withdraw = () => {
+    if (request?.status === 'Waiting') approvalApi.cancel(request.id).catch(() => {})
+  }
+  const close = () => { withdraw(); onClose() }
+  const switchToPin = () => { withdraw(); setRequest(null); setError(''); setMode('pin') }
+
+  const expired = request?.status === 'Expired' || (request?.status === 'Waiting' && timeLeft(request, now) === 0)
+
+  return (
+    <Modal open={open} onClose={close} title="Manager approval" size="sm">
+      {mode === 'choose' && (
+        <div className="space-y-4">
+          <p className="text-sm text-surface-600 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
+            This sale has a discount or price change, so a manager needs to approve it.
+          </p>
+          <button type="button" className="w-full text-left card p-4 hover:border-brand-300 hover:bg-brand-50/40 flex gap-3" onClick={ask}>
+            <BellRing className="w-5 h-5 text-brand-500 flex-shrink-0 mt-0.5" />
+            <span>
+              <span className="block font-semibold text-surface-900">Ask a manager</span>
+              <span className="block text-xs text-surface-500">They get an alert and approve on their phone or computer</span>
+            </span>
+          </button>
+          <button type="button" className="w-full text-left card p-4 hover:border-brand-300 hover:bg-brand-50/40 flex gap-3" onClick={() => setMode('pin')}>
+            <KeyRound className="w-5 h-5 text-surface-500 flex-shrink-0 mt-0.5" />
+            <span>
+              <span className="block font-semibold text-surface-900">Manager is here</span>
+              <span className="block text-xs text-surface-500">They enter their PIN on this till</span>
+            </span>
+          </button>
+        </div>
+      )}
+
+      {mode === 'ask' && (
+        <div className="space-y-4 text-sm">
+          {asking || !request ? (
+            asking ? <div className="flex justify-center py-6"><Spinner /></div> : null
+          ) : request.status === 'Waiting' && !expired ? (
+            <div className="text-center space-y-2 py-2">
+              <Spinner size="lg" className="mx-auto" />
+              <p className="font-semibold text-surface-900">Waiting for a manager…</p>
+              <p className="text-surface-500">
+                {online > 0
+                  ? `Sent to ${online} manager${online === 1 ? '' : 's'} with the back office open.`
+                  : 'No manager from this shop has the back office open right now. They’ll see it when they open it.'}
+              </p>
+              <p className="text-xs text-surface-400 tabular-nums">Expires in {mmss(timeLeft(request, now))}</p>
+            </div>
+          ) : request.status === 'Approved' || request.status === 'Used' ? (
+            <div className="text-center space-y-2 py-2">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+              <p className="font-semibold text-surface-900">Approved by {request.decidedByName}</p>
+              {submitting && <p className="text-surface-500 flex items-center justify-center gap-2"><Spinner size="sm" /> Completing the sale…</p>}
+            </div>
+          ) : request.status === 'Declined' ? (
+            <div className="text-center space-y-2 py-2">
+              <XCircle className="w-10 h-10 text-red-500 mx-auto" />
+              <p className="font-semibold text-surface-900">Declined by {request.decidedByName}</p>
+              {request.decisionNote && <p className="text-surface-600">“{request.decisionNote}”</p>}
+            </div>
+          ) : (
+            <p className="text-center text-surface-600 py-4">
+              {expired ? 'Nobody answered in time.' : 'This request was cancelled.'}
+            </p>
+          )}
+
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+
+          <div className="flex flex-wrap justify-end gap-2">
+            {request?.status === 'Waiting' && !expired ? (
+              <>
+                <button type="button" className="btn-secondary" onClick={switchToPin}>Use a PIN instead</button>
+                <button type="button" className="btn-secondary" onClick={close}>Cancel request</button>
+              </>
+            ) : !asking && !submitting && (request?.status !== 'Approved' || error) && (
+              <>
+                <button type="button" className="btn-secondary" onClick={switchToPin}>Use a PIN</button>
+                <button type="button" className="btn-primary" onClick={ask}>Ask again</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {mode === 'pin' && (
+        <PinApproval storeId={storeId} submitting={submitting} onApprove={onApprove}
+          onAsk={ask} onCancel={close} />
+      )}
+    </Modal>
+  )
+}
+
+// A manager at the till: their name and PIN
+function PinApproval({ storeId, submitting, onApprove, onAsk, onCancel }) {
   const [approvers, setApprovers] = useState([])
   const [approverId, setApproverId] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!open) return
-    setPin(''); setError('')
-    posApi.approvers().then(r => {
+    posApi.approvers(storeId).then(r => {
       setApprovers(r.data)
       setApproverId(id => id || String(r.data.find(a => a.hasPin)?.id ?? ''))
     }).catch(() => toast.error('Failed to load managers'))
-  }, [open])
+  }, [storeId])
 
   const submit = (e) => {
     e.preventDefault()
     if (!approverId) return setError('Choose who is approving')
     if (!PIN_RE.test(pin)) return setError('The PIN is 4–6 digits')
     setError('')
-    onApprove({ approverUserId: Number(approverId), pin }, setError)
+    onApprove({ approval: { approverUserId: Number(approverId), pin } }, setError)
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Manager approval" size="sm">
-      <form onSubmit={submit} noValidate className="space-y-4">
-        <p className="text-sm text-surface-600 flex items-start gap-2">
-          <ShieldCheck className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
-          This sale has a discount or price change. A manager enters their PIN to approve it.
-        </p>
-        <div>
-          <label className="label">Approved by</label>
-          <select className="input" value={approverId} onChange={e => setApproverId(e.target.value)} aria-label="Approved by">
-            <option value="">Choose a manager…</option>
-            {approvers.map(a => (
-              <option key={a.id} value={a.id} disabled={!a.hasPin}>{a.name}{a.hasPin ? '' : ' (no PIN set)'}</option>
-            ))}
-          </select>
-          {approvers.length > 0 && !approvers.some(a => a.hasPin) && (
-            <p className="text-xs text-surface-400 mt-1">No manager has a PIN yet. They can set one under My Account → Profile.</p>
-          )}
-        </div>
-        <div>
-          <label className="label">PIN</label>
-          <input className="input tracking-[0.4em] font-mono" type="password" inputMode="numeric" maxLength={6}
-            autoComplete="off" aria-label="Manager PIN" value={pin}
-            onChange={e => setPin(e.target.value.replace(/\D/g, ''))} />
-        </div>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
-        <div className="flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+    <form onSubmit={submit} noValidate className="space-y-4">
+      <div>
+        <label className="label">Approved by</label>
+        <select className="input" value={approverId} onChange={e => setApproverId(e.target.value)} aria-label="Approved by">
+          <option value="">Choose a manager…</option>
+          {approvers.map(a => (
+            <option key={a.id} value={a.id} disabled={!a.hasPin}>{a.name}{a.hasPin ? '' : ' (no PIN set)'}</option>
+          ))}
+        </select>
+        {approvers.length > 0 && !approvers.some(a => a.hasPin) && (
+          <p className="text-xs text-surface-400 mt-1">No manager has a PIN yet. They can set one under My Account → Profile.</p>
+        )}
+      </div>
+      <div>
+        <label className="label">PIN</label>
+        <input className="input tracking-[0.4em] font-mono" type="password" inputMode="numeric" maxLength={6}
+          autoComplete="off" aria-label="Manager PIN" value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, ''))} />
+      </div>
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button type="button" className="text-sm text-brand-600 hover:underline" onClick={onAsk}>Ask a manager instead</button>
+        <div className="flex gap-3">
+          <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn-primary" disabled={submitting}>
             {submitting ? <Spinner size="sm" /> : 'Approve & complete sale'}
           </button>
         </div>
-      </form>
-    </Modal>
+      </div>
+    </form>
   )
 }
 
@@ -249,6 +387,9 @@ export default function AdminPos() {
   const [errors, setErrors]     = useState({})
   const [approvalOpen, setApprovalOpen] = useState(false)
   const [submitting, setSubmitting]     = useState(false)
+  // A manager's approval from their own device, kept so a sale that fails for another reason
+  // (an IMEI typo, say) can be tried again without asking again, as long as the cart is the same
+  const [approved, setApproved] = useState(null) // { id, cart, until }
 
   useEffect(() => {
     Promise.all([authApi.getMe(), storeApi.getAll()]).then(([me, s]) => {
@@ -289,8 +430,17 @@ export default function AdminPos() {
 
   const resetSale = () => {
     setLines([]); setDiscount(''); setReason(''); setCustomer({ name: '', phone: '', email: '' })
-    setPayments([newPayment()]); setErrors({})
+    setPayments([newPayment()]); setErrors({}); setApproved(null)
   }
+
+  // What the manager approves: the API checks the sale has exactly these items, prices and discount
+  const items = lines.map(l => ({
+    productId: l.product.id,
+    quantity: l.quantity,
+    unitPrice: l.unitPrice !== l.product.price ? l.unitPrice : undefined,
+  }))
+  const cart = { storeId, items, discountAmount: discountNum, reason: reason.trim() }
+  const cartKey = JSON.stringify([storeId, items, discountNum])
 
   // Same rules as PosService, so most problems show before anything is sent
   const validate = () => {
@@ -327,41 +477,46 @@ export default function AdminPos() {
     return Object.keys(e).length === 0
   }
 
-  const submitSale = async (approval, setApprovalError) => {
+  // approval: { approval: { approverUserId, pin } } (a PIN at the till), { approvalRequestId }
+  // (approved on a manager's device) or nothing
+  const submitSale = async (approval = {}, setApprovalError) => {
+    if (approval.approvalRequestId)
+      setApproved({ id: approval.approvalRequestId, cart: cartKey, until: Date.now() + 9 * 60_000 }) // the API allows 10
     setSubmitting(true)
     try {
       // The API only lets non-admins sell from their home shop, which is what storeId is for them
       const { data } = await posApi.createSale({
         storeId,
-        items: lines.map(l => ({
-          productId: l.product.id,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice !== l.product.price ? l.unitPrice : undefined,
-          serialNumbers: l.product.requiresImei ? l.serials : undefined,
-        })),
+        items: lines.map((l, i) => ({ ...items[i], serialNumbers: l.product.requiresImei ? l.serials : undefined })),
         payments: payments.map(p => ({ method: p.method, amount: Number(p.amount), reference: p.reference.trim() || null })),
         discountAmount: discountNum,
         discountReason: needsApproval ? reason.trim() : null,
-        approval,
+        ...approval,
         customerName:  customer.name.trim() || null,
         customerPhone: normalizePhone(customer.phone) || null,
         customerEmail: customer.email.trim() || null,
       })
       toast.success(`Sale ${data.orderNumber} completed`)
       resetSale()
+      setApprovalOpen(false)
       navigate(`/admin/pos/sales/${data.id}`)
     } catch (err) {
       const message = err.response?.data?.message ?? ''
-      // A PIN problem stays in the approval dialog so the manager can try again
-      if (approval && /PIN|approve/i.test(message)) setApprovalError(message)
+      // The API marks problems with the approval itself (a wrong PIN, run out, used, the sale
+      // changed); anything else (stock, an IMEI) keeps a device approval to try again with
+      const approvalProblem = err.response?.data?.code === 'approval'
+      if (approvalProblem) setApproved(null)
+      // An approval problem stays in the approval dialog so the manager can try again
+      if (approvalProblem && setApprovalError) { setApprovalOpen(true); setApprovalError(message) }
       else { setApprovalOpen(false); showApiError(err, null, 'Sale failed') }
     } finally { setSubmitting(false) }
   }
 
   const complete = () => {
     if (!validate()) return toast.error('Check the highlighted fields')
-    if (needsApproval) setApprovalOpen(true)
-    else submitSale(null)
+    if (!needsApproval) submitSale()
+    else if (approved?.cart === cartKey && Date.now() < approved.until) submitSale({ approvalRequestId: approved.id })
+    else setApprovalOpen(true)
   }
 
   if (homeStoreId === undefined) return <AdminLayout><div className="flex justify-center py-20"><Spinner size="lg" /></div></AdminLayout>
@@ -508,7 +663,8 @@ export default function AdminPos() {
 
               <button type="button" className="btn-primary w-full btn-lg" onClick={complete}
                 disabled={submitting || lines.length === 0}>
-                {submitting && !approvalOpen ? <Spinner size="sm" /> : needsApproval ? 'Complete sale (needs approval)' : 'Complete sale'}
+                {submitting && !approvalOpen ? <Spinner size="sm" />
+                  : needsApproval && approved?.cart !== cartKey ? 'Complete sale (needs approval)' : 'Complete sale'}
               </button>
               <p className="text-xs text-surface-400 text-center">
                 Managers set their approval PIN under <Link to="/account/profile" className="text-brand-600 hover:underline">My Account</Link>.
@@ -519,7 +675,7 @@ export default function AdminPos() {
       </div>
 
       <ApprovalModal open={approvalOpen} onClose={() => setApprovalOpen(false)} submitting={submitting}
-        onApprove={(approval, setApprovalError) => submitSale(approval, setApprovalError)} />
+        storeId={storeId} cart={cart} onApprove={submitSale} />
     </AdminLayout>
   )
 }

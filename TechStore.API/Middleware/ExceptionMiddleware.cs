@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using TechStore.API.Helpers;
+using TechStore.API.Services;
 
 namespace TechStore.API.Middleware;
 
@@ -46,7 +47,10 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
         context.Response.ContentType = "application/json";
         context.Response.StatusCode  = (int)status;
 
-        return context.Response.WriteAsync(
-            JsonSerializer.Serialize(new { message = responseMessage }));
+        // An approval problem also says which kind (ApprovalException), so the till can act on it
+        object body = ex is ApprovalException approval
+            ? new { message = responseMessage, code = approval.Code }
+            : new { message = responseMessage };
+        return context.Response.WriteAsync(JsonSerializer.Serialize(body));
     }
 }

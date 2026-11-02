@@ -499,6 +499,7 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 | `/admin/coupons` | Coupon CRUD (including uses per customer) |
 | `/admin/delivery-fees` | Delivery fee per state |
 | `/admin/policies` | Policy Pages: edit Terms, Refund and Returns, Privacy and Disclaimer (Markdown, with a preview). Every save is kept, with who saved it and when, and any version can be brought back. Needs **Edit Policy Pages**: Admins have it, and it can be given to other roles in Roles. |
+| `/admin/approvals` | Approvals: discounts and price changes the tills are asking a manager to approve, with the latest 50 answers. Needs **Approve Discounts**. See "Manager approval at the till" in section 13. |
 | `/admin/reports` | Sales reports and charts |
 
 ### SPA routing on Azure Static Web Apps
@@ -612,6 +613,38 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 
 **How it's stored:** saving never changes a version; it adds one to `PolicyVersions`, and the newest is shown. The Terms say the version shown when an order was placed is the one that applies, so the history matters. Each page's starting text, built into the API from `TechStore.API/Content/Policies/{slug}.md`, is saved as its first version when the API starts ("Starting text", dated 1 November 2026), so the history is complete and the original wording can be brought back. A unique index allows one starting version per page, so several copies of the API starting at once can't save it twice. The text is Markdown, displayed with `react-markdown` (`components/shop/PolicyText.jsx`): HTML typed into it is shown as text, and `javascript:` links are dropped.
 
+### Manager approval at the till — `/api/pos` and live alerts
+
+A sale with a discount or a changed price needs a manager. The till offers two ways:
+
+- **Ask a manager:** the till sends the cart to the shop's managers (staff with **Approve Discounts** whose home shop is the till's), who get a pop-up with a chime on any back-office page, on a phone or a computer. One approves with their own approval PIN, or declines with a note for the cashier. The till hears the answer straight away and completes the sale. Admins see every shop's requests in the bell and on the Approvals page, without the pop-up.
+- **Manager is here:** the manager picks their name at the till and types their PIN, as before. The list shows the shop's managers and Admins only, and a manager from another shop is refused.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/approval-requests` | Sell In Store | Ask: `{ items, storeId, discountAmount, reason }`. Returns the request and how many of the shop's managers have the back office open. Asking again replaces the cashier's last request. |
+| GET | `/approval-requests?waiting=true` | Approve Discounts | Waiting requests for your home shop (Admins: every shop), or without `waiting` the latest 50 |
+| GET | `/approval-requests/{id}` | the cashier who asked, or a manager who can answer | One request (the till checks it this way if the live connection is down) |
+| POST | `/approval-requests/{id}/approve` | Approve Discounts | `{ pin }`: the manager's own approval PIN, with the usual lockout |
+| POST | `/approval-requests/{id}/decline` | Approve Discounts | `{ note }` |
+| POST | `/approval-requests/{id}/cancel` | the cashier who asked | Withdraw it |
+| POST | `/sales` | Sell In Store | With `approvalRequestId` instead of `approval` (the PIN) |
+
+**Rules (ApprovalService):**
+- **Exact cart only:** an approval is for one exact cart (items, quantities, prices, discount), cashier and shop.
+- **Timing:** a request nobody answers expires after 5 minutes. An approved one must be used within 10.
+- **One use:** it works for one sale, marked used in the sale's own transaction.
+- **One answer:** the first answer counts, and the cashier who asked can't answer it.
+- **Kept:** every request is kept in `ApprovalRequests` (and `ApprovalRequestItems`), with who answered and the sale that used it.
+
+**Live alerts (SignalR):** the back office keeps one connection to `/hubs/notifications` (`Hubs/NotificationsHub.cs`, `techstore-frontend/src/services/live.js`).
+- **Who connects:** only staff who can sell or approve. The SignalR library is a separate download, so shoppers never load it.
+- **Groups:** the server puts each connection in its shop's manager group and the Admins' group from the database, never from the browser.
+- **Sign-in token:** the browser sends its access token in the address (WebSockets can't carry a header). The connection closes when that token runs out (15 minutes), and the browser renews the token and reconnects by itself.
+- **Hosting:** the deploy workflow turns on **Web Sockets** on the App Service. The shop's `connect-src` allows `wss://*.azurewebsites.net` and `wss://api.hytelphones.ng`.
+- **Running on more than one server:** the connections and the "managers online" count live in the API's memory, which is right for one App Service instance. Scaling out would need Azure SignalR Service.
+- **Limit:** alerts arrive while the back office is open in a browser. A phone with the browser closed gets no buzz until it's opened. Web push notifications would be the next step for that.
+
 ### Other endpoints
 
 - `GET /api/cart`, `POST /api/cart/items`, `PUT /api/cart/items/{id}`, `DELETE /api/cart/items/{id}` — Cart management
@@ -639,6 +672,7 @@ Set in the back office under **System → Delivery Fees**. A state without a fee
 4. Ensure Managed Identity is enabled and has Key Vault access (see section 3)
 5. Database migrations run automatically on startup
 6. The App Service's .NET version must match the project's (`TargetFramework`, now .NET 10). The deploy workflow sets it on every deploy (`az webapp config set --net-framework-version v10.0`). When moving to a newer .NET, change both.
+7. The same step turns on **Web Sockets** (`--web-sockets-enabled true`) for the back office's live alerts. If the API is ever scaled out to more than one instance, live alerts need Azure SignalR Service (see section 13).
 
 ### Frontend — Azure Static Web Apps
 

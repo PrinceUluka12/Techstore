@@ -80,6 +80,9 @@ public class PosSaleRequestValidator : AbstractValidator<PosSaleRequest>
         RuleFor(x => x.Approval!.ApproverUserId).GreaterThan(0).When(x => x.Approval != null);
         RuleFor(x => x.Approval!.Pin).Matches(@"^\d{4,6}$").WithMessage("The PIN is 4–6 digits.")
             .When(x => x.Approval != null);
+        RuleFor(x => x.ApprovalRequestId).GreaterThan(0).When(x => x.ApprovalRequestId.HasValue);
+        RuleFor(x => x.Approval).Null().WithMessage("Use the manager's PIN or their approval, not both.")
+            .When(x => x.ApprovalRequestId.HasValue);
 
         RuleFor(x => x.CustomerName).MaximumLength(100);
         RuleFor(x => x.CustomerPhone)
@@ -112,6 +115,41 @@ public class PosPaymentRequestValidator : AbstractValidator<PosPaymentRequest>
             .WithMessage($"Payment method must be one of: {string.Join(", ", PaymentMethods.InStore)}.");
         RuleFor(x => x.Amount).GreaterThan(0);
         RuleFor(x => x.Reference).MaximumLength(100);
+    }
+}
+
+public class AskApprovalRequestValidator : AbstractValidator<AskApprovalRequest>
+{
+    public AskApprovalRequestValidator()
+    {
+        RuleFor(x => x.Items).NotEmpty().WithMessage("Add at least one item.")
+            .Must(i => i.Count <= 50).WithMessage("A sale can have at most 50 lines.");
+        RuleForEach(x => x.Items).ChildRules(item =>
+        {
+            item.RuleFor(i => i.ProductId).GreaterThan(0);
+            item.RuleFor(i => i.Quantity).InclusiveBetween(1, 99);
+            item.RuleFor(i => i.UnitPrice).GreaterThan(0).When(i => i.UnitPrice.HasValue);
+        });
+        RuleFor(x => x.DiscountAmount).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.Reason).NotEmpty().WithMessage("Give a reason for the discount or price change.")
+            .MaximumLength(200);
+    }
+}
+
+public class ApproveRequestValidator : AbstractValidator<ApproveRequest>
+{
+    public ApproveRequestValidator()
+    {
+        RuleFor(x => x.Pin).NotEmpty().WithMessage("Enter your PIN.")
+            .Matches(@"^\d{4,6}$").WithMessage("The PIN is 4–6 digits.");
+    }
+}
+
+public class DeclineRequestValidator : AbstractValidator<DeclineRequest>
+{
+    public DeclineRequestValidator()
+    {
+        RuleFor(x => x.Note).MaximumLength(200);
     }
 }
 

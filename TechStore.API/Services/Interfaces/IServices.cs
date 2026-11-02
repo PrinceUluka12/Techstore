@@ -152,11 +152,32 @@ public interface IPosService
 {
     // isAdmin: admins can work at any shop, everyone else only at their home shop
     Task<IEnumerable<PosProductDto>> SearchProductsAsync(int userId, bool isAdmin, int? storeId, string? query);
-    Task<IEnumerable<PosApproverDto>> GetApproversAsync();
+    Task<IEnumerable<PosApproverDto>> GetApproversAsync(int userId, bool isAdmin, int? storeId);
     Task<PosSaleDto> CreateSaleAsync(int cashierId, bool isAdmin, PosSaleRequest request);
     Task<PosSaleDto?> GetSaleAsync(int userId, bool isAdmin, int id);
     Task SetApprovalPinAsync(int userId, string currentPassword, string pin);
     Task<CashUpDto> GetCashUpAsync(int userId, bool isAdmin, bool wholeShop, int? storeId, DateOnly date);
+}
+
+public interface IApprovalService
+{
+    Task<bool> CanApproveAsync(User user);
+    Task<User> VerifyPinAsync(int approverUserId, string pin, int storeId);
+
+    // The till asking, and cancelling
+    Task<ApprovalAskedDto> AskAsync(int userId, bool isAdmin, AskApprovalRequest request);
+    Task<ApprovalRequestDto> CancelAsync(int userId, int id);
+
+    // Managers answering from their own device
+    Task<IEnumerable<ApprovalRequestDto>> ListAsync(int userId, bool isAdmin, bool waitingOnly);
+    Task<ApprovalRequestDto?> GetAsync(int userId, bool isAdmin, bool canApprove, int id);
+    Task<ApprovalRequestDto> ApproveAsync(int userId, int id, string pin);
+    Task<ApprovalRequestDto> DeclineAsync(int userId, int id, string? note);
+
+    // Completing the sale with an approved request (PosService)
+    Task<ApprovalRequest> CheckForSaleAsync(int requestId, int cashierId, int storeId, IEnumerable<OrderItem> items, decimal discount);
+    Task<bool> MarkUsedAsync(int requestId, int orderId);
+    Task NotifyAsync(int requestId);
 }
 
 public interface ITransferService

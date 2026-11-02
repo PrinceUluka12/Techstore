@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   ShoppingCart, Search, Menu, X, User, LogOut, LayoutDashboard, Package,
-  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store, ArrowLeftRight, Calculator, UserCog, FileText
+  ShoppingBag, Warehouse, Users, BarChart3, Tag, Image, Heart, ScanBarcode, Store, ArrowLeftRight, Calculator, UserCog, FileText, BellRing
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { clsx } from 'clsx'
@@ -19,6 +19,7 @@ const STAFF_PAGES = [
   { to: '/admin',           label: 'Dashboard',  icon: LayoutDashboard, adminOnly: true },
   { to: '/admin/pos',       label: 'Point of Sale', icon: ScanBarcode,  perms: ['pos.sell'] },
   { to: '/admin/pos/cash-up', label: 'Cash-up',   icon: Calculator,     perms: ['pos.sell'] },
+  { to: '/admin/approvals', label: 'Approvals',   icon: BellRing,       perms: ['pos.discount.approve'] },
   { to: '/admin/orders',    label: 'Orders',      icon: ShoppingBag,    perms: ['orders.view', 'orders.manage'] },
   { to: '/admin/products',  label: 'Products',    icon: Package,        perms: ['products.manage'] },
   { to: '/admin/inventory', label: 'Inventory',   icon: Warehouse,      perms: ['inventory.manage'] },

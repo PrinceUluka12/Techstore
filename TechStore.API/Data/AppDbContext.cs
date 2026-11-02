@@ -35,6 +35,8 @@ public class AppDbContext : DbContext
     public DbSet<NewsletterSubscriber> NewsletterSubscribers => Set<NewsletterSubscriber>();
     public DbSet<JobRun> JobRuns => Set<JobRun>();
     public DbSet<PolicyVersion> PolicyVersions => Set<PolicyVersion>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<ApprovalRequestItem> ApprovalRequestItems => Set<ApprovalRequestItem>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -284,6 +286,36 @@ public class AppDbContext : DbContext
             e.HasIndex(v => v.Slug, "IX_PolicyVersions_Slug");
             // One starting-text version per page (the only versions with no author)
             e.HasIndex(v => v.Slug, "IX_PolicyVersions_StartingText").IsUnique().HasFilter("[CreatedById] IS NULL");
+        });
+
+        // ApprovalRequest — a till asking the shop's managers to approve a discount from their own device
+        builder.Entity<ApprovalRequest>(e =>
+        {
+            e.HasIndex(r => new { r.StoreId, r.Status });
+            e.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(r => r.SubTotal).HasColumnType("decimal(18,2)");
+            e.Property(r => r.DiscountAmount).HasColumnType("decimal(18,2)");
+            e.Property(r => r.Total).HasColumnType("decimal(18,2)");
+            e.Property(r => r.Reason).HasMaxLength(200);
+            e.Property(r => r.DecisionNote).HasMaxLength(200);
+            e.HasOne(r => r.Store).WithMany()
+                .HasForeignKey(r => r.StoreId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.RequestedBy).WithMany()
+                .HasForeignKey(r => r.RequestedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.DecidedBy).WithMany()
+                .HasForeignKey(r => r.DecidedByUserId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(r => r.Order).WithMany()
+                .HasForeignKey(r => r.OrderId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<ApprovalRequestItem>(e =>
+        {
+            e.Property(i => i.NormalPrice).HasColumnType("decimal(18,2)");
+            e.Property(i => i.UnitPrice).HasColumnType("decimal(18,2)");
+            e.HasOne(i => i.ApprovalRequest).WithMany(r => r.Items)
+                .HasForeignKey(i => i.ApprovalRequestId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(i => i.Product).WithMany()
+                .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.Restrict);
         });
 
         // Seed system roles
