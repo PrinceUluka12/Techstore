@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { ScanBarcode, Plus, Minus, Trash2, Smartphone, ShieldCheck, Package, BellRing, KeyRound, CheckCircle2, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { approvalApi, authApi, posApi, storeApi } from '../../services/api'
-import { onLive, useLiveStore } from '../../services/live'
+import { onLive } from '../../services/live'
 import { useAuthStore } from '../../store'
 import { AdminLayout } from '../../components/layout/AdminLayout'
 import { mmss, timeLeft, useNow } from '../../components/layout/ApprovalAlerts'
@@ -190,15 +190,17 @@ function ApprovalModal({ open, onClose, storeId, cart, onApprove, submitting }) 
     setMode('choose'); setRequest(null); setError(''); used.current = null
   }, [open])
 
-  // The answer: live, or by checking every 5 seconds while the live connection is down
+  // The answer: live, and by checking every 5 seconds as well, in case a live message never
+  // arrives. Once it's answered, a check still on its way is ignored.
   useEffect(() => {
     if (request?.status !== 'Waiting') return
     const id = request.id
-    const update = r => { if (r.id === id) setRequest(r) }
+    let waiting = true
+    const update = r => { if (waiting && r.id === id) setRequest(r) }
     const check = () => approvalApi.get(id).then(r => update(r.data)).catch(() => {})
     const stop = [onLive('ApprovalUpdated', update), onLive('connected', check)]
-    const poll = setInterval(() => { if (useLiveStore.getState().status !== 'live') check() }, 5000)
-    return () => { stop.forEach(s => s()); clearInterval(poll) }
+    const poll = setInterval(check, 5000)
+    return () => { waiting = false; stop.forEach(s => s()); clearInterval(poll) }
   }, [request?.id, request?.status])
 
   // Approved: complete the sale with it straight away

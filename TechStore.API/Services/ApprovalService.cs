@@ -289,11 +289,20 @@ public class ApprovalService : IApprovalService
                 .SetProperty(r => r.Status, ApprovalStatus.Used)
                 .SetProperty(r => r.OrderId, orderId)) == 1;
 
-    // Tells the shop's managers, the Admins and the cashier the request's latest state
+    // Tells the shop's managers, the Admins and the cashier the request's latest state. It runs
+    // after something is saved (a sale, a new request), so it never fails: a sale that went
+    // through mustn't be reported to the till as failed, or it could be rung up twice.
     public async Task NotifyAsync(int requestId)
     {
-        var dto = await LoadAsync(requestId);
-        if (dto != null) await SendAsync(NotificationsHub.ApprovalUpdated, dto);
+        try
+        {
+            var dto = await LoadAsync(requestId);
+            if (dto != null) await SendAsync(NotificationsHub.ApprovalUpdated, dto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Couldn't load approval request {Id} for its live update", requestId);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -32,6 +32,11 @@ export const useApprovalsStore = create((set, get) => ({
 
 export const isLoud = r => r.storeId === useApprovalsStore.getState().homeStoreId
 
+// Requests that have chimed. Each chimes once: an Admin whose home shop asked is in both the
+// shop's group and the Admins', so hears it twice. This isn't the waiting list, which a reload
+// after reconnecting can fill before the request's own message arrives.
+const chimed = new Set()
+
 // Called by the back office's layout for staff who can approve; the first call starts listening
 let watching = false
 export function watchApprovals() {
@@ -40,10 +45,11 @@ export function watchApprovals() {
   onLive('connected', () => useApprovalsStore.getState().load()) // catch up on anything missed
   onLive('ApprovalRequested', r => {
     if (r.requestedById === useAuthStore.getState().user?.id) return
-    // An Admin whose home shop asked is in both the shop's group and the Admins', so hears it twice
-    const known = useApprovalsStore.getState().waiting.some(x => x.id === r.id)
     useApprovalsStore.setState(s => ({ waiting: [...s.waiting.filter(x => x.id !== r.id), r] }))
-    if (!known && isLoud(r)) alertManager(r)
+    if (isLoud(r) && !chimed.has(r.id)) {
+      chimed.add(r.id)
+      alertManager(r)
+    }
   })
   onLive('ApprovalUpdated', r => {
     if (r.status !== 'Waiting') useApprovalsStore.getState().remove(r.id)
@@ -52,7 +58,10 @@ export function watchApprovals() {
 
 // Someone else signing in on this browser starts with an empty list
 useAuthStore.subscribe(s => {
-  if (!s.isAuthenticated) useApprovalsStore.setState({ waiting: [], homeStoreId: undefined, dismissed: [] })
+  if (!s.isAuthenticated) {
+    useApprovalsStore.setState({ waiting: [], homeStoreId: undefined, dismissed: [] })
+    chimed.clear()
+  }
 })
 
 // ── The alert: a chime, a buzz on phones, and a system notification when the tab is hidden ──
