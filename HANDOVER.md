@@ -488,6 +488,11 @@ Browsers load images straight from the storage account. Azure Front Door was rem
 
 ### Admin panel (requires Admin role)
 
+**Who sees which page:** Admins can open every page. Other staff can open the pages their role's permissions cover, the same ones their menu shows. Each route in `App.jsx` names the permissions it needs (`RequireAdmin perms={[...]}`, or `adminOnly`). Signed-out visitors go to sign in, and come back to the page afterwards. Anyone else gets **"You don't have access to this page"** at the same address (`pages/NotAuthorizedPage.jsx`):
+- **Customers:** a page of its own, with Back to the shop.
+- **Staff whose role doesn't include the page:** a message inside the back office, with their own menu, their role name and **Go to my pages**.
+- **Everyone:** **Sign in as someone else** signs them out, and signing in returns to that page.
+
 | Route | Page |
 |---|---|
 | `/admin` | Dashboard — revenue, orders, stats |

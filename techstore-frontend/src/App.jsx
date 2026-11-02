@@ -19,6 +19,7 @@ import AccountProfilePage from './pages/shop/AccountProfilePage'
 import WishlistPage from './pages/shop/WishlistPage'
 import { INFO_PAGES } from './pages/shop/infoLinks'
 import { UnsubscribePage, ClaimOrdersPage } from './pages/shop/LinkPages'
+import NotAuthorizedPage from './pages/NotAuthorizedPage'
 
 // Admin pages are loaded only when someone opens one, so shoppers don't download the back
 // office (the till, reports, charts) with the shop
@@ -41,6 +42,7 @@ const AdminDeliveryFees = lazy(() => import('./pages/admin/AdminDeliveryFees'))
 const AdminNewsletter   = lazy(() => import('./pages/admin/AdminNewsletter'))
 const AdminPolicies     = lazy(() => import('./pages/admin/AdminPolicies'))
 const AdminApprovals    = lazy(() => import('./pages/admin/AdminApprovals'))
+const AdminNotAuthorized = lazy(() => import('./pages/admin/AdminNotAuthorized'))
 
 // Policies and help are rarely opened, so they load on demand too
 const infoPage = name => lazy(() => import('./pages/shop/InfoPages').then(m => ({ default: m[name] })))
@@ -74,20 +76,29 @@ const PERMISSION_TO_ROUTE = [
   { perm: 'pages.manage',     route: '/admin/policies' },
 ]
 
-function RequireAdmin({ children }) {
-  const { isAuthenticated, isAdmin, hasAnyAdminPermission } = useAuthStore()
+// The first back-office page this person can use, or null
+const firstStaffRoute = hasPermission => PERMISSION_TO_ROUTE.find(({ perm }) => hasPermission(perm))?.route ?? null
+
+// A back-office page: signed-out visitors sign in first. Someone signed in who can't use it sees
+// "You don't have access" at the same address (customers on a page of its own, staff inside the
+// back office with their menu), rather than being sent elsewhere or shown a page whose data the
+// API then refuses. perms: any one of them will do (as in the menus); none listed is any staff
+// (the /admin entry, which sends them on). Admins can use every page.
+function RequireAdmin({ children, perms, adminOnly = false }) {
+  const { isAuthenticated, isAdmin, hasPermission, hasAnyAdminPermission } = useAuthStore()
   const location = useLocation()
   if (!isAuthenticated) return <Navigate to="/login" replace state={returnHere(location)} />
-  if (!isAdmin() && !hasAnyAdminPermission()) return <Navigate to="/" replace />
-  return children
+  if (!isAdmin() && !hasAnyAdminPermission()) return <NotAuthorizedPage />
+  const allowed = isAdmin() || (!adminOnly && (!perms || perms.some(p => hasPermission(p))))
+  return allowed ? children : <AdminNotAuthorized backOffice={firstStaffRoute(hasPermission)} />
 }
 
 // Redirects custom-role staff away from the Admin-only dashboard to their first accessible page
 function AdminEntry() {
   const { isAdmin, hasPermission } = useAuthStore()
   if (isAdmin()) return <AdminDashboard />
-  const first = PERMISSION_TO_ROUTE.find(({ perm }) => hasPermission(perm))
-  return <Navigate to={first?.route ?? '/'} replace />
+  const first = firstStaffRoute(hasPermission)
+  return first ? <Navigate to={first} replace /> : <AdminNotAuthorized />
 }
 
 function GuestOnly({ children }) {
@@ -146,26 +157,26 @@ export default function App() {
 
             {/* ── Admin ── */}
             <Route path="/admin"            element={<RequireAdmin><AdminEntry /></RequireAdmin>} />
-            <Route path="/admin/products"   element={<RequireAdmin><AdminProducts /></RequireAdmin>} />
-            <Route path="/admin/orders"     element={<RequireAdmin><AdminOrders /></RequireAdmin>} />
-            <Route path="/admin/inventory"  element={<RequireAdmin><AdminInventory /></RequireAdmin>} />
+            <Route path="/admin/products"   element={<RequireAdmin perms={['products.manage']}><AdminProducts /></RequireAdmin>} />
+            <Route path="/admin/orders"     element={<RequireAdmin perms={['orders.view', 'orders.manage']}><AdminOrders /></RequireAdmin>} />
+            <Route path="/admin/inventory"  element={<RequireAdmin perms={['inventory.manage']}><AdminInventory /></RequireAdmin>} />
             {/* Same page component, so the keys keep each list's page number apart */}
-            <Route path="/admin/users"      element={<RequireAdmin key="customers"><AdminUsers /></RequireAdmin>} />
-            <Route path="/admin/staff"      element={<RequireAdmin key="staff"><AdminUsers staff /></RequireAdmin>} />
-            <Route path="/admin/reports"    element={<RequireAdmin><AdminReports /></RequireAdmin>} />
-            <Route path="/admin/images"     element={<RequireAdmin><AdminImages /></RequireAdmin>} />
-            <Route path="/admin/coupons"    element={<RequireAdmin><AdminCoupons /></RequireAdmin>} />
-            <Route path="/admin/roles"      element={<RequireAdmin><AdminRoles /></RequireAdmin>} />
-            <Route path="/admin/shops"      element={<RequireAdmin><AdminStores /></RequireAdmin>} />
-            <Route path="/admin/pos"        element={<RequireAdmin><AdminPos /></RequireAdmin>} />
-            <Route path="/admin/pos/sales/:id" element={<RequireAdmin><AdminPosReceipt /></RequireAdmin>} />
-            <Route path="/admin/pos/cash-up" element={<RequireAdmin><AdminCashUp /></RequireAdmin>} />
-            <Route path="/admin/approvals"  element={<RequireAdmin><AdminApprovals /></RequireAdmin>} />
-            <Route path="/admin/transfers"  element={<RequireAdmin><AdminTransfers /></RequireAdmin>} />
-            <Route path="/admin/bank-accounts" element={<RequireAdmin><AdminBankAccounts /></RequireAdmin>} />
-            <Route path="/admin/delivery-fees" element={<RequireAdmin><AdminDeliveryFees /></RequireAdmin>} />
-            <Route path="/admin/newsletter" element={<RequireAdmin><AdminNewsletter /></RequireAdmin>} />
-            <Route path="/admin/policies"   element={<RequireAdmin><AdminPolicies /></RequireAdmin>} />
+            <Route path="/admin/users"      element={<RequireAdmin key="customers" perms={['users.view', 'users.manage']}><AdminUsers /></RequireAdmin>} />
+            <Route path="/admin/staff"      element={<RequireAdmin key="staff" perms={['users.view', 'users.manage']}><AdminUsers staff /></RequireAdmin>} />
+            <Route path="/admin/reports"    element={<RequireAdmin perms={['reports.view']}><AdminReports /></RequireAdmin>} />
+            <Route path="/admin/images"     element={<RequireAdmin perms={['images.manage']}><AdminImages /></RequireAdmin>} />
+            <Route path="/admin/coupons"    element={<RequireAdmin perms={['coupons.manage']}><AdminCoupons /></RequireAdmin>} />
+            <Route path="/admin/roles"      element={<RequireAdmin perms={['roles.manage']}><AdminRoles /></RequireAdmin>} />
+            <Route path="/admin/shops"      element={<RequireAdmin perms={['stores.manage']}><AdminStores /></RequireAdmin>} />
+            <Route path="/admin/pos"        element={<RequireAdmin perms={['pos.sell']}><AdminPos /></RequireAdmin>} />
+            <Route path="/admin/pos/sales/:id" element={<RequireAdmin perms={['pos.sell']}><AdminPosReceipt /></RequireAdmin>} />
+            <Route path="/admin/pos/cash-up" element={<RequireAdmin perms={['pos.sell']}><AdminCashUp /></RequireAdmin>} />
+            <Route path="/admin/approvals"  element={<RequireAdmin perms={['pos.discount.approve']}><AdminApprovals /></RequireAdmin>} />
+            <Route path="/admin/transfers"  element={<RequireAdmin perms={['transfers.manage']}><AdminTransfers /></RequireAdmin>} />
+            <Route path="/admin/bank-accounts" element={<RequireAdmin adminOnly><AdminBankAccounts /></RequireAdmin>} />
+            <Route path="/admin/delivery-fees" element={<RequireAdmin adminOnly><AdminDeliveryFees /></RequireAdmin>} />
+            <Route path="/admin/newsletter" element={<RequireAdmin perms={['users.view']}><AdminNewsletter /></RequireAdmin>} />
+            <Route path="/admin/policies"   element={<RequireAdmin perms={['pages.manage']}><AdminPolicies /></RequireAdmin>} />
 
             {/* ── 404 ── */}
             <Route path="*" element={
