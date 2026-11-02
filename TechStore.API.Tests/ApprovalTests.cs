@@ -160,6 +160,38 @@ public class ApprovalTests(ApiFactory api)
     }
 
     [Fact]
+    public async Task Approval_problems_are_marked_so_a_sale_that_fails_for_another_reason_keeps_its_approval()
+    {
+        var cashier = await Cashier("Tade");
+        var manager = await Manager("Moji");
+        var product = await api.NewProduct(50000, 1);
+        // A name with "pin" in it, which the stock message repeats
+        await api.Db(db => db.Products.Where(p => p.Id == product)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Name, "iPhone 15 Pink")));
+        var id = IdOf(await ApiFactory.Ok(Ask(cashier.Token, product, quantity: 2)));
+        await ApiFactory.Ok(Approve(manager.Token, id));
+
+        var noStock = await Sale(cashier.Token, product, id, quantity: 2);
+        Assert.Equal(HttpStatusCode.BadRequest, noStock.Status);
+        Assert.Contains("iPhone 15 Pink", noStock.Message);
+        Assert.False(noStock.Has("code")); // not about the approval, which is still good
+        Assert.Equal("Approved", (await api.Call(HttpMethod.Get, $"/pos/approval-requests/{id}", cashier.Token)).Str("status"));
+
+        var changed = await Sale(cashier.Token, product, id, quantity: 1);
+        Assert.Equal("approval", changed.Str("code"));
+
+        // Stock arrives: the same approval completes the sale
+        await api.Db(db => db.Inventories.Where(i => i.StoreId == 1 && i.ProductId == product)
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.QuantityOnHand, 5)));
+        Assert.Equal(HttpStatusCode.Created, (await Sale(cashier.Token, product, id, quantity: 2)).Status);
+
+        // Answering a request that's no longer waiting
+        var late = await Approve(manager.Token, id);
+        Assert.Equal("answered", late.Str("code"));
+        Assert.Equal("Moji Test has already approved this.", late.Message);
+    }
+
+    [Fact]
     public async Task Only_a_manager_of_that_shop_or_an_Admin_can_answer_and_not_their_own_request()
     {
         var shop = await api.NewShop("Yaba");

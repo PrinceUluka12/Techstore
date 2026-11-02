@@ -9,6 +9,17 @@ using TechStore.API.Services.Interfaces;
 
 namespace TechStore.API.Services;
 
+// A problem with the manager's approval itself, rather than with the sale: a wrong PIN, an
+// approval that has run out or been used, or a cart that changed after it was approved. The API
+// answers 400 with "code" set (ExceptionMiddleware), so the till can tell these from the sale's
+// other problems without reading the message, which can contain product and shop names.
+//   "approval"  the till needs a (new) approval
+//   "answered"  a manager answering a request that's no longer waiting
+public class ApprovalException(string message, string code = "approval") : InvalidOperationException(message)
+{
+    public string Code { get; } = code;
+}
+
 // Manager approval of discounts and price changes at the till, either way:
 //   - at the till: the manager picks their name and types their PIN (VerifyPinAsync)
 //   - from their own device: the till asks (AskAsync), the shop's managers get a live alert
@@ -46,13 +57,13 @@ public class ApprovalService : IApprovalService
     {
         var approver = await _db.Users.FirstOrDefaultAsync(u => u.Id == approverUserId && u.IsActive);
         if (approver == null || !await CanApproveAsync(approver))
-            throw new InvalidOperationException("That person can't approve discounts.");
+            throw new ApprovalException("That person can't approve discounts.");
         if (approver.Role != "Admin" && approver.StoreId != storeId)
-            throw new InvalidOperationException($"{approver.FirstName} isn't a manager at this shop.");
+            throw new ApprovalException($"{approver.FirstName} isn't a manager at this shop.");
         if (approver.ApprovalPinHash == null)
-            throw new InvalidOperationException($"{approver.FirstName} hasn't set an approval PIN yet.");
+            throw new ApprovalException($"{approver.FirstName} hasn't set an approval PIN yet.");
         if (approver.PinLockoutUntil > DateTime.UtcNow)
-            throw new InvalidOperationException(
+            throw new ApprovalException(
                 $"Too many wrong PINs for {approver.FirstName}. Try again after {approver.PinLockoutUntil:HH:mm} UTC.");
 
         if (!BCrypt.Net.BCrypt.Verify(pin, approver.ApprovalPinHash))
@@ -66,7 +77,7 @@ public class ApprovalService : IApprovalService
             }
             await _db.SaveChangesAsync(); // the attempt counts even though the approval is refused
             _logger.LogWarning("Wrong approval PIN for user {UserId}", approver.Id);
-            throw new InvalidOperationException(left > 0
+            throw new ApprovalException(left > 0
                 ? $"Wrong PIN. {left} attempt{(left == 1 ? "" : "s")} left."
                 : $"Wrong PIN. {approver.FirstName}'s PIN is locked for {PinLockout.TotalMinutes:0} minutes.");
         }
@@ -208,7 +219,7 @@ public class ApprovalService : IApprovalService
         if (request.RequestedByUserId == userId)
             throw new ForbiddenException("You can't answer your own request.");
         if (request.Status != ApprovalStatus.Waiting || request.ExpiresAt <= DateTime.UtcNow)
-            throw new InvalidOperationException(await AnsweredAsync(id));
+            throw new ApprovalException(await AnsweredAsync(id), "answered");
         return request;
     }
 
@@ -223,7 +234,7 @@ public class ApprovalService : IApprovalService
                 .SetProperty(r => r.DecidedByUserId, userId)
                 .SetProperty(r => r.DecidedAt, now)
                 .SetProperty(r => r.DecisionNote, note));
-        if (won == 0) throw new InvalidOperationException(await AnsweredAsync(id));
+        if (won == 0) throw new ApprovalException(await AnsweredAsync(id), "answered");
 
         _logger.LogInformation("Approval request {Id} {Status} by user {UserId}", id, status, userId);
         var dto = (await LoadAsync(id))!;
@@ -251,13 +262,13 @@ public class ApprovalService : IApprovalService
     {
         var request = await _db.ApprovalRequests.AsNoTracking().Include(r => r.Items)
             .FirstOrDefaultAsync(r => r.Id == requestId && r.RequestedByUserId == cashierId)
-            ?? throw new InvalidOperationException("That approval request wasn't found.");
+            ?? throw new ApprovalException("That approval request wasn't found.");
         if (request.Status == ApprovalStatus.Used)
-            throw new InvalidOperationException("That approval has already been used for a sale.");
+            throw new ApprovalException("That approval has already been used for a sale.");
         if (request.Status != ApprovalStatus.Approved)
-            throw new InvalidOperationException("The discount or price change hasn't been approved.");
+            throw new ApprovalException("The discount or price change hasn't been approved.");
         if (request.DecidedAt!.Value.Add(UseWithin) <= DateTime.UtcNow)
-            throw new InvalidOperationException("That approval has run out. Ask a manager again.");
+            throw new ApprovalException("That approval has run out. Ask a manager again.");
 
         static string Cart(IEnumerable<(int ProductId, decimal UnitPrice, int Quantity)> lines) => string.Join(";", lines
             .GroupBy(l => (l.ProductId, l.UnitPrice))
@@ -265,7 +276,7 @@ public class ApprovalService : IApprovalService
             .Order(StringComparer.Ordinal));
         if (request.StoreId != storeId || request.DiscountAmount != discount
             || Cart(request.Items.Select(i => (i.ProductId, i.UnitPrice, i.Quantity))) != Cart(items.Select(i => (i.ProductId, i.UnitPrice, i.Quantity))))
-            throw new InvalidOperationException("The sale has changed since the manager approved it. Ask again.");
+            throw new ApprovalException("The sale has changed since the manager approved it. Ask again.");
         return request;
     }
 

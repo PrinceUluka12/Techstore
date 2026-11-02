@@ -176,7 +176,7 @@ public class PosService : IPosService
                 if (string.IsNullOrWhiteSpace(req.DiscountReason))
                     throw new InvalidOperationException("Give a reason for the discount or price change.");
                 if (req.Approval == null)
-                    throw new InvalidOperationException("A discount or price change needs a manager's approval.");
+                    throw new ApprovalException("A discount or price change needs a manager's approval.");
                 approverId     = (await _approvals.VerifyPinAsync(req.Approval.ApproverUserId, req.Approval.Pin, store.Id)).Id;
                 discountReason = req.DiscountReason.Trim();
             }
@@ -222,7 +222,7 @@ public class PosService : IPosService
 
             // An approval is used once: if another sale got there first, this one isn't saved
             if (approved != null && !await _approvals.MarkUsedAsync(approved.Id, order.Id))
-                throw new InvalidOperationException("That approval has already been used for a sale.");
+                throw new ApprovalException("That approval has already been used for a sale.");
 
             foreach (var g in items.GroupBy(i => i.ProductId))
             {

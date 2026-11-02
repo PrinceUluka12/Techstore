@@ -40,8 +40,10 @@ export function watchApprovals() {
   onLive('connected', () => useApprovalsStore.getState().load()) // catch up on anything missed
   onLive('ApprovalRequested', r => {
     if (r.requestedById === useAuthStore.getState().user?.id) return
+    // An Admin whose home shop asked is in both the shop's group and the Admins', so hears it twice
+    const known = useApprovalsStore.getState().waiting.some(x => x.id === r.id)
     useApprovalsStore.setState(s => ({ waiting: [...s.waiting.filter(x => x.id !== r.id), r] }))
-    if (isLoud(r)) alertManager(r)
+    if (!known && isLoud(r)) alertManager(r)
   })
   onLive('ApprovalUpdated', r => {
     if (r.status !== 'Waiting') useApprovalsStore.getState().remove(r.id)

@@ -77,8 +77,8 @@ export function ApprovalAnswer({ r, onDone }) {
       onDone?.()
     } catch (err) {
       const message = err.response?.data?.message ?? 'Something went wrong. Try again.'
-      // Someone else answered first, or it ran out: it's no longer waiting
-      if (/already|cancelled|expired/i.test(message)) { toast(message); remove(r.id); onDone?.() }
+      // Someone else answered first, it was cancelled or it ran out: it's no longer waiting
+      if (err.response?.data?.code === 'answered') { toast(message); remove(r.id); onDone?.() }
       else setError(message)
     } finally { setBusy(false) }
   }

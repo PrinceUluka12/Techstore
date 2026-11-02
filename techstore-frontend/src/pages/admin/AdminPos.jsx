@@ -500,8 +500,10 @@ export default function AdminPos() {
       navigate(`/admin/pos/sales/${data.id}`)
     } catch (err) {
       const message = err.response?.data?.message ?? ''
-      const approvalProblem = /PIN|approv|manager/i.test(message)
-      if (approvalProblem) setApproved(null) // run out, used, or the sale changed: ask again
+      // The API marks problems with the approval itself (a wrong PIN, run out, used, the sale
+      // changed); anything else (stock, an IMEI) keeps a device approval to try again with
+      const approvalProblem = err.response?.data?.code === 'approval'
+      if (approvalProblem) setApproved(null)
       // An approval problem stays in the approval dialog so the manager can try again
       if (approvalProblem && setApprovalError) { setApprovalOpen(true); setApprovalError(message) }
       else { setApprovalOpen(false); showApiError(err, null, 'Sale failed') }
